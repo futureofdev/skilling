@@ -1,0 +1,35 @@
+# Skilling
+
+> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.0.0-draft.
+
+Skilling specifies three things: what course authors write, what a tutor must do to deliver a course, and what is durably true about a learner afterwards. It is not an LMS, not a UI, not a pedagogy, and not tied to a model vendor. Conformance binds observable state transitions and record writes, never the tutor's prose — which is why a text walker with no language model can be a Conforming Runtime.
+
+## Specification
+
+- [Specification index](spec/README.md): What Skilling is, the three conformance classes (Course, Runtime, Store), versioning, what 1.0 deliberately leaves out, and why each constraint exists.
+- [Course format](spec/course-format.md): Everything a course author needs — directory structure, the `course.yaml` manifest, numbering rules, derived counts, lesson frontmatter, the section registry, declared absence, the Quick Quiz grammar, homework, assets, and course-version semantics.
+- [Runtime](spec/runtime.md): Everything a tutor implementer needs — the delivery loop and its beats, gates as open waits, quiz delivery, remediation, idempotent completion, phase ceremony, resume, the progress record, the completion log, the streak algorithm, the homework mailbox, the store interface, and the single-learner file layout.
+- [Changelog](spec/CHANGELOG.md): Every specification change, including errata.
+
+## Guides
+
+- [Authoring a course](docs/authoring-a-course.md): A walkthrough from empty directory to a validating course.
+- [Implementing a runtime](docs/implementing-a-runtime.md): How to build a conforming tutor on the core library's state machine and store.
+- [Error codes](docs/error-codes.md): The validator's catalogue — every code, what triggers it, and which part of the specification it enforces.
+- [Implementations](docs/implementations.md): The registry of known Skilling implementations and their conformance claims.
+
+## Concepts
+
+- [The delivery loop](docs/concepts/the-delivery-loop.md): Why a lesson has a fixed anatomy and why the beats are not pluggable.
+- [Open gates](docs/concepts/open-gates.md): Why a gate has no timeout, and what breaks when one is removed.
+- [The learner record](docs/concepts/the-learner-record.md): Why the record is transcript-independent and why counts are derived rather than stored.
+- [The homework mailbox](docs/concepts/the-homework-mailbox.md): Why there is exactly one slot, and why checking can never complete anything.
+- [Mechanism and policy](docs/concepts/mechanism-and-policy.md): The line between what Skilling specifies and what an adopter decides.
+
+## Examples
+
+- [hello-skilling](examples/hello-skilling/): A three-lesson course that teaches Skilling. The repository's worked example and the end-to-end target of `skilling deliver`.
+
+## Reference implementation
+
+- [skilling package](packages/skilling/): The LLM-free core — typed models, loader, validator, the delivery state machine as pure functions, and the progress store with a file backend. CLI: `validate`, `init`, `show`, `deliver`, `diff`.
