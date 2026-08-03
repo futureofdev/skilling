@@ -2,6 +2,32 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## Errata against 1.1.0-draft
+
+Found by porting a real 64-lesson course — the one this format was generalised from — into the
+repository as [`examples/coding-bootcamp`](../examples/coding-bootcamp/). All three are the
+kind of thing only real content finds.
+
+- **Key Terms was over-specified by its validator, not by its text.** The specification asks
+  for `- **Term**: definition` items. The validator additionally required the colon to touch
+  the closing asterisks and forbade `*` inside the term, which rejected
+  `- **CPU** (Central Processing Unit): …` and `` - **`p-*`**: … `` — both perfectly reasonable
+  and both used throughout the source. Eleven false findings; the check is now as loose as the
+  prose always was.
+- **`{hashtags}` was missing from the ceremony placeholder set.** The source's share copy ends
+  in four hashtags. With no placeholder, a literal template had to restate the tags that
+  `brand.hashtags` already declared — the exact duplication this format exists to prevent.
+  Added, rendered with each `#` applied.
+- **Phase `highlight` guidance produced text that reads wrong.** It said to write a clause
+  completing "this learner just…", so authors wrote third person — and the most obvious use is
+  a share post in the first person, which then reads "I made *their* first commit". The
+  guidance now asks for pronoun-free clauses, which work in both voices.
+
+The port also surfaced eight defects in the *course* rather than the specification: seven quiz
+answers that restated the correct option and gave no reason, and one homework section with no
+submission line. Those are fixed in the ported copy, and they are what `quiz-answer-no-reason`
+exists for.
+
 ## 1.1.0-draft — 2026-08-03
 
 Additive. Four surfaces, no change required of any existing course — a `spec_version: "1.0"`

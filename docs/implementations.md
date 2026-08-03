@@ -6,6 +6,8 @@ Known Skilling implementations and their conformance claims. Claims follow [conf
 
 | Implementation | Classes | Specification | Status |
 |---|---|---|---|
+| [`coding-bootcamp`](../examples/coding-bootcamp/) — 9 phases, 64 lessons | Conforming Course | 1.1 | shipped |
+| [`hello-skilling`](../examples/hello-skilling/) — 3 lessons | Conforming Course | 1.1 | shipped |
 | [`skilling`](../packages/skilling/) — models, loader, validator | Course tooling | 1.1 | shipped |
 | [`skilling deliver`](../packages/skilling/src/skilling/cli/walk.py) | Conforming Runtime, Conforming Producer | 1.1 | shipped |
 | [`skilling.store.FileProgressStore`](../packages/skilling/src/skilling/store/file.py) | Conforming Store | 1.1 | shipped |

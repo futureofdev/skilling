@@ -1,0 +1,159 @@
+spec_version: "1.1"
+id: coding-bootcamp
+title: Coding Bootcamp
+version: "1.0.0"
+description: Go from no development environment at all to a portfolio site you built and deployed yourself.
+language: en
+license: CC-BY-4.0
+authors:
+  - Claude Academy
+tutor:
+  persona: >
+    A warm, encouraging bootcamp instructor who explains with everyday analogies,
+    celebrates small wins, and treats a wrong answer as a sign the explanation needs
+    changing rather than the learner does.
+  tone:
+    - Encouraging, never condescending
+    - Reach for a different analogy when the learner is confused
+    - Keep the energy up without being over-the-top
+ceremony:
+  brand:
+    product: Claude Academy
+    url: futureofdev.com/claude-academy
+    mention: "@claudeai"
+    handles:
+      linkedin: "@FutureOfDev"
+      x: "@FutureOfDev"
+      instagram: "@claude.academy"
+    hashtags: [WebDev, CodingJourney, ClaudeAcademy, FutureOfDev]
+  phase_completed_template: |
+    🎉 Just completed Phase {phase_number}: {phase_name} of {course_title}!
+
+    Learning to code one phase at a time 🚀 I {phase_highlight}.
+
+    {completed_count} of {lesson_count} lessons done — built with {mention}, free at {url}
+
+    {hashtags}
+phases:
+  - number: 0
+    slug: getting-started
+    name: Getting Started
+    highlight: "set up a working development environment and made a first commit"
+    lessons:
+      - { number: 1, slug: what-is-a-computer, title: "What Is a Computer?" }
+      - { number: 2, slug: what-is-a-terminal, title: "What Is a Terminal?" }
+      - { number: 3, slug: navigating-the-filesystem, title: "Navigating the Filesystem" }
+      - { number: 4, slug: installing-nodejs-and-npm, title: "Installing Node.js and npm" }
+      - { number: 5, slug: vs-code-your-code-editor, title: "VS Code: Your Code Editor" }
+      - { number: 6, slug: git-saving-your-work, title: "Git: Saving Your Work", homework: true }
+  - number: 1
+    slug: web-fundamentals
+    name: Web Fundamentals
+    highlight: "built a styled, responsive webpage from scratch"
+    lessons:
+      - { number: 1, slug: how-the-web-works, title: "How the Web Works" }
+      - { number: 2, slug: html-structure-of-the-web, title: "HTML: Structure of the Web" }
+      - { number: 3, slug: css-styling-the-web, title: "CSS: Styling the Web" }
+      - { number: 4, slug: the-box-model, title: "The Box Model" }
+      - { number: 5, slug: flexbox-layout, title: "Flexbox Layout" }
+      - { number: 6, slug: css-grid, title: "CSS Grid" }
+      - { number: 7, slug: responsive-design, title: "Responsive Design" }
+      - { number: 8, slug: html-forms, title: "HTML Forms" }
+      - { number: 9, slug: your-first-webpage, title: "Your First Webpage (Project)", homework: true }
+  - number: 2
+    slug: javascript
+    name: JavaScript
+    highlight: "made a page interactive with events and live data"
+    lessons:
+      - { number: 1, slug: variables-and-types, title: "JavaScript Basics: Variables and Types" }
+      - { number: 2, slug: functions-and-scope, title: "Functions and Scope" }
+      - { number: 3, slug: arrays-and-objects, title: "Arrays and Objects" }
+      - { number: 4, slug: control-flow, title: "Control Flow: if/else and Loops" }
+      - { number: 5, slug: the-dom, title: "The DOM: Connecting JS to HTML" }
+      - { number: 6, slug: events, title: "Events: Responding to User Actions" }
+      - { number: 7, slug: async-javascript-and-fetch, title: "Async JavaScript and Fetch" }
+      - { number: 8, slug: javascript-mini-project, title: "JavaScript Mini-Project", homework: true }
+  - number: 3
+    slug: react
+    name: React
+    highlight: "built a first multi-component React app"
+    lessons:
+      - { number: 1, slug: what-is-react, title: "What Is React and Why It Exists" }
+      - { number: 2, slug: jsx-html-in-javascript, title: "JSX: HTML in JavaScript" }
+      - { number: 3, slug: components-and-props, title: "Components and Props" }
+      - { number: 4, slug: usestate-managing-state, title: "useState: Managing State" }
+      - { number: 5, slug: lists-and-keys, title: "Lists and Keys" }
+      - { number: 6, slug: useeffect-and-side-effects, title: "useEffect and Side Effects" }
+      - { number: 7, slug: forms-in-react-controlled-components, title: "Forms in React (Controlled Components)" }
+      - { number: 8, slug: component-composition, title: "Component Composition" }
+      - { number: 9, slug: react-mini-project, title: "React Mini-Project", homework: true }
+  - number: 4
+    slug: astro
+    name: Astro
+    highlight: "learned to ship almost no JavaScript using islands"
+    lessons:
+      - { number: 1, slug: what-is-astro, title: "What Is Astro and Why It's Different" }
+      - { number: 2, slug: astro-files-and-frontmatter, title: "Astro Files and Frontmatter" }
+      - { number: 3, slug: layouts-and-slots, title: "Layouts and Slots" }
+      - { number: 4, slug: astro-vs-react-components, title: "Astro Components vs React Components" }
+      - { number: 5, slug: islands-architecture, title: "Islands Architecture" }
+      - { number: 6, slug: static-pages-and-routing, title: "Static Pages and Routing" }
+      - { number: 7, slug: data-fetching-in-astro, title: "Data Fetching in Astro", homework: true }
+  - number: 5
+    slug: tailwind
+    name: Tailwind CSS
+    highlight: "restyled the whole thing with utility-first CSS"
+    lessons:
+      - { number: 1, slug: what-is-utility-first-css, title: "What Is Utility-First CSS?" }
+      - { number: 2, slug: installing-tailwind-v4-with-astro, title: "Installing Tailwind v4 with Astro" }
+      - { number: 3, slug: typography-and-colors, title: "Typography and Colors" }
+      - { number: 4, slug: spacing-sizing-layout, title: "Spacing, Sizing, and Layout" }
+      - { number: 5, slug: flexbox-and-grid-with-tailwind, title: "Flexbox and Grid with Tailwind" }
+      - { number: 6, slug: responsive-design-with-tailwind, title: "Responsive Design with Tailwind" }
+      - { number: 7, slug: hover-focus-state-variants, title: "Hover, Focus, and State Variants", homework: true }
+  - number: 6
+    slug: portfolio
+    name: Portfolio
+    highlight: "built every section of the portfolio site"
+    lessons:
+      - { number: 1, slug: portfolio-architecture-overview, title: "Portfolio Architecture Overview" }
+      - { number: 2, slug: building-the-navigation, title: "Building the Navigation" }
+      - { number: 3, slug: building-the-hero-section, title: "Building the Hero Section" }
+      - { number: 4, slug: building-the-about-section, title: "Building the About Section" }
+      - { number: 5, slug: building-the-skills-section, title: "Building the Skills Section" }
+      - { number: 6, slug: building-the-projects-section, title: "Building the Projects Section (React)" }
+      - { number: 7, slug: building-the-contact-form, title: "Building the Contact Form (React)" }
+      - { number: 8, slug: polish-and-performance, title: "Polish and Performance", homework: true }
+  - number: 7
+    slug: git-github
+    name: Git & GitHub
+    highlight: "put the work on GitHub with branches, reviews and CI"
+    lessons:
+      - { number: 1, slug: git-review-and-branching, title: "Git Review and Branching" }
+      - { number: 2, slug: merging-and-resolving-conflicts, title: "Merging and Resolving Conflicts" }
+      - { number: 3, slug: github-remote-repositories, title: "GitHub: Remote Repositories" }
+      - { number: 4, slug: pull-requests-and-code-review, title: "Pull Requests and Code Review" }
+      - { number: 5, slug: github-actions-cicd-basics, title: "GitHub Actions (CI/CD Basics)", homework: true }
+  - number: 8
+    slug: deployment
+    name: Deployment
+    highlight: "deployed a real portfolio to a custom domain"
+    lessons:
+      - { number: 1, slug: how-deployment-works, title: "How Deployment Works" }
+      - { number: 2, slug: building-for-production, title: "Building for Production" }
+      - { number: 3, slug: deploying-to-cloudflare-pages, title: "Deploying to Cloudflare Pages" }
+      - { number: 4, slug: custom-domain-setup, title: "Custom Domain Setup" }
+      - { number: 5, slug: going-live-launch-checklist, title: "Going Live: Launch Checklist", homework: true }
+skills:
+  - { id: nodejs-installed, name: "Node.js Installed" }
+  - { id: vs-code-setup, name: "VS Code Setup" }
+  - { id: git-basics, name: "Git Basics" }
+  - { id: web-fundamentals, name: "Web Fundamentals Complete" }
+  - { id: javascript-fundamentals, name: "JavaScript Fundamentals" }
+  - { id: react-fundamentals, name: "React Fundamentals" }
+  - { id: astro-fundamentals, name: "Astro Fundamentals" }
+  - { id: tailwind-fundamentals, name: "Tailwind CSS Fundamentals" }
+  - { id: portfolio-complete, name: "Portfolio Complete" }
+  - { id: git-and-github, name: "Git & GitHub Complete" }
+  - { id: deployment-complete, name: "Deployment Complete" }
+  - { id: portfolio-deployed, name: "Portfolio Deployed" }

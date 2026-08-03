@@ -122,13 +122,15 @@ phases:
 
 Each lesson entry carries a `number`, a `slug`, a `title`, and optionally `homework: true`.
 
-A phase entry may also carry a `highlight` — one clause completing "this learner just…", used at [ceremony](#ceremony). **Since 1.1.**
+A phase entry may also carry a `highlight` — one clause naming what the learner just achieved, used at [ceremony](#ceremony). **Since 1.1.**
+
+**Keep it free of pronouns.** A tutor may use it in the third person ("they built…") and a share post will use it in the first ("I built…"), so `wrote a first working function` works everywhere and `wrote their first working function` reads wrong in half the places it appears.
 
 ```yaml
   - number: 2
     slug: javascript
     name: JavaScript
-    highlight: wrote their first working function
+    highlight: wrote a first working function
     lessons: [ … ]
 ```
 
@@ -414,6 +416,7 @@ A template may use these and no others. An unknown placeholder is an error, beca
 | `{course_title}` | The manifest `title` |
 | `{completed_count}`, `{lesson_count}` | Derived by the runtime |
 | `{product}`, `{url}`, `{mention}` | From `brand` |
+| `{hashtags}` | From `brand.hashtags`, with each `#` added |
 
 `{completed_count}` and `{lesson_count}` are how you get "3 of 9 lessons done" into a share post **without** writing a count. The runtime fills them; you never maintain them. Writing the numbers yourself is still a [derived-count](#derived-counts) violation, and the validator scans templates for it.
 

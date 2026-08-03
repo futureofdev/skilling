@@ -50,9 +50,10 @@ tasks:
     cmds:
       - uv run python -m skilling.docs --check docs/error-codes.md
 
-  validate:example:
-    desc: Validate the example course — expects zero findings
+  validate:examples:
+    desc: Validate every example course — each expects zero findings
     cmds:
+      - uv run skilling validate examples/coding-bootcamp
       - uv run skilling validate examples/hello-skilling
 
   check:
@@ -63,4 +64,4 @@ tasks:
       - task: test
       - task: schemas:check
       - task: docs:check
-      - task: validate:example
+      - task: validate:examples

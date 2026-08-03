@@ -178,3 +178,13 @@ Put that in CI. It is what lets a runtime roll a learner forward automatically w
 | "A 9-lesson course" in the description | `authored-count`. The manifest already knows |
 
 The full list is in [error codes](error-codes.md).
+
+## When you want to see it done at scale
+
+[`examples/coding-bootcamp`](../examples/coding-bootcamp/) is a real 64-lesson course carried in this repository. Worth opening when a rule feels abstract:
+
+- **How to word a declared absence** — it has 43 of them, and the ones for phases 4, 5 and 6 show what a per-phase reason looks like rather than 22 copies of the same sentence.
+- **How much `tested_by` to write** — 168 of its 235 objectives map to a quiz question. The other 67 do not, deliberately: "appreciate why this matters" is not a quiz question, and a loose mapping produces confidently wrong capability claims.
+- **A ceremony block with a real brand in it**, and a share template that says "6 of 64 lessons done" without any author having written a number.
+
+It was ported from a course that existed before the format did, so it is also the honest record of what that costs: seven quiz answers had to gain a reason, one homework section had no submission line, and a whole phase had to be renumbered.

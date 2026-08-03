@@ -82,7 +82,11 @@ _BODY_COUNTS = (
 )
 
 _BULLET = re.compile(r"^\s*[-*]\s+\S")
-_KEY_TERM = re.compile(r"^\s*[-*]\s*\*\*[^*]+\*\*\s*:\s*\S")
+# A bolded term, then anything up to the colon, then a definition. Deliberately loose about
+# the term itself and about what sits between it and the colon: real courses write
+# `- **CPU** (Central Processing Unit): …` and `- **`p-*`**: …`, and the specification asks for
+# a bolded term followed by a definition, not for the colon to touch the closing asterisks.
+_KEY_TERM = re.compile(r"^\s*[-*]\s*\*\*.+?\*\*[^:]*:\s*\S")
 _SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
 
 NEXT_UP_MAX_WORDS = 60

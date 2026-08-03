@@ -32,7 +32,9 @@ The format is AI-first in a specific sense: wherever it addresses the tutor it s
 
 ## Examples
 
-- [hello-skilling](examples/hello-skilling/): A three-lesson course that teaches Skilling. The repository's worked example and the end-to-end target of `skilling deliver`.
+- [Examples index](examples/README.md): What each example course is for, and which one the docs quote.
+- [coding-bootcamp](examples/coding-bootcamp/): The golden example — 9 phases, 64 lessons, from no development environment to a deployed portfolio site. The course this format was generalised from, validating with zero findings, exercising every surface: 235 structured objectives, 43 declared absences, 12 badges, ceremony facts and a share template. Read this to see Skilling at real scale.
+- [hello-skilling](examples/hello-skilling/): A three-lesson course that teaches Skilling by being one. Small enough to hold in your head; the docs quote it for snippets.
 
 ## Reference implementation
 

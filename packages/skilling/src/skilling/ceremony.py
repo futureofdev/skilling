@@ -28,6 +28,7 @@ PLACEHOLDERS: frozenset[str] = frozenset(
         "product",
         "url",
         "mention",
+        "hashtags",
     }
 )
 """The closed set a template may use. Anything else is an error, because a template that
@@ -72,6 +73,9 @@ def values(
         "product": (brand.product or "") if brand else "",
         "url": (brand.url or "") if brand else "",
         "mention": (brand.mention or "") if brand else "",
+        # Rendered with their '#' added, so a literal template never has to restate the tags
+        # the brand block already declares.
+        "hashtags": " ".join(tags(brand)),
     }
 
 
