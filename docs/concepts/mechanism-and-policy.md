@@ -21,6 +21,8 @@ Skilling specifies the first and refuses the second. Not because policy is unimp
 | Which model teaches? | Not specified, and never named normatively |
 | What does the interface look like? | Not specified. Terminal, chat, web, voice |
 | Where is progress stored? | Any conforming store: files, Postgres, whatever you run |
+| What does a celebration say? | Not specified. The course supplies [facts a tutor may not invent](../../spec/course-format.md#ceremony); the words are the tutor's |
+| Where do learning events go? | Not specified. [Register a sink](the-telemetry-sink.md); the core ships no destination |
 
 The list of what *is* specified is much shorter, and that asymmetry is the design.
 
@@ -43,7 +45,9 @@ Policy hangs off the artifacts, not the machinery:
 - **The course directory** — your own build steps, review process, translation pipeline
 - **Around the runtime** — enrolment, catalogues, cohorts, interfaces, billing
 
-At 1.0 that attachment is by reading and by wrapping. Hooks — named extension points a runtime fires and an adopter subscribes to — [arrive at 1.1](../../spec/README.md#what-10-deliberately-leaves-out), once an adopter with real policy has shown what they need. Specifying extension points before anyone has extended anything is how a specification acquires surfaces nobody uses.
+**Since 1.1, policy attaches by name.** A runtime emits [eight events](../../spec/runtime.md#the-registry) — lesson started, gate opened, quiz answered, lesson completed, badge awarded, phase completed, course completed, homework submitted — and an adopter subscribes a sink to them. Dashboards, HR exports, reminder jobs, share campaigns: all of them read events and none of them live inside the runtime.
+
+Hooks were deliberately absent at 1.0. Specifying extension points before anyone has extended anything is how a specification acquires surfaces nobody uses, so the rule was: wait for an adopter with real policy. That adopter turned up with nine branded share prompts and a completion beacon that 1.0 had nowhere to put, and hooks bound in the next minor. Every remaining deferred surface is waiting on the same bar.
 
 ## What this costs
 

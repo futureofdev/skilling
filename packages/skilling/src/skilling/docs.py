@@ -77,6 +77,25 @@ _GROUPS: list[tuple[str, str, tuple[Code, ...]]] = [
         "References to files in `assets/`.",
         (Code.ASSET_REFERENCE_DANGLING, Code.ASSET_REFERENCE_ABSOLUTE),
     ),
+    (
+        "Ceremony",
+        "The `ceremony` block, since spec 1.1. Templates are learner-facing, so they are held "
+        "to the same rules as a lesson body.",
+        (
+            Code.CEREMONY_UNKNOWN_PLACEHOLDER,
+            Code.CEREMONY_HIGHLIGHT_MISSING,
+            Code.CEREMONY_HANDLE_MALFORMED,
+        ),
+    ),
+    (
+        "Structured objectives",
+        "Addressable learning objectives, since spec 1.1.",
+        (
+            Code.OBJECTIVES_DECLARED_TWICE,
+            Code.OBJECTIVE_ID_DUPLICATE,
+            Code.OBJECTIVE_TESTED_BY_INVALID,
+        ),
+    ),
 ]
 
 _HEADER = """\

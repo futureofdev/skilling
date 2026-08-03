@@ -97,6 +97,79 @@ Submission needs its own explicit confirmation, distinct from the input that ask
 
 If your tutor *cannot* judge work, display the assignment and accept a confirmed submission. That is conforming — checking is optional, and pretending to check would be worse than declining to.
 
+## Emit events; do not grow a platform
+
+**Since 1.1.** Pass a `Dispatcher` and the eight events fire from the write set and the loop. It defaults to a no-op, so hooks are opt-in for a runtime as well as for a learner.
+
+```python
+from skilling.hooks import Dispatcher, JsonlSink, ThreadedSink
+
+hooks = Dispatcher(
+    first_party=[JsonlSink("events.jsonl")],          # inside your boundary; sees learner_id
+    telemetry=[ThreadedSink(YourHttpSink(url))],      # leaves it; consent-gated, anonymised
+)
+runtime.complete_lesson(store, course, record, revision, lesson, hooks=hooks)
+```
+
+Three things the dispatcher does so you cannot get them wrong:
+
+- **Swallows every sink failure.** A raising sink never reaches the learner and never blocks a record write.
+- **Checks consent before a sink sees anything.** A telemetry sink registered against a learner who has not opted in receives literally nothing. Do not put that check in your sink; it belongs where a sink cannot forget it.
+- **Substitutes the anonymous id** for telemetry, so `learner_id` cannot leave your boundary by accident.
+
+What it cannot do for you is make a slow sink safe. Wrap anything that touches a network in `ThreadedSink`: fire-and-forget has to survive slowness, not only failure.
+
+### An HTTP sink, in full
+
+The core ships no network sink on purpose — the framework should phone nobody's home by default. Here is the whole thing, stdlib only:
+
+```python
+import json
+import urllib.request
+from skilling.hooks import Event
+
+class HttpSink:
+    def __init__(self, url: str, *, timeout: float = 2.0) -> None:
+        self.url = url
+        self.timeout = timeout
+
+    def emit(self, event: Event) -> None:
+        request = urllib.request.Request(
+            self.url,
+            data=event.as_json().encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            response.read()
+```
+
+Wrap it in `ThreadedSink` and register it as `telemetry`, not `first_party`, if it leaves your trust boundary. Retries, batching and backoff are yours to add — the specification deliberately says nothing about them, because a sink's reliability is the sink's problem.
+
+### Ask for consent honestly
+
+`opt_in` is ternary: `null` means ask, once. Say what is actually sent, say that declining costs nothing, and make declining the default. `skilling deliver`'s prompt is a reasonable model — and note it names *which quiz answers you get right*, because [content-free is not behaviour-free](concepts/the-telemetry-sink.md#content-free-is-not-behaviour-free).
+
+## Celebrate with facts, not sentences
+
+**Since 1.1.** At a phase boundary, resolve ceremony copy in order: a literal template if the course has one, else compose from the declared `brand` facts, else plain unbranded prose.
+
+If you have a model, step two is where you belong. `skilling.ceremony.facts(brand)` hands you exactly what you may state — product, url, mention, handles, tags — and the constraint is absolute: **say nothing that is not in there.** Not a URL you think is right, not a handle inferred from the product name. That single rule is why the manifest carries facts at all, because a model asked to write a share post will otherwise guess `@YourCourse` when the handle is `@your.course`.
+
+Derived numbers arrive as placeholders. `{completed_count}` and `{lesson_count}` are filled from the manifest and the record, which is how a share post says "3 of 9 lessons done" without any author ever having written a number.
+
+## Name the objective, not the lesson
+
+**Since 1.1.** When a lesson carries [structured objectives](../spec/course-format.md#structured-objectives) and a wrong answer's question is `tested_by` one of them, say which:
+
+```python
+implicated = fm.objectives_for_question(question.number)
+```
+
+"That one was about opening a terminal" beats re-printing the concept at someone. This is the entire payoff for making objectives addressable, and it is the difference between a tutor who noticed what went wrong and one that repeats itself.
+
+Recording `objectives_met` is optional — the same position as homework checking. If you can judge, write it with the right `evidence`. If you cannot, `runtime.mark_objectives_met` will settle whatever `tested_by` proves and leave the rest alone. Never guess: an objective recorded without evidence is worse than one left absent, because the next tutor will believe it and skip teaching it.
+
 ## Claiming conformance
 
 A claim names its class and version range: *"Conforming Runtime, Skilling 1.0"*. Then hold two lines:

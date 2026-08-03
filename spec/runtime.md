@@ -103,6 +103,18 @@ Note that the phase's completion is not written anywhere: it is derived from the
 
 A runtime must not invent branded copy — course names, product claims, share text. Celebration language comes from the course or the adopter.
 
+### Resolving ceremony copy
+
+**Since 1.1.** When a course carries a [`ceremony` block](course-format.md#ceremony), resolve in this order:
+
+1. **A literal template**, if the course provides one for this event. Substitute the placeholders and use it verbatim. Do not improve it.
+2. **Otherwise, compose from `brand`** — the product, url, mention, handles and hashtags the course declared, plus the phase's `highlight`. This is the path a model-backed tutor should normally take: write something fresh for this learner, using only those facts.
+3. **Otherwise, plain unbranded prose.** Congratulate them and stop.
+
+At step 2 the constraint is absolute: **a runtime must not state a fact that is not in `brand`.** Not a URL it thinks is right, not a handle it inferred from the product name, not a claim about what the course costs. Compose freely with the facts you were given and invent none.
+
+Hashtags arrive without their `#`; add it. That is the runtime's job precisely so an author cannot ship `##WebDev`.
+
 ## Resume
 
 A runtime resumes a learner at the position in their record: at minimum the recorded lesson's first beat, and when beat-level position is recorded, at that beat. A gate that was open when the session ended resumes as the same open gate.
@@ -119,7 +131,7 @@ The record is what is durably true about one learner in one course. It is keyed 
 learner_id: "a1b2c3"
 course_id: hello-skilling
 course_version: "1.0.0"
-spec_version: "1.0"
+spec_version: "1.1"
 position:
   phase: 1
   lesson: 3
@@ -128,10 +140,17 @@ completed:               # coordinates only; the detail lives in the log
   - "1.1"
   - "1.2"
 skills_unlocked: [course-basics]
+objectives_met:          # since 1.1; optional
+  - id: read-a-manifest
+    at: 2026-08-03
+    evidence: quiz
 started_at: 2026-08-03
 last_activity: 2026-08-03
 timezone: Europe/London  # IANA name; defaults to UTC
 streak_days: 3
+telemetry:               # since 1.1
+  opt_in: null           # null = never asked; true; false
+  anonymous_id: ""       # sink-assigned; write-once
 ```
 
 | Field group | Requirements |
@@ -141,6 +160,33 @@ streak_days: 3
 | Derived values | Completed counts, remaining counts, percentages, and phase boundaries must be **derived** from the manifest plus `completed`, never stored as authoritative fields. Cache them only if the cache is disposable and recomputable. |
 
 **No conversation transcript is ever required.** The record and log must be fully reconstructible without any message history. Transcripts are a runtime's convenience; they are not part of the learner's record, and nothing on this page may depend on one. This is what lets a learner change tutor, model, or product and keep their history.
+
+## Objectives and the record
+
+**Since 1.1.** When a lesson carries [structured objectives](course-format.md#structured-objectives), a runtime may record which of them the learner demonstrated:
+
+```yaml
+objectives_met:
+  - id: read-a-manifest
+    at: 2026-08-03
+    evidence: quiz         # quiz | exercise | homework | tutor
+```
+
+`evidence` is a closed set naming *how* the objective was demonstrated. `tutor` means a runtime with judgement decided it; the other three name the beat that showed it.
+
+**Writing this is optional.** A runtime that cannot judge whether an objective was met writes nothing — the same position as homework checking, and it conforms. What a runtime must not do is guess: an objective recorded as met without evidence is worse than one left absent, because a later tutor will believe it.
+
+`tested_by` is the bridge for a runtime with no model in it. When every question testing an objective is answered correctly, that objective was demonstrated by the quiz, and it may be recorded with `evidence: quiz`. When any of them was answered wrongly, it was not.
+
+### Objective-targeted remediation
+
+When a learner answers a question wrongly and that question is `tested_by` an objective, remediation should **name that objective** — "this one is about opening a terminal; let me go over that part again" — rather than re-presenting the whole concept. That specificity is the entire reason objectives are addressable, and it is the difference between a tutor who noticed what went wrong and one who simply repeated itself.
+
+### A badge is not an objective
+
+`skills_unlocked` records that a lesson **completed**. `objectives_met` claims a capability was **demonstrated**. They are different claims about different things, and a runtime must not infer either from the other.
+
+This distinction is worth stating plainly because the field name invites the mistake. A badge called `git-basics` awarded on lesson completion means "was present for the git lesson", and if it is going to mean more than that, the objectives behind it are where the evidence lives.
 
 ## The completion log
 
@@ -223,6 +269,51 @@ Archives are append-only and immutable. Submission is idempotent per assignment 
 When asked for homework with an empty slot, a runtime should explain how assignments unlock — finish the phase — rather than inventing one.
 
 The mailbox is deliberately small. Multiple concurrent assignments, deadlines, and grading workflows are the adopter's business: build them *on* the archive, not *into* the slot.
+
+## Hooks
+
+**Since 1.1.** Hooks are where mechanism ends and policy begins. Skilling keeps the record; everything an organisation does *around* the record attaches here, by name, instead of leaking into the runtime.
+
+**A runtime must not implement enrolment, cohorts, catalogues, manager dashboards, or directory integration.** It must expose the registry below so an adopter can build those outside it.
+
+That is the most opinionated rule in this specification, and it is the one that keeps an open tutoring format from quietly becoming a proprietary LMS. A runtime delivers one course to one learner. Everything else is somebody else's job.
+
+### The registry
+
+A runtime emits these to every registered sink, at the moments the loop defines:
+
+| Event | Fired when | Payload beyond the envelope |
+|---|---|---|
+| `lesson_started` | The welcome beat is delivered | `coordinate` |
+| `gate_opened` | A gate begins waiting | `coordinate`, `beat` |
+| `quiz_answered` | Each answer is given | `coordinate`, `question`, `correct` |
+| `lesson_completed` | Completion is written | `coordinate`, `title` |
+| `badge_awarded` | A badge enters the record | `badge_id` |
+| `phase_completed` | Ceremony runs | `phase`, `badges_awarded` |
+| `course_completed` | The final lesson completes | — |
+| `homework_submitted` | A submission is archived | `coordinate`, `verdicts` |
+
+Every event carries the same envelope: `event`, `occurred_at`, `course_id`, `course_version`, `spec_version`, and `learner`.
+
+### Delivery is fire-and-forget
+
+Emitting must not block or delay the delivery loop. A failing, slow, or unreachable sink must not surface an error to the learner and must not prevent a record write. A sink that needs reliability puts a queue behind itself; that is its problem, not the loop's.
+
+This has to be true of *slow* sinks and not only broken ones. A sink that takes five seconds to answer has stopped the lesson just as effectively as one that raises.
+
+## Telemetry
+
+**Since 1.1.** A telemetry sink is any hook consumer that leaves the adopter's trust boundary — a product-analytics endpoint, a course author's usage counter. Three rules are non-negotiable.
+
+**Opt-in, per learner, ternary.** `telemetry.opt_in` is `null` (never asked), `true`, or `false`. `null` means ask once, before the first emission. `false` means nothing is emitted, ever. Asking must be honest: no dark-pattern default, no pre-ticked box, no burying it.
+
+**Identity is the anonymous id.** The learner's identity in a telemetry event is the sink-assigned, write-once `anonymous_id` — never the producer's `learner_id`. The sink assigns it on the first opted-in event and it is never overwritten.
+
+**Payloads are content-free.** Event names, coordinates, question numbers, booleans, timestamps. Never conversation text, never a learner's written answer, never homework content.
+
+Consent belongs to the runtime's dispatch, not to a sink. A sink that forgot to check `opt_in` must not be *able* to leak — which means the check happens before a sink is ever handed an event.
+
+> **Content-free is not behaviour-free.** An opted-in learner's `gate_opened` timings and `quiz_answered` booleans let a sink reconstruct where they hesitated and what they got wrong. That is the honest description of what opting in means here, and a producer presenting the choice should not pretend otherwise.
 
 ## The store interface
 

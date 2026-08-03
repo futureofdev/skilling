@@ -1,5 +1,35 @@
 {
   "$defs": {
+    "Objective": {
+      "additionalProperties": false,
+      "description": "An addressable learning objective. Since 1.1.\n\nA lesson's contract, given an id so a tutor can target remediation at the one a wrong\nanswer implicates instead of re-presenting the whole concept.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "tested_by": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tested By",
+          "type": "array"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Objective",
+      "type": "object"
+    },
     "SectionAbsence": {
       "additionalProperties": false,
       "description": "A declared absence. ``intent`` is lenient here so the validator can report a\nmissing reason with its own code rather than a generic parse failure.",
@@ -22,7 +52,7 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.0/lesson-frontmatter.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.1/lesson-frontmatter.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
@@ -44,6 +74,13 @@
       "minimum": 1,
       "title": "Lesson",
       "type": "integer"
+    },
+    "objectives": {
+      "items": {
+        "$ref": "#/$defs/Objective"
+      },
+      "title": "Objectives",
+      "type": "array"
     },
     "phase": {
       "minimum": 0,

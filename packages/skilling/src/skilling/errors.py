@@ -16,7 +16,7 @@ from enum import StrEnum
 SPEC_MAJOR = 1
 """The specification major version this implementation supports."""
 
-SPEC_MINOR = 0
+SPEC_MINOR = 1
 """The specification minor version this implementation supports."""
 
 
@@ -75,6 +75,16 @@ class Code(StrEnum):
     # --- assets ---
     ASSET_REFERENCE_DANGLING = "asset-reference-dangling"
     ASSET_REFERENCE_ABSOLUTE = "asset-reference-absolute"
+
+    # --- ceremony (since spec 1.1) ---
+    CEREMONY_UNKNOWN_PLACEHOLDER = "ceremony-unknown-placeholder"
+    CEREMONY_HIGHLIGHT_MISSING = "ceremony-highlight-missing"
+    CEREMONY_HANDLE_MALFORMED = "ceremony-handle-malformed"
+
+    # --- structured objectives (since spec 1.1) ---
+    OBJECTIVES_DECLARED_TWICE = "objectives-declared-twice"
+    OBJECTIVE_ID_DUPLICATE = "objective-id-duplicate"
+    OBJECTIVE_TESTED_BY_INVALID = "objective-tested-by-invalid"
 
 
 @dataclass(frozen=True)
@@ -226,6 +236,30 @@ CATALOGUE: dict[Code, CodeInfo] = {
     ),
     _C.ASSET_REFERENCE_ABSOLUTE: CodeInfo(
         _E, f"{_FORMAT}#assets", "An asset reference is absolute or escapes the course directory"
+    ),
+    _C.CEREMONY_UNKNOWN_PLACEHOLDER: CodeInfo(
+        _E, f"{_FORMAT}#placeholders", "A ceremony template uses a placeholder no runtime can fill"
+    ),
+    _C.CEREMONY_HIGHLIGHT_MISSING: CodeInfo(
+        _E,
+        f"{_FORMAT}#placeholders",
+        "A template uses {phase_highlight} but a phase has no highlight to fill it with",
+    ),
+    _C.CEREMONY_HANDLE_MALFORMED: CodeInfo(
+        _W, f"{_FORMAT}#ceremony", "A social handle does not begin with '@'"
+    ),
+    _C.OBJECTIVES_DECLARED_TWICE: CodeInfo(
+        _E,
+        f"{_FORMAT}#structured-objectives",
+        "Objectives are declared in frontmatter and as a section; they are mutually exclusive",
+    ),
+    _C.OBJECTIVE_ID_DUPLICATE: CodeInfo(
+        _E, f"{_FORMAT}#structured-objectives", "Two objectives in one lesson share an id"
+    ),
+    _C.OBJECTIVE_TESTED_BY_INVALID: CodeInfo(
+        _E,
+        f"{_FORMAT}#structured-objectives",
+        "An objective's tested_by names a quiz question that does not exist",
     ),
 }
 

@@ -2,6 +2,87 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## 1.1.0-draft — 2026-08-03
+
+Additive. Four surfaces, no change required of any existing course — a `spec_version: "1.0"`
+course validates unchanged under a 1.1 tool, and there is a test that proves it.
+
+### Hooks
+
+Eight named events a runtime emits to registered sinks: `lesson_started`, `gate_opened`,
+`quiz_answered`, `lesson_completed`, `badge_awarded`, `phase_completed`, `course_completed`,
+`homework_submitted`. One envelope, fire-and-forget delivery that must survive a sink which is
+slow as well as one which is broken.
+
+The rule that matters is the one about what a runtime must *not* do: no enrolment, no cohorts,
+no catalogues, no dashboards. Those attach to the events from outside. It is the most
+opinionated line in the specification and the reason this stays a format rather than becoming
+an LMS.
+
+Hooks were deliberately deferred at 1.0 on the grounds that a specification should not bind
+extension points before anyone has extended anything. They bind now because there is an
+adopter with nine branded share prompts and a completion beacon that 1.0 had nowhere to put.
+
+### Telemetry
+
+Opt-in per learner and ternary, identity as a write-once anonymous id, payloads content-free.
+Consent is checked before a sink is ever handed an event, so a sink that forgets to check is
+not *able* to leak.
+
+Stated plainly, because it is true: content-free is not behaviour-free. An opted-in learner's
+gate timings and answer booleans let a sink reconstruct where they hesitated and what they got
+wrong. A producer presenting the choice should not pretend otherwise.
+
+### Ceremony
+
+A `ceremony` block in the manifest carrying **facts a tutor may not invent** — product, url,
+mention, handles, hashtags — plus a one-clause `highlight` per phase, plus optional literal
+templates used verbatim when present.
+
+This shape follows from the framework being AI-first. A tutor writes a better celebration than
+a template can, contextual and different every time; what it must not do is guess a social
+handle. So the manifest holds the facts and the tutor writes the prose. A template is the
+escape hatch for wording that is genuinely non-negotiable, and for runtimes with no model in
+them.
+
+Derived numbers arrive as placeholders (`{completed_count}`, `{lesson_count}`), which is how
+an author gets "3 of 9" into a share post without ever writing a count. Templates are scanned
+for authored counts like everything else.
+
+### Addressable objectives
+
+Optional structured `objectives:` in lesson frontmatter with stable ids, `objectives_met` on
+the record with `evidence`, and `tested_by` mapping quiz questions to objectives.
+
+An audit of 1.0 found that everywhere the format talked *to the tutor* it was AI-native, and
+everywhere it modelled *the learner* it was a content-management system. Objectives were the
+sharpest instance: a lesson's actual contract, written as prose that nothing could reference.
+Addressable objectives let remediation name the objective a wrong answer implicates rather than
+re-presenting the whole concept.
+
+Structured and prose objectives are mutually exclusive — allowing both would be two sources of
+truth for the same sentences.
+
+Writing `objectives_met` is optional, as homework checking is: a runtime that cannot judge
+writes nothing and conforms. `tested_by` is what lets a model-free runtime participate at all.
+
+### Conforming Producer
+
+The fourth conformance class, for anyone embedding a runtime in a product: never write learner
+state around the runtime, never synthesise learner input, never undo protocol ordering in the
+interface, present the telemetry choice honestly.
+
+### Also
+
+- **A badge is not an objective**, stated plainly. `skills_unlocked` records that a lesson
+  completed; `objectives_met` claims a capability was demonstrated. A runtime must not infer
+  either from the other. Badge behaviour is unchanged — what changed is that the specification
+  now admits what a badge means.
+- **The quiz's design is now argued rather than assumed.** A new section says what three fixed
+  hand-written questions buy (validatable, comparable, stable keys for assessed mode) and what
+  they cost (a tutor that could ask a better question is not allowed to). The page previously
+  read as though multiple choice were obviously correct.
+
 ## 1.0.1-draft — 2026-08-03
 
 Editorial only. Fourteen places where the text did not say what it meant, found by handing

@@ -296,6 +296,76 @@ def _asset_reference_absolute(root: Path) -> None:
     fx.edit(root, fx.LESSON_ONE_PATH, "../../assets/diagram.txt", "/etc/hosts")
 
 
+# --------------------------------------------------------------- ceremony (since spec 1.1)
+
+_OBJECTIVES_SECTION = (
+    "## Learning Objectives\nBy the end of this lesson, you will:\n- Know the first thing\n\n"
+)
+
+
+def _add_ceremony(root: Path, block: str) -> None:
+    fx.edit(root, fx.MANIFEST_PATH, "phases:", f"{block}phases:")
+
+
+def _ceremony_unknown_placeholder(root: Path) -> None:
+    _add_ceremony(
+        root,
+        'ceremony:\n  phase_completed_template: "Phase {phase_nmae} is done"\n',
+    )
+
+
+def _ceremony_highlight_missing(root: Path) -> None:
+    # The clean fixture's phases carry no highlight, so a template that promises one has a
+    # hole in it.
+    _add_ceremony(
+        root,
+        'ceremony:\n  phase_completed_template: "Done: {phase_highlight}"\n',
+    )
+
+
+def _ceremony_handle_malformed(root: Path) -> None:
+    _add_ceremony(
+        root,
+        "ceremony:\n  brand:\n    product: Clean Courses\n    handles:\n      x: NoAtSign\n",
+    )
+
+
+# ------------------------------------------------- structured objectives (since spec 1.1)
+
+
+def _objectives_declared_twice(root: Path) -> None:
+    # Structured objectives added while the prose section stays: two sources of truth.
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "skills_unlocked: []",
+        "skills_unlocked: []\nobjectives:\n  - id: know-the-first-thing\n"
+        "    text: Know the first thing",
+    )
+
+
+def _objective_id_duplicate(root: Path) -> None:
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "skills_unlocked: []",
+        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    text: Know the first thing\n"
+        "  - id: know-it\n    text: Know it again",
+    )
+    fx.edit(root, fx.LESSON_ONE_PATH, _OBJECTIVES_SECTION, "")
+
+
+def _objective_tested_by_invalid(root: Path) -> None:
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "skills_unlocked: []",
+        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    text: Know the first thing\n"
+        "    tested_by: [9]",
+    )
+    fx.edit(root, fx.LESSON_ONE_PATH, _OBJECTIVES_SECTION, "")
+
+
 CORRUPTIONS: dict[Code, Corruption] = {
     Code.MANIFEST_MISSING: _manifest_missing,
     Code.MANIFEST_UNPARSEABLE: _manifest_unparseable,
@@ -337,4 +407,10 @@ CORRUPTIONS: dict[Code, Corruption] = {
     Code.NEXT_UP_TOO_LONG: _next_up_too_long,
     Code.ASSET_REFERENCE_DANGLING: _asset_reference_dangling,
     Code.ASSET_REFERENCE_ABSOLUTE: _asset_reference_absolute,
+    Code.CEREMONY_UNKNOWN_PLACEHOLDER: _ceremony_unknown_placeholder,
+    Code.CEREMONY_HIGHLIGHT_MISSING: _ceremony_highlight_missing,
+    Code.CEREMONY_HANDLE_MALFORMED: _ceremony_handle_malformed,
+    Code.OBJECTIVES_DECLARED_TWICE: _objectives_declared_twice,
+    Code.OBJECTIVE_ID_DUPLICATE: _objective_id_duplicate,
+    Code.OBJECTIVE_TESTED_BY_INVALID: _objective_tested_by_invalid,
 }

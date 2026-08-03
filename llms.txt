@@ -1,14 +1,16 @@
 # Skilling
 
-> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.0.0-draft.
+> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.1.0-draft.
 
-Skilling specifies three things: what course authors write, what a tutor must do to deliver a course, and what is durably true about a learner afterwards. It is not an LMS, not a UI, not a pedagogy, and not tied to a model vendor. Conformance binds observable state transitions and record writes, never the tutor's prose — which is why a text walker with no language model can be a Conforming Runtime.
+Skilling specifies four things: what course authors write, what a tutor must do to deliver a course, what is durably true about a learner afterwards, and where an adopter attaches its own policy. It is not an LMS, not a UI, not a pedagogy, and not tied to a model vendor. Conformance binds observable state transitions and record writes, never the tutor's prose — which is why a text walker with no language model can be a Conforming Runtime.
+
+The format is AI-first in a specific sense: wherever it addresses the tutor it supplies facts rather than scripts. Ceremony copy is brand facts a tutor may not invent, not sentences to fill in. Declared absences carry an author's reason rather than replacement text. Objectives are addressable so remediation can name what went wrong.
 
 ## Specification
 
-- [Specification index](spec/README.md): What Skilling is, the three conformance classes (Course, Runtime, Store), versioning, what 1.0 deliberately leaves out, and why each constraint exists.
-- [Course format](spec/course-format.md): Everything a course author needs — directory structure, the `course.yaml` manifest, numbering rules, derived counts, lesson frontmatter, the section registry, declared absence, the Quick Quiz grammar, homework, assets, and course-version semantics.
-- [Runtime](spec/runtime.md): Everything a tutor implementer needs — the delivery loop and its beats, gates as open waits, quiz delivery, remediation, idempotent completion, phase ceremony, resume, the progress record, the completion log, the streak algorithm, the homework mailbox, the store interface, and the single-learner file layout.
+- [Specification index](spec/README.md): What Skilling is, the four conformance classes (Course, Runtime, Store, Producer), versioning, what the current version deliberately leaves out, and why each constraint exists.
+- [Course format](spec/course-format.md): Everything a course author needs — directory structure, the `course.yaml` manifest, numbering rules, derived counts, lesson frontmatter, the section registry, declared absence, structured objectives, the Quick Quiz grammar, homework, ceremony facts and templates, assets, and course-version semantics.
+- [Runtime](spec/runtime.md): Everything a tutor implementer needs — the delivery loop and its beats, gates as open waits, quiz delivery, remediation, idempotent completion, phase ceremony and how ceremony copy resolves, resume, the progress record, objectives and evidence, the completion log, the streak algorithm, the homework mailbox, the hook registry, telemetry's three non-negotiables, the store interface, and the single-learner file layout.
 - [Changelog](spec/CHANGELOG.md): Every specification change, including errata.
 
 ## Guides
@@ -23,7 +25,9 @@ Skilling specifies three things: what course authors write, what a tutor must do
 - [The delivery loop](docs/concepts/the-delivery-loop.md): Why a lesson has a fixed anatomy and why the beats are not pluggable.
 - [Open gates](docs/concepts/open-gates.md): Why a gate has no timeout, and what breaks when one is removed.
 - [The learner record](docs/concepts/the-learner-record.md): Why the record is transcript-independent and why counts are derived rather than stored.
+- [What the record knows](docs/concepts/what-the-record-knows.md): Why a badge marks completion and an objective claims a capability, why objectives are addressable, and what the record still does not know.
 - [The homework mailbox](docs/concepts/the-homework-mailbox.md): Why there is exactly one slot, and why checking can never complete anything.
+- [The telemetry sink](docs/concepts/the-telemetry-sink.md): Opt-in, content-free, pseudonymous — and an honest account of the behavioural trace an opted-in learner leaves.
 - [Mechanism and policy](docs/concepts/mechanism-and-policy.md): The line between what Skilling specifies and what an adopter decides.
 
 ## Examples

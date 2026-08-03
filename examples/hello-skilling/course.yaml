@@ -15,10 +15,22 @@ tutor:
     - Direct and warm; never breathless
     - When the learner is confused, reach for a different example rather than louder words
     - Treat the learner as a capable adult who simply hasn't seen this before
+ceremony:
+  brand:
+    product: Skilling
+    url: startskill.ing
+    hashtags: [Skilling, LearningInPublic]
+  phase_completed_template: |
+    Just finished {phase_name} in {course_title} 🎓
+
+    {phase_highlight}
+
+    {completed_count} of {lesson_count} lessons done · {url}
 phases:
   - number: 1
     slug: basics
     name: Skilling Basics
+    highlight: learned to read, write, and validate a course from the specification alone
     lessons:
       - { number: 1, slug: what-is-a-course, title: "What Is a Course?" }
       - { number: 2, slug: anatomy-of-a-lesson, title: Anatomy of a Lesson }

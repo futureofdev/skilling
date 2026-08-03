@@ -102,7 +102,44 @@ This walks the real delivery loop with no language model in it, which makes it a
 
 Sitting through your own course is the cheapest review available.
 
-## 8. Version it honestly
+## 8. Give the tutor facts, not sentences
+
+**Since 1.1**, and entirely optional. If your course belongs to something with a name, a URL, or a social handle, put those in `ceremony.brand` and give each phase a one-clause `highlight`:
+
+```yaml
+ceremony:
+  brand:
+    product: Brewing Basics
+    url: brewing.example
+    hashtags: [Coffee, LearningInPublic]
+phases:
+  - number: 1
+    slug: equipment
+    name: Equipment
+    highlight: dialled in their first shot by taste
+    lessons: [ … ]
+```
+
+That is all most courses need. A tutor writes the celebration itself — fresh, in the learner's register — and the facts are there so it does not have to guess your handle. It will guess, if you make it.
+
+Reach for `phase_completed_template` only when the wording is genuinely fixed: legal copy, a campaign, something signed off. Then use placeholders rather than numbers — `{completed_count}` of `{lesson_count}` is how you get "3 of 9 lessons done" into a share post without maintaining a count, and writing the number yourself is still an `authored-count` error.
+
+## 9. Consider giving objectives ids
+
+**Since 1.1**, also optional. Written as prose, your objectives are the one part of a lesson a tutor cannot act on. Given ids and mapped to quiz questions, they become the thing a tutor names when a learner gets something wrong:
+
+```yaml
+objectives:
+  - id: dial-by-taste
+    text: Taste a shot and say which way to move the grind
+    tested_by: [1, 3]
+```
+
+Declaring `objectives:` means dropping the `## Learning Objectives` section — they are mutually exclusive, because two copies of the same sentences is the drift the format refuses everywhere else.
+
+The `tested_by` mapping is what lets even a model-free runtime record that a learner demonstrated something, rather than merely attended. Worth the two extra lines.
+
+## 10. Version it honestly
 
 Once anyone has started your course, the version number is a promise about coordinates:
 

@@ -6,13 +6,15 @@ Known Skilling implementations and their conformance claims. Claims follow [conf
 
 | Implementation | Classes | Specification | Status |
 |---|---|---|---|
-| [`skilling`](../packages/skilling/) — models, loader, validator | Course tooling | 1.0 | shipped |
-| [`skilling deliver`](../packages/skilling/src/skilling/cli/walk.py) | Conforming Runtime | 1.0 | shipped |
-| [`skilling.store.FileProgressStore`](../packages/skilling/src/skilling/store/file.py) | Conforming Store | 1.0 | shipped |
-| Skilling tutor on Pydantic AI | Conforming Runtime | 1.0 | planned |
+| [`skilling`](../packages/skilling/) — models, loader, validator | Course tooling | 1.1 | shipped |
+| [`skilling deliver`](../packages/skilling/src/skilling/cli/walk.py) | Conforming Runtime, Conforming Producer | 1.1 | shipped |
+| [`skilling.store.FileProgressStore`](../packages/skilling/src/skilling/store/file.py) | Conforming Store | 1.1 | shipped |
+| Skilling tutor on Pydantic AI | Conforming Runtime | 1.1 | planned |
 | *your implementation here* | | | [CONTRIBUTING](../CONTRIBUTING.md) |
 
-A three-row registry where every row is the same author is an honest registry, not an impressive one. Until someone we have never met builds a row, "standard" is a claim under test rather than a fact.
+A registry where every row is the same author is an honest registry, not an impressive one. Until someone we have never met builds a row, "standard" is a claim under test rather than a fact.
+
+`skilling deliver` also claims [Conforming Producer](../spec/README.md#conforming-producer), since it is the interface as well as the runtime: it writes learner state only through the runtime, never synthesises input to unlock a gate, never renders an answer before it is earned, and asks about telemetry with the decline as the default. Claiming the class matters because it means the class is exercised rather than merely described.
 
 ## Why the reference runtime has no language model in it
 

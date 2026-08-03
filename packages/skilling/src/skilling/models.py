@@ -53,6 +53,9 @@ class PhaseEntry(Strict):
     number: int = Field(ge=0)
     slug: Slug
     name: str = Field(min_length=1)
+    highlight: str | None = None
+    """Since 1.1. One clause completing "this learner just…", used at ceremony."""
+
     lessons: list[LessonEntry] = Field(min_length=1)
 
     @field_validator("slug")
@@ -82,6 +85,38 @@ class Tutor(Strict):
     tone: list[str] = Field(default_factory=list)
 
 
+class Brand(Strict):
+    """Facts a tutor may not invent. Since 1.1.
+
+    Every field is optional, and a runtime composing ceremony copy may state nothing that is
+    not here — the whole point is that a model asked for a share post will otherwise guess a
+    handle, confidently and wrongly.
+    """
+
+    product: str | None = None
+    url: str | None = None
+    mention: str | None = None
+    handles: dict[str, str] = Field(default_factory=dict)
+    hashtags: list[str] = Field(default_factory=list)
+    """Stored bare; the runtime adds the '#', so an author cannot ship '##WebDev'."""
+
+
+class Ceremony(Strict):
+    """Since 1.1. Facts plus optional literal templates."""
+
+    brand: Brand | None = None
+    phase_completed_template: str | None = None
+    course_completed_template: str | None = None
+
+    def templates(self) -> dict[str, str]:
+        found = {}
+        if self.phase_completed_template:
+            found["phase_completed_template"] = self.phase_completed_template
+        if self.course_completed_template:
+            found["course_completed_template"] = self.course_completed_template
+        return found
+
+
 class Manifest(Strict):
     spec_version: str
     id: str
@@ -92,6 +127,7 @@ class Manifest(Strict):
     license: str | None = None
     authors: list[str] = Field(default_factory=list)
     tutor: Tutor | None = None
+    ceremony: Ceremony | None = None
     phases: list[PhaseEntry] = Field(min_length=1)
     skills: list[Skill] = Field(default_factory=list)
 
@@ -116,6 +152,27 @@ SectionDecl = Literal["present"] | SectionAbsence
 OPTIONAL_SECTION_KEYS: tuple[str, ...] = ("key_terms", "exercise", "next_up")
 
 
+class Objective(Strict):
+    """An addressable learning objective. Since 1.1.
+
+    A lesson's contract, given an id so a tutor can target remediation at the one a wrong
+    answer implicates instead of re-presenting the whole concept.
+    """
+
+    id: Slug
+    text: str = Field(min_length=1)
+    tested_by: list[int] = Field(default_factory=list)
+    """Quiz question numbers testing this objective. What lets a model-free runtime decide
+    an objective was demonstrated."""
+
+    @field_validator("id")
+    @classmethod
+    def _kebab(cls, v: str) -> str:
+        if not SLUG_RE.match(v):
+            raise ValueError("must be lowercase kebab-case")
+        return v
+
+
 class LessonFrontmatter(Strict):
     title: str = Field(min_length=1)
     phase: int = Field(ge=0)
@@ -123,7 +180,17 @@ class LessonFrontmatter(Strict):
     duration_minutes: int | None = Field(default=None, ge=1)
     prerequisites: list[str] = Field(default_factory=list)
     skills_unlocked: list[str] = Field(default_factory=list)
+    objectives: list[Objective] = Field(default_factory=list)
     sections: dict[str, SectionDecl] = Field(default_factory=dict)
+
+    def objective(self, objective_id: str) -> Objective | None:
+        for candidate in self.objectives:
+            if candidate.id == objective_id:
+                return candidate
+        return None
+
+    def objectives_for_question(self, number: int) -> list[Objective]:
+        return [o for o in self.objectives if number in o.tested_by]
 
     @field_validator("prerequisites")
     @classmethod
@@ -153,6 +220,25 @@ class Position(Strict):
         return f"{self.phase}.{self.lesson}"
 
 
+Evidence = Literal["quiz", "exercise", "homework", "tutor"]
+
+
+class ObjectiveMet(Strict):
+    """A capability claim, with how it was demonstrated. Since 1.1."""
+
+    id: str = Field(min_length=1)
+    at: date
+    evidence: Evidence
+
+
+class Telemetry(Strict):
+    """Since 1.1. ``opt_in`` is ternary: None means never asked, so ask once."""
+
+    opt_in: bool | None = None
+    anonymous_id: str = ""
+    """Sink-assigned, write-once. Never derived from ``learner_id``."""
+
+
 class Record(Strict):
     learner_id: str = Field(min_length=1)
     course_id: str = Field(min_length=1)
@@ -161,10 +247,15 @@ class Record(Strict):
     position: Position
     completed: list[str] = Field(default_factory=list)
     skills_unlocked: list[str] = Field(default_factory=list)
+    objectives_met: list[ObjectiveMet] = Field(default_factory=list)
     started_at: date
     last_activity: date
     timezone: str = "UTC"
     streak_days: int = Field(default=0, ge=0)
+    telemetry: Telemetry = Field(default_factory=Telemetry)
+
+    def has_met(self, objective_id: str) -> bool:
+        return any(o.id == objective_id for o in self.objectives_met)
 
     @field_validator("completed")
     @classmethod

@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import ceremony as cer
 from . import lesson as md
 from .errors import CATALOGUE, SPEC_MAJOR, SPEC_MINOR, Code, Severity
 from .loader import (
@@ -297,6 +298,73 @@ def _check_manifest(out: _Collector, manifest: Manifest, raw: str) -> None:
             )
 
 
+def _check_ceremony(out: _Collector, manifest: Manifest, raw: str) -> None:
+    """Ceremony copy is learner-facing, so it is held to the same rules as a lesson body."""
+    # Highlights are scanned whether or not a ceremony block exists: a highlight reaches a
+    # learner through any runtime that composes its own copy, block or no block.
+    for phase in manifest.phases:
+        if phase.highlight:
+            _scan_counts(
+                out,
+                phase.highlight,
+                _MANIFEST_COUNTS + _BODY_COUNTS,
+                path=MANIFEST_NAME,
+                where=f"Phase {phase.number}'s highlight",
+            )
+
+    ceremony = manifest.ceremony
+    if ceremony is None:
+        return
+
+    for field, template in ceremony.templates().items():
+        for name in cer.unknown_placeholders(template):
+            out.add(
+                Code.CEREMONY_UNKNOWN_PLACEHOLDER,
+                f"{field} uses {{{name}}}, which no runtime can fill. Known placeholders: "
+                + ", ".join(sorted(cer.PLACEHOLDERS))
+                + ".",
+                path=MANIFEST_NAME,
+                line=_line_of(raw, field),
+            )
+
+        if "phase_highlight" in cer.placeholders_in(template):
+            for phase in manifest.phases:
+                if not (phase.highlight or "").strip():
+                    out.add(
+                        Code.CEREMONY_HIGHLIGHT_MISSING,
+                        f"{field} uses {{phase_highlight}} but phase {phase.number} has no "
+                        "highlight. A share post with a hole in the middle is worse than one "
+                        "that never promised a highlight.",
+                        path=MANIFEST_NAME,
+                        line=_line_of(raw, phase.slug),
+                    )
+
+        _scan_counts(
+            out,
+            template,
+            _MANIFEST_COUNTS + _BODY_COUNTS,
+            path=MANIFEST_NAME,
+            where=f"ceremony.{field}",
+        )
+
+    if ceremony.brand:
+        for platform, handle in ceremony.brand.handles.items():
+            if not handle.startswith("@"):
+                out.add(
+                    Code.CEREMONY_HANDLE_MALFORMED,
+                    f"The {platform} handle {handle!r} does not begin with '@'.",
+                    path=MANIFEST_NAME,
+                    line=_line_of(raw, handle),
+                )
+        if ceremony.brand.mention and not ceremony.brand.mention.startswith("@"):
+            out.add(
+                Code.CEREMONY_HANDLE_MALFORMED,
+                f"brand.mention {ceremony.brand.mention!r} does not begin with '@'.",
+                path=MANIFEST_NAME,
+                line=_line_of(raw, "mention:"),
+            )
+
+
 def _check_numbering(out: _Collector, manifest: Manifest, raw: str) -> None:
     numbers = [p.number for p in manifest.phases]
     seen: set[int] = set()
@@ -482,14 +550,48 @@ def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
             break
 
     present = parsed.slots
+    structured_objectives = bool(fm.objectives)
+
     for spec in md.SECTION_REGISTRY:
-        if spec.required and spec.slot not in present:
+        if not spec.required or spec.slot in present:
+            continue
+        if spec.slot == "objectives" and structured_objectives:
+            # Declared structurally in frontmatter; the runtime renders from there instead.
+            continue
+        out.add(
+            Code.SECTION_MISSING,
+            f"'## {spec.heading}' is required and absent.",
+            path=path,
+            line=1,
+        )
+
+    if structured_objectives and "objectives" in present:
+        section = parsed.section("objectives")
+        out.add(
+            Code.OBJECTIVES_DECLARED_TWICE,
+            "Objectives are declared in frontmatter and as a '## Learning Objectives' section. "
+            "They are mutually exclusive — two sources of truth for the same sentences.",
+            path=path,
+            line=section.line if section else 1,
+        )
+
+    seen_objectives: set[str] = set()
+    for objective in fm.objectives:
+        if objective.id in seen_objectives:
             out.add(
-                Code.SECTION_MISSING,
-                f"'## {spec.heading}' is required and absent.",
+                Code.OBJECTIVE_ID_DUPLICATE,
+                f"Two objectives share the id {objective.id!r}.",
                 path=path,
                 line=1,
             )
+        seen_objectives.add(objective.id)
+        _scan_counts(
+            out,
+            objective.text,
+            _BODY_COUNTS,
+            path=path,
+            where=f"Objective {objective.id!r}",
+        )
 
     for key in OPTIONAL_SECTION_KEYS:
         spec = md.BY_SLOT[key]
@@ -590,6 +692,7 @@ def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
 
     if quiz := parsed.section("quiz"):
         _check_quiz(out, path, quiz)
+        _check_tested_by(out, path, parsed, quiz)
 
     if homework := parsed.section("homework"):
         parsed_hw = md.parse_homework(homework.body)
@@ -613,6 +716,28 @@ def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
                 path=path,
                 line=next_up.line,
             )
+
+
+def _check_tested_by(
+    out: _Collector, path: Path, parsed: md.ParsedLesson, section: md.Section
+) -> None:
+    """An objective may only point at questions that exist. Renumbering a quiz means
+    revisiting whatever pointed at it."""
+    fm = parsed.frontmatter
+    if fm is None or not fm.objectives:
+        return
+
+    numbers = {q.number for q in md.parse_quiz(section.body, section.body_line)}
+    for objective in fm.objectives:
+        for referenced in objective.tested_by:
+            if referenced not in numbers:
+                out.add(
+                    Code.OBJECTIVE_TESTED_BY_INVALID,
+                    f"Objective {objective.id!r} is tested_by question {referenced}, which this "
+                    f"quiz does not have. It has: {sorted(numbers) or 'none'}.",
+                    path=path,
+                    line=section.line,
+                )
 
 
 def _check_quiz(out: _Collector, path: Path, section: md.Section) -> None:
@@ -713,6 +838,7 @@ def validate_course(root: Path | str) -> Report:
 
     raw = (root / MANIFEST_NAME).read_text(encoding="utf-8")
     _check_manifest(out, manifest, raw)
+    _check_ceremony(out, manifest, raw)
     _check_numbering(out, manifest, raw)
 
     course = resolve(root, manifest)

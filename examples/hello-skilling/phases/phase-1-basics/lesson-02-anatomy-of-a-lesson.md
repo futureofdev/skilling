@@ -5,17 +5,21 @@ lesson: 2
 duration_minutes: 20
 prerequisites: ["1.1"]
 skills_unlocked: [course-anatomy]
+objectives:
+  - id: declare-absence
+    text: Explain why silence about a missing section is a defect and a declared absence is not
+    tested_by: [1]
+  - id: name-the-sections
+    text: Name the required sections of a lesson and put them in the right order
+    tested_by: [2]
+  - id: read-frontmatter
+    text: Say what a lesson's frontmatter declares, and why it repeats the manifest
+    tested_by: [3]
 sections:
   key_terms: present
   exercise: present
   next_up: present
 ---
-
-## Learning Objectives
-By the end of this lesson, you will:
-- Be able to name the required sections of a lesson and put them in the right order
-- Know what a lesson's frontmatter declares and why
-- Understand declared absence, and why silence about a missing section is a defect
 
 ## The Concept
 A lesson is one markdown file with two parts: YAML frontmatter, then a fixed set of sections with exact headings in a fixed order.

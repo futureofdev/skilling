@@ -56,6 +56,8 @@ class ResolvedPhase:
     name: str
     directory: Path
     lessons: tuple[ResolvedLesson, ...]
+    highlight: str | None = None
+    """Since 1.1. One clause completing "this learner just…", used at ceremony."""
 
     @property
     def overview_path(self) -> Path | None:
@@ -239,6 +241,7 @@ def resolve(root: Path, manifest: Manifest) -> Course:
                 name=phase.name,
                 directory=directory,
                 lessons=lessons,
+                highlight=phase.highlight,
             )
         )
     return Course(root=root, manifest=manifest, phases=tuple(phases))

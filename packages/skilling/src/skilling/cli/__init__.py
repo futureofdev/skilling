@@ -6,8 +6,9 @@ from pathlib import Path
 
 import typer
 
-from .. import __version__
+from .. import __version__, runtime
 from ..diff import compare_paths
+from ..hooks import Dispatcher, parse_sink
 from ..loader import CourseLoadError, load_course
 from ..runtime import today_in
 from ..store import FileProgressStore
@@ -117,6 +118,19 @@ def deliver(
     ),
     learner: str = typer.Option(LOCAL_LEARNER, "--learner", help="Learner id for the record."),
     zone: str = typer.Option("UTC", "--timezone", help="IANA timezone for streak dates."),
+    sink: list[str] = typer.Option(
+        None,
+        "--sink",
+        help="First-party hook sink, inside your trust boundary. e.g. jsonl:events.jsonl",
+    ),
+    telemetry_sink: list[str] = typer.Option(
+        None,
+        "--telemetry-sink",
+        help="Sink that leaves your trust boundary. Consent-gated and anonymised.",
+    ),
+    no_telemetry: bool = typer.Option(
+        False, "--no-telemetry", help="Record a decline without asking, and send nothing."
+    ),
 ) -> None:
     """Walk the delivery loop. A Conforming Runtime — no language model involved."""
     try:
@@ -133,9 +147,31 @@ def deliver(
         )
         raise typer.Exit(1)
 
+    try:
+        first_party = [parse_sink(spec) for spec in (sink or [])]
+        telemetry = [] if no_telemetry else [parse_sink(spec) for spec in (telemetry_sink or [])]
+    except ValueError as exc:
+        render.err_console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+
+    dispatcher = Dispatcher(first_party=first_party, telemetry=telemetry)
     store = FileProgressStore(state, learner_id=learner)
-    walker = Walker(resolved, store, learner_id=learner, console=render.console, zone=zone)
-    raise typer.Exit(walker.run())
+    walker = Walker(
+        resolved,
+        store,
+        learner_id=learner,
+        console=render.console,
+        zone=zone,
+        hooks=dispatcher,
+        ask_consent=not no_telemetry,
+    )
+    try:
+        code = walker.run()
+        if no_telemetry and walker.record.telemetry.opt_in is None:
+            runtime.set_telemetry_consent(store, walker.record, walker.revision, False)
+    finally:
+        dispatcher.close()
+    raise typer.Exit(code)
 
 
 @app.command()

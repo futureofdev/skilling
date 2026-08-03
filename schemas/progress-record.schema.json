@@ -1,5 +1,38 @@
 {
   "$defs": {
+    "ObjectiveMet": {
+      "additionalProperties": false,
+      "description": "A capability claim, with how it was demonstrated. Since 1.1.",
+      "properties": {
+        "at": {
+          "format": "date",
+          "title": "At",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "quiz",
+            "exercise",
+            "homework",
+            "tutor"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "at",
+        "evidence"
+      ],
+      "title": "ObjectiveMet",
+      "type": "object"
+    },
     "Position": {
       "additionalProperties": false,
       "properties": {
@@ -32,9 +65,34 @@
       ],
       "title": "Position",
       "type": "object"
+    },
+    "Telemetry": {
+      "additionalProperties": false,
+      "description": "Since 1.1. ``opt_in`` is ternary: None means never asked, so ask once.",
+      "properties": {
+        "anonymous_id": {
+          "default": "",
+          "title": "Anonymous Id",
+          "type": "string"
+        },
+        "opt_in": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Opt In"
+        }
+      },
+      "title": "Telemetry",
+      "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.0/progress-record.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.1/progress-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
@@ -65,6 +123,13 @@
       "title": "Learner Id",
       "type": "string"
     },
+    "objectives_met": {
+      "items": {
+        "$ref": "#/$defs/ObjectiveMet"
+      },
+      "title": "Objectives Met",
+      "type": "array"
+    },
     "position": {
       "$ref": "#/$defs/Position"
     },
@@ -89,6 +154,9 @@
       "minimum": 0,
       "title": "Streak Days",
       "type": "integer"
+    },
+    "telemetry": {
+      "$ref": "#/$defs/Telemetry"
     },
     "timezone": {
       "default": "UTC",

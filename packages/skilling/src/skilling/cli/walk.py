@@ -20,8 +20,10 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 
+from .. import ceremony as cer
 from .. import lesson as md
 from .. import machine, runtime
+from ..hooks import NO_HOOKS, Dispatcher, EventName
 from ..loader import Course, ResolvedLesson
 from ..machine import Beat, Input, LessonShape, LessonState
 from ..models import Record
@@ -41,14 +43,20 @@ class Walker:
         learner_id: str,
         console: Console,
         zone: str = "UTC",
+        hooks: Dispatcher = NO_HOOKS,
+        ask_consent: bool = True,
     ) -> None:
         self.course = course
         self.store = store
         self.learner_id = learner_id
         self.console = console
         self.zone = zone
+        self.hooks = hooks
+        self.ask_consent = ask_consent
         self.record: Record
         self.revision: str | None
+        self.correct: dict[int, bool] = {}
+        """Per-lesson quiz results, keyed by question number. Drives objectives_met."""
 
     # ------------------------------------------------------------------------ prompts
 
@@ -79,6 +87,37 @@ class Walker:
         self.revision = self.store.put_record(updated, self.revision)
         self.record = updated
 
+    # ------------------------------------------------------------------------ telemetry
+
+    def _telemetry_consent(self) -> None:
+        """Ask once, on ``null``, with no dark default.
+
+        The honest framing matters more than the wording: the learner is told what is sent,
+        that it is anonymous, and that declining costs them nothing — because it does not.
+        """
+        if not self.ask_consent or not self.hooks.telemetry:
+            return
+        if self.record.telemetry.opt_in is not None:
+            return
+
+        self.console.print("[bold]Share anonymous progress data?[/]")
+        self.console.print(
+            "[dim]Which lessons you finish and which quiz answers you get right, under a "
+            "random id. No names, no messages, nothing you write. It helps whoever wrote "
+            "this course see how it is going.\n"
+            "Declining changes nothing about the course you get.[/]"
+        )
+        # default=False: the honest default for a question the learner has not been asked before.
+        agreed = self._confirm("Share anonymously?", default=False)
+        self.record, self.revision = runtime.set_telemetry_consent(
+            self.store, self.record, self.revision, agreed
+        )
+        self.console.print(
+            "[dim]Thank you — sharing anonymously.[/]\n"
+            if agreed
+            else "[dim]Nothing will be sent.[/]\n"
+        )
+
     # ---------------------------------------------------------------------------- run
 
     def run(self, *, now: datetime | None = None) -> int:
@@ -97,6 +136,7 @@ class Walker:
         )
 
         try:
+            self._telemetry_consent()
             while True:
                 coordinate = self.record.position.coordinate
                 lesson = self.course.lesson_at(coordinate)
@@ -144,6 +184,7 @@ class Walker:
         if quiz := parsed.section("quiz"):
             questions = md.parse_quiz(quiz.body, quiz.body_line)
 
+        self.correct = {}
         while not state.terminal:
             state = self.beat(state, lesson, parsed, questions, now=now)
 
@@ -158,16 +199,22 @@ class Walker:
     ) -> LessonState:
         phase = self.course.phase_of(lesson.coordinate)
 
+        moment = now or runtime.utc_now()
+
         match state.beat:
             case Beat.WELCOME:
                 self.console.print(Rule(f"[bold]{lesson.coordinate} — {lesson.title}[/]"))
                 self.console.print(f"[dim]Phase {lesson.phase}: {phase.name if phase else ''}[/]\n")
+                self.hooks.emit(
+                    EventName.LESSON_STARTED,
+                    self.record,
+                    occurred_at=moment,
+                    coordinate=lesson.coordinate,
+                )
                 return machine.advance(state, Input.NEXT)
 
             case Beat.OBJECTIVES:
-                if section := parsed.section("objectives"):
-                    self.console.print("[bold]Learning Objectives[/]")
-                    self._md(section.body)
+                self._objectives(parsed)
                 return machine.advance(state, Input.NEXT)
 
             case Beat.CONCEPT:
@@ -181,6 +228,7 @@ class Walker:
 
             case Beat.GATE_CONCEPT:
                 self._persist_beat(state.beat)
+                self._gate_opened(lesson, state.beat, moment)
                 answer = self._ask(
                     "Go deeper on any of that, or move on?", ["deeper", "proceed"], "proceed"
                 )
@@ -201,6 +249,7 @@ class Walker:
 
             case Beat.GATE_EXERCISE:
                 self._persist_beat(state.beat)
+                self._gate_opened(lesson, state.beat, moment)
                 answer = self._ask(
                     "Let me know when you've given it a try, or ask for a hint",
                     ["done", "hint"],
@@ -210,11 +259,11 @@ class Walker:
 
             case Beat.QUIZ:
                 self._persist_beat(state.beat)
-                return self._quiz(state, questions)
+                return self._quiz(state, lesson, questions, moment)
 
             case Beat.REMEDIATE:
                 self._persist_beat(state.beat)
-                return self._remediate(state, parsed)
+                return self._remediate(state, parsed, questions)
 
             case Beat.COMPLETE:
                 return self._complete(state, lesson, now=now)
@@ -224,6 +273,30 @@ class Walker:
 
             case _:
                 return machine.advance(state, Input.NEXT)
+
+    def _gate_opened(self, lesson: ResolvedLesson, beat: Beat, moment: datetime) -> None:
+        self.hooks.emit(
+            EventName.GATE_OPENED,
+            self.record,
+            occurred_at=moment,
+            coordinate=lesson.coordinate,
+            beat=str(beat),
+        )
+
+    def _objectives(self, parsed: md.ParsedLesson) -> None:
+        """Render objectives from whichever form the lesson used — never both, since the
+        format makes them mutually exclusive."""
+        fm = parsed.frontmatter
+        if fm and fm.objectives:
+            self.console.print("[bold]Learning Objectives[/]")
+            self.console.print("By the end of this lesson, you will be able to:")
+            for objective in fm.objectives:
+                self.console.print(f"  • {objective.text}")
+            self.console.print()
+            return
+        if section := parsed.section("objectives"):
+            self.console.print("[bold]Learning Objectives[/]")
+            self._md(section.body)
 
     def _declared_absence(self, parsed: md.ParsedLesson) -> None:
         """Surface the author's stated reason in place of the skipped exercise beat."""
@@ -235,7 +308,13 @@ class Walker:
 
     # ---------------------------------------------------------------------------- quiz
 
-    def _quiz(self, state: LessonState, questions: list[md.QuizQuestion]) -> LessonState:
+    def _quiz(
+        self,
+        state: LessonState,
+        lesson: ResolvedLesson,
+        questions: list[md.QuizQuestion],
+        moment: datetime,
+    ) -> LessonState:
         index = state.question_index
         if index >= len(questions):
             # A malformed quiz should not trap a learner in a lesson they cannot finish.
@@ -251,6 +330,18 @@ class Walker:
 
         given = self._ask("Your answer", [o.label for o in question.options])
         correct = given == question.answer_label
+        # A question re-answered after remediation keeps its first verdict: an objective is
+        # demonstrated by getting it right, not by being told the answer and agreeing.
+        self.correct.setdefault(question.number, correct)
+
+        self.hooks.emit(
+            EventName.QUIZ_ANSWERED,
+            self.record,
+            occurred_at=moment,
+            coordinate=lesson.coordinate,
+            question=question.number,
+            correct=correct,
+        )
 
         if correct:
             self.console.print(f"[bold green]Correct.[/] {question.answer_reason}\n")
@@ -263,7 +354,29 @@ class Walker:
         )
         return machine.advance(state, Input.ANSWER_WRONG)
 
-    def _remediate(self, state: LessonState, parsed: md.ParsedLesson) -> LessonState:
+    def _implicated(
+        self, parsed: md.ParsedLesson, state: LessonState, questions: list[md.QuizQuestion]
+    ) -> str | None:
+        """The objective the question just missed was testing, if the lesson said so.
+
+        This is the payoff for making objectives addressable: naming what went wrong beats
+        replaying the whole concept at someone.
+        """
+        fm = parsed.frontmatter
+        if fm is None or not fm.objectives:
+            return None
+        index = state.question_index
+        if index >= len(questions):
+            return None
+        matched = fm.objectives_for_question(questions[index].number)
+        return matched[0].text if matched else None
+
+    def _remediate(
+        self, state: LessonState, parsed: md.ParsedLesson, questions: list[md.QuizQuestion]
+    ) -> LessonState:
+        if objective := self._implicated(parsed, state, questions):
+            self.console.print(f"[dim]That one was about: {objective}.[/]")
+
         if machine.should_offer_revisit(state):
             self.console.print(
                 "[dim]That's two we've missed. Worth going back over the concept properly "
@@ -285,10 +398,21 @@ class Walker:
     def _complete(
         self, state: LessonState, lesson: ResolvedLesson, *, now: datetime | None = None
     ) -> LessonState:
+        objectives_met: list[str] = []
+        if not self.record.has_completed(lesson.coordinate):
+            # Written before the completion so a sink cannot see a completion whose objectives
+            # have not yet landed.
+            self.record, self.revision, objectives_met = runtime.mark_objectives_met(
+                self.store, self.record, self.revision, lesson, self.correct, now=now
+            )
+
         outcome = runtime.complete_lesson(
-            self.store, self.course, self.record, self.revision, lesson, now=now
+            self.store, self.course, self.record, self.revision, lesson, now=now, hooks=self.hooks
         )
         self.record, self.revision = outcome.record, outcome.revision
+
+        for objective in objectives_met:
+            self.console.print(f"[green]Objective demonstrated:[/] {objective}")
 
         if outcome.already_completed:
             self.console.print(
@@ -321,6 +445,8 @@ class Walker:
             )
         )
 
+        self._share(phase)
+
         outcome = getattr(self, "_outcome", None)
         if outcome and outcome.homework_placed:
             self._homework(now=now)
@@ -333,6 +459,20 @@ class Walker:
             self.console.print(f"[dim]Up next: {teaser}[/]\n")
 
         return machine.advance(state, Input.NEXT)
+
+    def _share(self, phase) -> None:  # noqa: ANN001 - ResolvedPhase | None
+        """Offer share copy, resolved in the order the specification gives.
+
+        A model-free walker can only take the literal template, or assemble the declared facts
+        flatly. It invents nothing — which is the whole reason the facts are in the manifest.
+        """
+        finished = self.course.completed_count(self.record.completed) >= self.course.lesson_count
+        text = cer.share_text(self.course, self.record, phase, course_complete=finished)
+        if not text:
+            return
+        self.console.print("[dim]Something to share, if you'd like to:[/]")
+        self.console.print(Panel(text, border_style="dim"))
+        self.console.print()
 
     def _next_teaser(self, lesson: ResolvedLesson) -> str | None:
         following = self.course.next_lesson(lesson.coordinate)
@@ -376,7 +516,13 @@ class Walker:
             return
 
         entry = runtime.submit_homework(
-            self.store, self.learner_id, self.course.id, slot.coordinate, now=now
+            self.store,
+            self.learner_id,
+            self.course.id,
+            slot.coordinate,
+            now=now,
+            hooks=self.hooks,
+            record=self.record,
         )
         if entry:
             self.console.print(f"[bold green]Submitted[/] and archived: {entry.title}\n")

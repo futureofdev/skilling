@@ -15,12 +15,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import lesson as md
 from .errors import SPEC_MAJOR, SPEC_MINOR
+from .hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 from .loader import Course, ResolvedLesson
 from .models import (
     Assignment,
     CompletionEntry,
     HomeworkArchiveEntry,
     HomeworkSlot,
+    ObjectiveMet,
     Position,
     Record,
     Requirement,
@@ -140,6 +142,7 @@ def complete_lesson(
     lesson: ResolvedLesson,
     *,
     now: datetime | None = None,
+    hooks: Dispatcher = NO_HOOKS,
 ) -> CompletionOutcome:
     """The completion write set.
 
@@ -197,7 +200,29 @@ def complete_lesson(
 
     if course.is_last_in_phase(lesson.coordinate):
         outcome.phase_completed = lesson.phase
-        outcome = _run_ceremony(store, course, updated, lesson, outcome, moment)
+        outcome = _run_ceremony(store, course, updated, lesson, outcome, moment, hooks=hooks)
+
+    # Events fire after the writes, so a sink can never observe a completion the record does
+    # not yet show.
+    for badge in outcome.badges_awarded:
+        hooks.emit(EventName.BADGE_AWARDED, outcome.record, occurred_at=moment, badge_id=badge)
+    hooks.emit(
+        EventName.LESSON_COMPLETED,
+        outcome.record,
+        occurred_at=moment,
+        coordinate=lesson.coordinate,
+        title=lesson.title,
+    )
+    if outcome.phase_completed is not None:
+        hooks.emit(
+            EventName.PHASE_COMPLETED,
+            outcome.record,
+            occurred_at=moment,
+            phase=outcome.phase_completed,
+            badges_awarded=outcome.badges_awarded,
+        )
+    if course.completed_count(outcome.record.completed) >= course.lesson_count:
+        hooks.emit(EventName.COURSE_COMPLETED, outcome.record, occurred_at=moment)
 
     return outcome
 
@@ -209,6 +234,8 @@ def _run_ceremony(
     lesson: ResolvedLesson,
     outcome: CompletionOutcome,
     moment: datetime,
+    *,
+    hooks: Dispatcher = NO_HOOKS,
 ) -> CompletionOutcome:
     """Award any outstanding badges for the phase, then fill the homework slot.
 
@@ -263,6 +290,73 @@ def _run_ceremony(
     return outcome
 
 
+def set_telemetry_consent(
+    store: ProgressStore,
+    record: Record,
+    revision: str | None,
+    opt_in: bool,
+) -> tuple[Record, str | None]:
+    """Record the learner's answer, and assign an anonymous id on the first yes.
+
+    The id is write-once and never derived from ``learner_id``: a learner who says yes gets a
+    fresh pseudonym, and a learner who later says no keeps it rather than having it recycled.
+    """
+    telemetry = record.telemetry.model_copy(update={"opt_in": opt_in})
+    if opt_in and not telemetry.anonymous_id:
+        telemetry = telemetry.model_copy(update={"anonymous_id": new_anonymous_id()})
+
+    updated = record.model_copy(update={"telemetry": telemetry})
+    return updated, store.put_record(updated, revision)
+
+
+def objectives_demonstrated_by_quiz(lesson: ResolvedLesson, correct: dict[int, bool]) -> list[str]:
+    """Which of a lesson's objectives the quiz demonstrated.
+
+    An objective counts as demonstrated when *every* question testing it was answered
+    correctly. An objective with no ``tested_by`` cannot be settled this way — that needs a
+    runtime with judgement, and guessing would be worse than leaving it absent.
+    """
+    parsed = md.parse_lesson(lesson.path)
+    if parsed.frontmatter is None:
+        return []
+
+    met: list[str] = []
+    for objective in parsed.frontmatter.objectives:
+        if not objective.tested_by:
+            continue
+        if all(correct.get(number) for number in objective.tested_by):
+            met.append(objective.id)
+    return met
+
+
+def mark_objectives_met(
+    store: ProgressStore,
+    record: Record,
+    revision: str | None,
+    lesson: ResolvedLesson,
+    correct: dict[int, bool],
+    *,
+    now: datetime | None = None,
+    evidence: str = "quiz",
+) -> tuple[Record, str | None, list[str]]:
+    """Write the objectives a quiz demonstrated. Returns the newly recorded ids."""
+    candidates = objectives_demonstrated_by_quiz(lesson, correct)
+    fresh = [oid for oid in candidates if not record.has_met(oid)]
+    if not fresh:
+        return record, revision, []
+
+    today = today_in(record.timezone, now or utc_now())
+    updated = record.model_copy(
+        update={
+            "objectives_met": [
+                *record.objectives_met,
+                *(ObjectiveMet(id=oid, at=today, evidence=evidence) for oid in fresh),  # type: ignore[arg-type]
+            ]
+        }
+    )
+    return updated, store.put_record(updated, revision), fresh
+
+
 def submit_homework(
     store: ProgressStore,
     learner_id: str,
@@ -270,6 +364,8 @@ def submit_homework(
     coordinate: str,
     *,
     now: datetime | None = None,
+    hooks: Dispatcher = NO_HOOKS,
+    record: Record | None = None,
 ) -> HomeworkArchiveEntry | None:
     """Archive the active assignment and reset the slot, loading any queued assignment.
 
@@ -303,5 +399,14 @@ def submit_homework(
         )
     else:
         store.put_homework(learner_id, course_id, None, revision)
+
+    if record is not None:
+        hooks.emit(
+            EventName.HOMEWORK_SUBMITTED,
+            record,
+            occurred_at=entry.submitted_at,
+            coordinate=entry.coordinate,
+            verdicts=[r.verdict for r in entry.requirements],
+        )
 
     return entry

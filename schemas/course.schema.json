@@ -1,5 +1,106 @@
 {
   "$defs": {
+    "Brand": {
+      "additionalProperties": false,
+      "description": "Facts a tutor may not invent. Since 1.1.\n\nEvery field is optional, and a runtime composing ceremony copy may state nothing that is\nnot here \u2014 the whole point is that a model asked for a share post will otherwise guess a\nhandle, confidently and wrongly.",
+      "properties": {
+        "handles": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Handles",
+          "type": "object"
+        },
+        "hashtags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hashtags",
+          "type": "array"
+        },
+        "mention": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mention"
+        },
+        "product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "title": "Brand",
+      "type": "object"
+    },
+    "Ceremony": {
+      "additionalProperties": false,
+      "description": "Since 1.1. Facts plus optional literal templates.",
+      "properties": {
+        "brand": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Brand"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "course_completed_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Course Completed Template"
+        },
+        "phase_completed_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phase Completed Template"
+        }
+      },
+      "title": "Ceremony",
+      "type": "object"
+    },
     "LessonEntry": {
       "additionalProperties": false,
       "properties": {
@@ -36,6 +137,18 @@
     "PhaseEntry": {
       "additionalProperties": false,
       "properties": {
+        "highlight": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Highlight"
+        },
         "lessons": {
           "items": {
             "$ref": "#/$defs/LessonEntry"
@@ -120,7 +233,7 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.0/course.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.1/course.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
@@ -131,6 +244,17 @@
       },
       "title": "Authors",
       "type": "array"
+    },
+    "ceremony": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Ceremony"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "description": {
       "anyOf": [

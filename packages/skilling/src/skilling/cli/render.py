@@ -22,7 +22,8 @@ def findings(report: Report, *, root: str) -> None:
     for finding in report.findings:
         colour = _COLOUR[finding.severity]
         head = Text()
-        head.append(f"{finding.severity!s:<7}", style=f"bold {colour}")
+        # 'warning' is exactly seven characters, so pad to eight or it runs into the location.
+        head.append(f"{finding.severity!s:<8}", style=f"bold {colour}")
         head.append(finding.location, style="cyan")
         head.append("  ")
         head.append(str(finding.code), style="bold")

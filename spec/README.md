@@ -1,10 +1,10 @@
 # The Skilling specification
 
-**Version 1.0.1-draft** · Specification text licensed [CC BY 4.0](LICENSE)
+**Version 1.1.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
 
-> The patch level is editorial. Courses declare `spec_version` as `"major.minor"`, so a
-> `"1.0"` course is unaffected by anything in 1.0.1 — the text says more, and requires
-> nothing new.
+> 1.1 is additive: it introduces hooks, telemetry, ceremony facts, and addressable
+> objectives, and requires nothing new of a course. A `spec_version: "1.0"` course validates
+> unchanged under a 1.1 tool — there is a test that proves it.
 
 Skilling is an open format for AI-tutored, skill-based courses. It specifies three things precisely enough that independent implementations interoperate:
 
@@ -16,7 +16,7 @@ In 1984 Benjamin Bloom showed that students taught one-to-one outperform classro
 
 ## Conformance
 
-Three classes. Each is claimed and checked independently; one implementation may claim several. A conformance claim names its class and the specification version range it targets — "Conforming Course, Skilling 1.0" — because "Skilling-compatible" on its own is not a claim.
+Four classes. Each is claimed and checked independently; one implementation may claim several. A conformance claim names its class and the specification version range it targets — "Conforming Course, Skilling 1.1" — because "Skilling-compatible" on its own is not a claim.
 
 ### Conforming Course
 
@@ -38,6 +38,17 @@ Notably, this does not require a language model. A text walker that holds the ga
 
 Persists records, completion logs, and homework behind [the store interface](runtime.md#the-store-interface), with optimistic concurrency, append-only guarantees, durability, and atomic completions. One test suite runs unchanged against every backend — that is what makes "a learner's history outlives any one runtime" a fact rather than a hope.
 
+### Conforming Producer
+
+**Since 1.1.** You are one if you embed a runtime in a product and put an interface on it. Four rules:
+
+- **Never create or mutate learner state except through a runtime.** Read records for reporting freely; writing them makes you a second runtime with none of the guarantees, and the record's meaning quietly stops being trustworthy.
+- **Never synthesise learner input.** A [gate](runtime.md#gates) unlocks only on input that came from the learner. Not a default, not a timer, not a "continue" your interface clicked on their behalf.
+- **Never undo protocol ordering in the interface.** No rendering an unanswered quiz question's answer, no showing question three while question two is open, no displaying key material handed to you in error.
+- **Present the telemetry choice honestly.** `null` means ask. No pre-ticked box, no dark-pattern default, and no implying that declining costs the learner something it does not.
+
+These are the rules that let an adopter build whatever interface they like without the record becoming fiction.
+
 ## Versioning
 
 The specification carries its own semantic version, independent of any implementation's package version.
@@ -57,12 +68,15 @@ Nothing is bound here that no implementation has run. These arrive as minor vers
 | Surface | Why it waits |
 |---|---|
 | **Assessed mode** — answer keys held apart from learner-visible content | Needs a runtime that holds keys and a real cohort to be assessed |
-| **Hooks and telemetry** — the extension points an adopter attaches policy to | Needs an adopter with policy to attach |
 | **Runtime API** — the embedding surface a product builds an interface on | Needs a second interface to bind against, or it binds one product's accidents |
 | **MCP binding** — delivery into a coding agent for hands-on courses | Needs the statefulness questions answered by running code |
 | **Skill packs** — a course compiled to Agent-Skills format | Needs the generator |
+| **Concept-level prerequisites** — `requires: can read a YAML mapping` | Additive; waiting on a tutor that can assess a claim like that |
+| **Lesson guidance** — what a tutor should avoid or defer | Additive; the ceremony pattern generalised, and not yet needed by a real course |
 
-Because assessed mode is not yet bound, every 1.0 course is informal: quiz answers are written inline in the lesson. When `assessment.mode` arrives it will be an optional field defaulting to `informal`, so no 1.0 course breaks.
+Because assessed mode is not yet bound, every course is informal: quiz answers are written inline in the lesson. When `assessment.mode` arrives it will be an optional field defaulting to `informal`, so nothing breaks.
+
+Hooks and telemetry left this table at 1.1, once there was a real adopter with real policy to design against — which is the bar every row above still has to clear.
 
 ## Why these constraints exist
 

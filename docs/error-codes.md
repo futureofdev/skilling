@@ -95,7 +95,29 @@ References to files in `assets/`.
 | `asset-reference-dangling` | error | A lesson references an asset that does not exist | [assets](../spec/course-format.md#assets) |
 | `asset-reference-absolute` | error | An asset reference is absolute or escapes the course directory | [assets](../spec/course-format.md#assets) |
 
-40 codes: 38 errors, 2 warnings.
+
+## Ceremony
+
+The `ceremony` block, since spec 1.1. Templates are learner-facing, so they are held to the same rules as a lesson body.
+
+| Code | Severity | What it means | Specification |
+|---|---|---|---|
+| `ceremony-unknown-placeholder` | error | A ceremony template uses a placeholder no runtime can fill | [placeholders](../spec/course-format.md#placeholders) |
+| `ceremony-highlight-missing` | error | A template uses {phase_highlight} but a phase has no highlight to fill it with | [placeholders](../spec/course-format.md#placeholders) |
+| `ceremony-handle-malformed` | warning | A social handle does not begin with '@' | [ceremony](../spec/course-format.md#ceremony) |
+
+
+## Structured objectives
+
+Addressable learning objectives, since spec 1.1.
+
+| Code | Severity | What it means | Specification |
+|---|---|---|---|
+| `objectives-declared-twice` | error | Objectives are declared in frontmatter and as a section; they are mutually exclusive | [structured-objectives](../spec/course-format.md#structured-objectives) |
+| `objective-id-duplicate` | error | Two objectives in one lesson share an id | [structured-objectives](../spec/course-format.md#structured-objectives) |
+| `objective-tested-by-invalid` | error | An objective's tested_by names a quiz question that does not exist | [structured-objectives](../spec/course-format.md#structured-objectives) |
+
+46 codes: 43 errors, 3 warnings.
 
 ## Using codes in CI
 

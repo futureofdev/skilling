@@ -98,6 +98,7 @@ skills:
 | `tutor` | No | `persona` (a string) and `tone` (a list of strings) guide how a tutor speaks. Guidance only — no runtime behaviour depends on them. |
 | `phases` | Yes | A non-empty ordered list. See [Phases and lessons](#phases-and-lessons). |
 | `skills` | No | Badges the course can award: a list of `{id, name}`. Ids follow the same rules as `id` above, and must be unique within the manifest. A registered badge need not be unlocked by any lesson. |
+| `ceremony` | No | Facts a tutor may not invent, plus optional literal templates. **Since 1.1** — see [Ceremony](#ceremony). |
 
 **Unknown fields are rejected, not ignored.** At 1.0 there are no optional additions to guess at, so a key that is not in this table is a typo worth reporting rather than an extension point. The same applies to lesson frontmatter.
 
@@ -120,6 +121,16 @@ phases:
 ```
 
 Each lesson entry carries a `number`, a `slug`, a `title`, and optionally `homework: true`.
+
+A phase entry may also carry a `highlight` — one clause completing "this learner just…", used at [ceremony](#ceremony). **Since 1.1.**
+
+```yaml
+  - number: 2
+    slug: javascript
+    name: JavaScript
+    highlight: wrote their first working function
+    lessons: [ … ]
+```
 
 A lesson is addressed by its **coordinate**, written `{phase}.{lesson}` — so `2.1` is phase 2, lesson 1. Coordinates appear in prerequisites, progress records, and completion logs.
 
@@ -184,6 +195,7 @@ sections:
 | `duration_minutes` | No | A positive integer. An estimate for the learner; nothing depends on it. |
 | `prerequisites` | No | A list of `"{phase}.{lesson}"` coordinates that exist in the manifest. |
 | `skills_unlocked` | No | A list of badge ids registered in the manifest's `skills`. A runtime writes these into the learner's record when the lesson completes. |
+| `objectives` | No | Structured, addressable learning objectives. **Since 1.1** — see [Learning Objectives](#learning-objectives). Present it and the `## Learning Objectives` section must be absent. |
 | `sections` | Yes | Declares the presence or absence of every optional section. See below. |
 
 ### The section registry
@@ -248,6 +260,32 @@ By the end of this lesson, you will:
 - Be able to run your first terminal commands
 ```
 
+#### Structured objectives
+
+**Since 1.1.** Objectives are a lesson's actual contract — "by the end you will be able to X" — and as prose nothing can reference one. Give them ids in the frontmatter instead and they become addressable, which lets a tutor target remediation at the objective a wrong answer implicates rather than re-presenting the whole concept, and lets a runtime record which capabilities a learner has actually demonstrated.
+
+```yaml
+objectives:
+  - id: open-a-terminal
+    text: Open the terminal on your own computer
+    tested_by: [1, 3]
+  - id: run-a-command
+    text: Run a command and read what it prints
+    tested_by: [2]
+```
+
+| Field | Required | Constraints |
+|---|---|---|
+| `id` | Yes | Lowercase kebab-case, unique within the lesson. Stable: a learner's record refers to it. |
+| `text` | Yes | The outcome, phrased from the learner's side, as the prose form would be. |
+| `tested_by` | No | Quiz question numbers that test this objective. Each must exist. |
+
+**Structured and prose objectives are mutually exclusive.** Declare `objectives:` and the `## Learning Objectives` section must be absent — a runtime renders the structured form in its place. Omit `objectives:` and the section stays required, exactly as in 1.0. Allowing both would be two sources of truth for the same sentences, which is the drift this format refuses everywhere else.
+
+`tested_by` is what makes objectives useful to a runtime that cannot judge work: when every question testing an objective is answered correctly, that objective was demonstrated, and the runtime can say so in the record. Without it, marking objectives met needs a tutor with judgement. Both are conforming; see [runtime](runtime.md#objectives-and-the-record).
+
+An objective is not a badge. A badge marks that a lesson completed; an objective claims a capability was demonstrated. Keeping them separate is deliberate — see [what the record knows](../docs/concepts/what-the-record-knows.md).
+
 ### The Concept
 
 The teaching body. Prose, code blocks, `###` subheadings, lists, tables, block quotes — any markdown that explains the idea. That list is illustrative, not exhaustive; the only structural restriction inside a section is that you may not open a new `##`.
@@ -294,7 +332,15 @@ The answer line's shape matters, because a runtime parses it:
 
 The reason is not decoration. A runtime reads it aloud as feedback, and a learner who guessed correctly still needs to hear why.
 
-Three questions and four options are fixed rather than configurable, so that a runtime's quiz beat, a validator's checks, and a learner's expectations are the same in every course.
+Question numbers are what [`tested_by`](#structured-objectives) refers to, so renumbering a quiz means revisiting the objectives that point at it.
+
+### Why the quiz is fixed and hand-written
+
+Three questions, four options, authored rather than generated. That is a choice, not an obvious truth, and it is worth naming what it buys and costs.
+
+It buys three things a generated quiz cannot have. A validator can check it, so a malformed quiz fails a build instead of a lesson. Every learner gets the same questions, so "most people miss question 2" is a sentence that means something. And assessed delivery, when it arrives, needs stable keys to hold answers against.
+
+It costs the obvious thing: a tutor that could have asked a better question — one aimed at what *this* learner just got confused about — is not allowed to. That is a real loss in a format built for AI tutors, and the trade is made deliberately in favour of the three properties above. A future version may let a tutor generate supplementary questions alongside the authored three; it will not remove them.
 
 ### Homework Assignment
 
@@ -322,6 +368,60 @@ The `- [ ]` requirements are the unit of feedback: a tutor reports on each one s
 When present, one or two sentences teasing the next lesson. When absent — and declared absent — a runtime generates a teaser from the manifest instead.
 
 **On the last lesson of a course there is nothing to tease**, and no manifest entry for a runtime to generate one from. Declare `next_up` absent, and say that in the intent. Do not write a `## Next Up` that promises material the course does not contain.
+
+## Ceremony
+
+**Since 1.1.** Entirely optional. A course with no `ceremony` block gets a plain, unbranded celebration at each phase boundary, exactly as before.
+
+This block exists because of a specific division of labour. A tutor writes a better celebration than any template could — contextual, in the learner's own register, different every time. What a tutor must **not** do is invent a product name, a URL, or a social handle, because it will guess `@YourCourse` when the real handle is `@your.course`. So the manifest carries the facts, and the tutor writes the prose.
+
+```yaml
+ceremony:
+  brand:
+    product: Claude Academy
+    url: futureofdev.com/claude-academy
+    mention: "@claudeai"
+    handles:
+      x: "@FutureOfDev"
+      instagram: "@claude.academy"
+    hashtags: [WebDev, CodingJourney]
+  phase_completed_template: |
+    🎉 Just completed Phase {phase_number}: {phase_name}!
+
+    {phase_highlight}
+
+    Built with {mention} — free at {url}
+```
+
+| Field | Required | Constraints |
+|---|---|---|
+| `brand.product` | No | The name of the product or programme the course belongs to. |
+| `brand.url` | No | Where a reader can find it. |
+| `brand.mention` | No | A handle to credit, including its `@`. |
+| `brand.handles` | No | A mapping of platform name to handle. Keys are free-form; handles include their `@`. |
+| `brand.hashtags` | No | A list of tags **without** the `#`. A runtime adds it, so an author cannot produce `##WebDev`. |
+| `phase_completed_template` | No | Literal copy, used verbatim when present. |
+| `course_completed_template` | No | The same, for the end of the course. |
+
+### Placeholders
+
+A template may use these and no others. An unknown placeholder is an error, because a template that silently renders `{phase_nmae}` as literal text ships to social media.
+
+| Placeholder | Filled with |
+|---|---|
+| `{phase_number}`, `{phase_name}` | The completed phase |
+| `{phase_highlight}` | That phase's `highlight` |
+| `{course_title}` | The manifest `title` |
+| `{completed_count}`, `{lesson_count}` | Derived by the runtime |
+| `{product}`, `{url}`, `{mention}` | From `brand` |
+
+`{completed_count}` and `{lesson_count}` are how you get "3 of 9 lessons done" into a share post **without** writing a count. The runtime fills them; you never maintain them. Writing the numbers yourself is still a [derived-count](#derived-counts) violation, and the validator scans templates for it.
+
+If a template uses `{phase_highlight}`, every phase needs a `highlight`. A share post with a hole in the middle is worse than one that never promised a highlight.
+
+### When to write a template at all
+
+Prefer not to. Facts plus a tutor beats a template for almost every course, and gives every learner something written for them rather than for everyone. Reach for a literal template only when the wording is genuinely non-negotiable — a legal line, a campaign, copy someone signed off — or when you know your course will be delivered by a runtime that has no model in it and can only assemble facts plainly.
 
 ## Assets
 
