@@ -24,7 +24,10 @@ from .store import Conflict, FileProgressStore, ProgressStore
 from .validate import Finding, Report, validate_course
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+"""Bumped whenever the specification version this package implements moves — a build that
+reports the wrong spec version is worse than no version at all, and a cached wheel will
+happily do exactly that."""
 
 __all__ = [
     "SPEC_MAJOR",
