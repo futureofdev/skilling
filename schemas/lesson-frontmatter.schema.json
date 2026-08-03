@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "SectionAbsence": {
+      "additionalProperties": false,
+      "description": "A declared absence. ``intent`` is lenient here so the validator can report a\nmissing reason with its own code rather than a generic parse failure.",
+      "properties": {
+        "intent": {
+          "default": "",
+          "title": "Intent",
+          "type": "string"
+        },
+        "status": {
+          "const": "none",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "SectionAbsence",
+      "type": "object"
+    }
+  },
+  "$id": "https://startskill.ing/schemas/v1.0/lesson-frontmatter.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
+  "properties": {
+    "duration_minutes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Minutes"
+    },
+    "lesson": {
+      "minimum": 1,
+      "title": "Lesson",
+      "type": "integer"
+    },
+    "phase": {
+      "minimum": 0,
+      "title": "Phase",
+      "type": "integer"
+    },
+    "prerequisites": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Prerequisites",
+      "type": "array"
+    },
+    "sections": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "const": "present",
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/SectionAbsence"
+          }
+        ]
+      },
+      "title": "Sections",
+      "type": "object"
+    },
+    "skills_unlocked": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Skills Unlocked",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "phase",
+    "lesson"
+  ],
+  "title": "The YAML frontmatter of a lesson",
+  "type": "object"
+}

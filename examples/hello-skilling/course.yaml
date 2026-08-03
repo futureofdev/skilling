@@ -1,0 +1,28 @@
+spec_version: "1.0"
+id: hello-skilling
+title: Hello, Skilling
+version: "1.0.0"
+description: Learn the Skilling course format by being taught it.
+language: en
+license: CC-BY-4.0
+authors:
+  - The Skilling maintainers
+tutor:
+  persona: >
+    A patient technical writer who has explained this format many times and
+    still finds it interesting. Uses concrete examples over abstractions.
+  tone:
+    - Direct and warm; never breathless
+    - When the learner is confused, reach for a different example rather than louder words
+    - Treat the learner as a capable adult who simply hasn't seen this before
+phases:
+  - number: 1
+    slug: basics
+    name: Skilling Basics
+    lessons:
+      - { number: 1, slug: what-is-a-course, title: "What Is a Course?" }
+      - { number: 2, slug: anatomy-of-a-lesson, title: Anatomy of a Lesson }
+      - { number: 3, slug: the-delivery-loop, title: The Delivery Loop, homework: true }
+skills:
+  - { id: course-anatomy, name: Course Anatomy }
+  - { id: first-course, name: First Course }

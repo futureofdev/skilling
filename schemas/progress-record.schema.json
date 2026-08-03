@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "beat": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Beat"
+        },
+        "lesson": {
+          "minimum": 1,
+          "title": "Lesson",
+          "type": "integer"
+        },
+        "phase": {
+          "minimum": 0,
+          "title": "Phase",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "phase",
+        "lesson"
+      ],
+      "title": "Position",
+      "type": "object"
+    }
+  },
+  "$id": "https://startskill.ing/schemas/v1.0/progress-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
+  "properties": {
+    "completed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Completed",
+      "type": "array"
+    },
+    "course_id": {
+      "minLength": 1,
+      "title": "Course Id",
+      "type": "string"
+    },
+    "course_version": {
+      "title": "Course Version",
+      "type": "string"
+    },
+    "last_activity": {
+      "format": "date",
+      "title": "Last Activity",
+      "type": "string"
+    },
+    "learner_id": {
+      "minLength": 1,
+      "title": "Learner Id",
+      "type": "string"
+    },
+    "position": {
+      "$ref": "#/$defs/Position"
+    },
+    "skills_unlocked": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Skills Unlocked",
+      "type": "array"
+    },
+    "spec_version": {
+      "title": "Spec Version",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date",
+      "title": "Started At",
+      "type": "string"
+    },
+    "streak_days": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Streak Days",
+      "type": "integer"
+    },
+    "timezone": {
+      "default": "UTC",
+      "title": "Timezone",
+      "type": "string"
+    }
+  },
+  "required": [
+    "learner_id",
+    "course_id",
+    "course_version",
+    "spec_version",
+    "position",
+    "started_at",
+    "last_activity"
+  ],
+  "title": "A learner's progress record (record.yaml)",
+  "type": "object"
+}

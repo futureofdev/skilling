@@ -2,6 +2,26 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## Errata against 1.0.0-draft
+
+Corrections the reference implementation forced. Recorded rather than silently worked
+around — a library that quietly disagrees with its own specification is the failure mode
+this section exists to prevent.
+
+- **A lesson title ending in `?` inside a `{ … }` flow mapping is not valid YAML.** The
+  draft's own full manifest example could not be loaded by any conforming tool. The example
+  now quotes the title, and [course format](course-format.md#the-manifest) notes which
+  characters need quoting in flow mappings. Found by the round-trip test over every YAML
+  example in this specification.
+- **Phase completion is derived, not stored.** [Ceremony](runtime.md#phase-boundary-ceremony)
+  said a runtime must "mark the phase complete in the record", which contradicted the rule
+  that structural facts are never stored. Reworded: completion is computed from the phase's
+  lessons and the record's `completed` set, and no field records it.
+- **`get_homework_archive` added to the store interface.** The specification required a
+  retried submission to return the archived result, but the operation table gave a store no
+  way to read its own archive. The read half of `append_homework_archive` is now listed in
+  [the store interface](runtime.md#the-store-interface).
+
 ## 1.0.0-draft — 2026-08-03
 
 First published draft. Promoted to 1.0.0 once the reference implementation's exit gates are green and `examples/hello-skilling` delivers end to end.

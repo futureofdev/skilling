@@ -1,0 +1,84 @@
+"""The validator's completeness gate.
+
+Two claims are under test, and they only mean something together: every error code fires on
+its own corruption, and a conforming course produces nothing at all. A validator that
+catches everything but also cries wolf is unusable, and one that never complains is a
+decoration.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+
+import pytest
+
+from skilling.errors import CATALOGUE, Code, Severity, missing_from_catalogue
+from skilling.validate import validate_course
+
+from .conftest import EXAMPLE_COURSE
+from .corruptions import CORRUPTIONS
+
+
+def test_catalogue_covers_every_code() -> None:
+    assert missing_from_catalogue() == set()
+
+
+def test_every_code_has_a_corruption() -> None:
+    """A new code without a corruption fails here rather than going untested."""
+    assert set(Code) - set(CORRUPTIONS) == set()
+
+
+def test_clean_fixture_has_no_findings(clean_dir: Path) -> None:
+    report = validate_course(clean_dir)
+    assert report.findings == [], [f.as_dict() for f in report.findings]
+
+
+def test_example_course_has_no_findings() -> None:
+    report = validate_course(EXAMPLE_COURSE)
+    assert report.findings == [], [f.as_dict() for f in report.findings]
+
+
+@pytest.mark.parametrize("code", sorted(CORRUPTIONS, key=str))
+def test_corruption_fires_its_code(
+    code: Code, corrupt: Callable[[Callable[[Path], None]], Path]
+) -> None:
+    root = corrupt(CORRUPTIONS[code])
+    report = validate_course(root)
+    assert code in report.codes(), (
+        f"{code} did not fire. Findings: {[str(f.code) for f in report.findings]}"
+    )
+
+
+@pytest.mark.parametrize("code", sorted(CORRUPTIONS, key=str))
+def test_every_finding_carries_a_spec_anchor(
+    code: Code, corrupt: Callable[[Callable[[Path], None]], Path]
+) -> None:
+    root = corrupt(CORRUPTIONS[code])
+    for finding in validate_course(root).findings:
+        assert finding.anchor.startswith("spec/"), finding.as_dict()
+        assert "#" in finding.anchor, finding.as_dict()
+
+
+def test_errors_and_warnings_are_separated(
+    corrupt: Callable[[Callable[[Path], None]], Path],
+) -> None:
+    report = validate_course(corrupt(CORRUPTIONS[Code.NEXT_UP_TOO_LONG]))
+    assert report.ok, "a warning alone must not make a course non-conforming"
+    assert not report.clean
+    assert report.warnings and not report.errors
+
+
+def test_missing_manifest_reports_once_and_stops(
+    corrupt: Callable[[Callable[[Path], None]], Path],
+) -> None:
+    report = validate_course(corrupt(CORRUPTIONS[Code.MANIFEST_MISSING]))
+    assert [f.code for f in report.findings] == [Code.MANIFEST_MISSING]
+
+
+def test_every_catalogue_entry_is_well_formed() -> None:
+    for code, entry in CATALOGUE.items():
+        assert entry.severity in (Severity.ERROR, Severity.WARNING), code
+        assert entry.summary, code
+        assert not entry.summary.endswith("."), f"{code}: summaries are labels, not sentences"
+        assert entry.anchor.startswith("spec/") and "#" in entry.anchor, code

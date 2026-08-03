@@ -65,11 +65,15 @@ phases:
     slug: getting-started
     name: Getting Started
     lessons:
-      - { number: 1, slug: what-is-code, title: What Is Code? }
+      - { number: 1, slug: what-is-code, title: "What Is Code?" }
       - { number: 2, slug: your-terminal, title: Your Terminal, homework: true }
 skills:
   - { id: git-basics, name: Git Basics }
 ```
+
+> A title containing `?`, `:`, or `#` must be quoted when written inside a `{ … }` flow
+> mapping — YAML gives those characters other meanings there. The block form needs no
+> quoting.
 
 ### Manifest fields
 

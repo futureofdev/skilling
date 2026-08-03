@@ -1,0 +1,55 @@
+# https://taskfile.dev — `task --list` to see everything.
+version: '3'
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  test:
+    desc: "Run the test suite. Extra pytest args after --, e.g. `task test -- -k quiz`"
+    cmds:
+      - uv run pytest {{.CLI_ARGS}}
+
+  lint:
+    desc: ruff check + ruff format --check
+    cmds:
+      - uv run ruff check packages/
+      - uv run ruff format --check packages/
+
+  fix:
+    desc: ruff format + ruff check --fix
+    cmds:
+      - uv run ruff format packages/
+      - uv run ruff check --fix packages/
+
+  typecheck:
+    desc: pyright over the packages
+    cmds:
+      - uv run pyright
+
+  schemas:
+    desc: Regenerate schemas/ from the Pydantic models (must be committed current)
+    cmds:
+      - uv run python -m skilling.schemas schemas/
+
+  schemas:check:
+    desc: Fail if committed schemas are stale
+    cmds:
+      - uv run python -m skilling.schemas --check schemas/
+
+  validate:example:
+    desc: Validate the example course — expects zero findings
+    cmds:
+      - uv run skilling validate examples/hello-skilling
+
+  check:
+    desc: Everything CI runs
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+      - task: schemas:check
+      - task: validate:example

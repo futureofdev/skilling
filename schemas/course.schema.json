@@ -1,0 +1,217 @@
+{
+  "$defs": {
+    "LessonEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "homework": {
+          "default": false,
+          "title": "Homework",
+          "type": "boolean"
+        },
+        "number": {
+          "minimum": 1,
+          "title": "Number",
+          "type": "integer"
+        },
+        "slug": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "slug",
+        "title"
+      ],
+      "title": "LessonEntry",
+      "type": "object"
+    },
+    "PhaseEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "lessons": {
+          "items": {
+            "$ref": "#/$defs/LessonEntry"
+          },
+          "minItems": 1,
+          "title": "Lessons",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "number": {
+          "minimum": 0,
+          "title": "Number",
+          "type": "integer"
+        },
+        "slug": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Slug",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "slug",
+        "name",
+        "lessons"
+      ],
+      "title": "PhaseEntry",
+      "type": "object"
+    },
+    "Skill": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "Skill",
+      "type": "object"
+    },
+    "Tutor": {
+      "additionalProperties": false,
+      "description": "Guidance for how a tutor speaks. Nothing behavioural depends on it.",
+      "properties": {
+        "persona": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Persona"
+        },
+        "tone": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tone",
+          "type": "array"
+        }
+      },
+      "title": "Tutor",
+      "type": "object"
+    }
+  },
+  "$id": "https://startskill.ing/schemas/v1.0/course.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
+  "properties": {
+    "authors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Authors",
+      "type": "array"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "language": {
+      "default": "en",
+      "title": "Language",
+      "type": "string"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "License"
+    },
+    "phases": {
+      "items": {
+        "$ref": "#/$defs/PhaseEntry"
+      },
+      "minItems": 1,
+      "title": "Phases",
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "$ref": "#/$defs/Skill"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "spec_version": {
+      "title": "Spec Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "tutor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Tutor"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "spec_version",
+    "id",
+    "title",
+    "version",
+    "phases"
+  ],
+  "title": "A Skilling course manifest (course.yaml)",
+  "type": "object"
+}

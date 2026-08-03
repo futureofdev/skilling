@@ -1,0 +1,25 @@
+[project]
+name = "skilling"
+version = "0.1.0"
+description = "Reference implementation of the Skilling course format: typed models, validator, delivery state machine, and progress store. No language model required."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "The Skilling maintainers" }]
+keywords = ["skilling", "courses", "tutoring", "education", "specification"]
+dependencies = [
+    "pydantic>=2.9",
+    "pyyaml>=6.0",
+    "typer>=0.15",
+    "rich>=13.0",
+]
+
+[project.scripts]
+skilling = "skilling.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skilling"]

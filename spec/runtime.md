@@ -95,10 +95,11 @@ Badges are not optional bookkeeping. A `skills_unlocked` entry that never reache
 
 When the completed lesson is the last in its phase — derived from the manifest, never authored — the runtime must:
 
-1. Mark the phase complete in the record
-2. Award any badges registered for the phase's lessons that are not yet in the record
-3. When the lesson declares homework, place the assignment in the [homework slot](#the-homework-mailbox)
-4. Celebrate. What the celebration says is yours.
+1. Award any badges registered for the phase's lessons that are not yet in the record
+2. When the lesson declares homework, place the assignment in the [homework slot](#the-homework-mailbox)
+3. Celebrate. What the celebration says is yours.
+
+Note that the phase's completion is not written anywhere: it is derived from the phase's lessons and the record's `completed` set, like every other count in this format. A stored `phases_completed` field would be a second source of truth, and second sources of truth drift.
 
 A runtime must not invent branded copy — course names, product claims, share text. Celebration language comes from the course or the adopter.
 
@@ -236,6 +237,7 @@ A store persists records, completion logs, and homework behind one small interfa
 | `get_homework(learner_id, course_id)` → `(slot, revision)` | Mailbox state |
 | `put_homework(slot, expected_revision)` → `revision` | Mailbox write |
 | `append_homework_archive(learner_id, course_id, entry)` | Append-only archive |
+| `get_homework_archive(learner_id, course_id)` → `[entry]` | The archive, oldest first |
 | `list_records(course_id)` → `[(learner_id, record)]` | Enumeration for reporting; optional for single-learner backends |
 
 - **Optimistic concurrency.** A `put_*` whose `expected_revision` is not the store's current revision must fail with a distinguishable conflict error and must not write. Silent last-write-wins is not conforming.
