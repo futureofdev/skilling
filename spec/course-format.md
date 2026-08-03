@@ -21,7 +21,15 @@ my-course/
 
 Lesson files live at `phases/phase-{number}-{slug}/lesson-{NN}-{slug}.md`, where `{number}` is the phase number, `{NN}` is the lesson number zero-padded to two digits, and both slugs are lowercase kebab-case. The path is derived from the manifest — you do not declare it anywhere.
 
-A phase directory may contain an `overview.md`. It has no required structure; runtimes present it when a phase begins.
+The asymmetry is deliberate: **lesson numbers are zero-padded to two digits and phase numbers are not.** `phase-1-basics`, not `phase-01-basics`; `lesson-01-first-steps`, not `lesson-1-first-steps`. Lessons are padded so a directory listing sorts correctly past nine; phases are rarely numerous enough to need it.
+
+The `{slug}` in each path is the `slug` field from the manifest, not a slugified `title`. The two are often the same and need not be.
+
+A phase directory may contain an `overview.md`. It has **no constraints at all** — any headings, any structure, any length — because it is orientation rather than a delivery script. Runtimes present it when a phase begins.
+
+Only files matching `lesson-{NN}-{slug}.md` are lesson files. `overview.md`, anything under `assets/`, and any other file you keep alongside your course are invisible to the manifest rules below.
+
+The course directory's own name is yours. It need not match the manifest's `id`, and nothing derives from it.
 
 ## The manifest
 
@@ -89,9 +97,13 @@ skills:
 | `authors` | No | A list of names or organisations. |
 | `tutor` | No | `persona` (a string) and `tone` (a list of strings) guide how a tutor speaks. Guidance only — no runtime behaviour depends on them. |
 | `phases` | Yes | A non-empty ordered list. See [Phases and lessons](#phases-and-lessons). |
-| `skills` | No | Badges the course can award: a list of `{id, name}`. Ids must be unique within the manifest. |
+| `skills` | No | Badges the course can award: a list of `{id, name}`. Ids follow the same rules as `id` above, and must be unique within the manifest. A registered badge need not be unlocked by any lesson. |
 
-There is no assessment field in this version — every 1.0 course is delivered informally, with answers written inline in the lesson. Assessed delivery, where answers live in separate key files, arrives in 1.1 as an optional addition.
+**Unknown fields are rejected, not ignored.** At 1.0 there are no optional additions to guess at, so a key that is not in this table is a typo worth reporting rather than an extension point. The same applies to lesson frontmatter.
+
+A brand-new course starts at `version: "1.0.0"`. Nothing forbids `0.1.0`, but the [version semantics](#course-versions) are promises about coordinate stability, and a course with learners in it should be making them.
+
+There is no assessment field in this version — every 1.0 course is delivered informally, with answers written inline in the lesson. Assessed delivery, where answers live in separate key files, arrives in a later version as an optional addition.
 
 ### Phases and lessons
 
@@ -115,7 +127,7 @@ A lesson is addressed by its **coordinate**, written `{phase}.{lesson}` — so `
 
 - Phase numbers must be unique and ascend by exactly 1. The first phase may be numbered `0` or `1`.
 - Lesson numbers must be unique within their phase and ascend by exactly 1, starting at `1`.
-- Every lesson in the manifest must exist on disk at its derived path, and every lesson file on disk must appear in the manifest. The mapping is exactly one-to-one — no missing files, no orphans.
+- Every lesson in the manifest must exist on disk at its derived path, and every `lesson-{NN}-{slug}.md` on disk must appear in the manifest. The mapping is exactly one-to-one — no missing files, no orphans. Nothing else on disk is a lesson file, so an `overview.md` or an asset is neither missing nor an orphan.
 - A lesson entry's `number`, `slug`, and `title` must agree with the lesson file's frontmatter.
 - If a lesson entry sets `homework: true`, the lesson file must carry a `## Homework Assignment` section. If it does not, the file must not carry one.
 
@@ -124,6 +136,10 @@ These rules exist because the course this specification generalises shipped with
 ## Derived counts
 
 **Never write a structural count anywhere in a course.** Lessons per phase, total lessons, phase boundaries, "lesson 3 of 9", percentage complete — all of it is derived from `phases`. Authoring any of it creates a second source of truth that will drift, and validators reject it.
+
+A **structural** count is one about the course's own phases and lessons, or about the learner's position among them. Counts *of your subject matter* are not structural and are perfectly fine: a course called *Three Useful Knots* is not in breach, and neither is "the train waits two minutes" or "a list of three interests".
+
+The rule covers every learner-facing string in the course, including a phase `overview.md` and a section's `intent`, because a runtime reads those out too. Avoid position language in an intent for that reason — write why a section is absent, not where the lesson sits.
 
 ```yaml
 # Poor — a number that must now be maintained by hand
@@ -182,7 +198,12 @@ sections:
 | `## Homework Assignment` | Required when the manifest sets `homework: true`, forbidden otherwise |
 | `## Next Up` | Optional — declare as `next_up` |
 
-Required sections must be present with these exact headings, in this order. No other `##` headings are permitted — a lesson is a delivery script, not a free-form document. Use `###` subheadings freely inside a section.
+Required sections must be present with these exact headings. **Every section in the table, required or optional, appears in the table's order** — an optional section that is present sits at its registry position, and an absent one simply leaves no gap. No other `##` headings are permitted: a lesson is a delivery script, not a free-form document. Use `###` subheadings freely inside a section.
+
+Two details the table cannot show:
+
+- **`## Homework Assignment` is never declared in `sections`.** Its presence is settled entirely by the manifest's `homework` flag, so declaring it again would be the second source of truth this format spends a whole section arguing against. Only the three rows marked "declare as" belong in `sections`.
+- **A single `#` heading is not forbidden**, because only `##` is constrained — but a lesson body has no use for one. The title is already in the frontmatter and the manifest; a third copy is duplication the format would rather you avoided.
 
 ### Declared absence
 
@@ -207,7 +228,9 @@ sections:
 sections: {}
 ```
 
-A runtime surfaces the intent to the learner in place of the missing beat, so an absence reads as deliberate rather than broken.
+The absence form is exactly those two keys and no others. `status` takes the single value `none` — there is no `skipped`, `absent`, or `n/a` — and `intent` is required and must be non-empty. An absence with an empty intent is the defect this rule exists to catch, dressed up as compliance.
+
+A runtime surfaces the intent to the learner in place of the missing beat, so an absence reads as deliberate rather than broken. Write it for a learner's ears, not as a note to yourself.
 
 This rule exists because 24 of the originating course's 64 lessons silently lacked an exercise. The tutor improvised one every time, and every learner got a different course. Absence is fine. *Undeclared* absence is the defect.
 
@@ -227,7 +250,9 @@ By the end of this lesson, you will:
 
 ### The Concept
 
-The teaching body. Prose, code blocks, `###` subheadings, lists — whatever explains the idea. This is the section a runtime re-presents when a learner asks to go deeper or answers a quiz question wrongly, so it should be substantial enough to explain twice.
+The teaching body. Prose, code blocks, `###` subheadings, lists, tables, block quotes — any markdown that explains the idea. That list is illustrative, not exhaustive; the only structural restriction inside a section is that you may not open a new `##`.
+
+This is the section a runtime re-presents when a learner asks to go deeper or answers a quiz question wrongly, so it should be substantial enough to explain twice.
 
 ### Key Terms
 
@@ -241,7 +266,9 @@ When present, a list of `- **Term**: definition` items.
 
 ### Hands-On Exercise
 
-When present, it must be self-contained: steps or a starting skeleton the learner can attempt using nothing outside the lesson. A learner who has to go and find something else has hit a dead end the runtime cannot rescue them from.
+When present, it must be self-contained: steps or a starting skeleton the learner can attempt without going to find **information** the lesson did not give them. A learner sent elsewhere for an instruction has hit a dead end the runtime cannot rescue them from.
+
+Self-contained is about knowledge, not equipment. A course on espresso may require an espresso machine and a course on knots may require a length of rope — name what is needed in the lesson or the phase overview, prefer substitutes a learner probably already owns, and the exercise is self-contained. This is worth stating because the format was generalised from a course where every exercise needed only a text editor, and most subjects are not like that.
 
 ### Quick Quiz
 
@@ -258,6 +285,12 @@ Exactly **three** questions. Each is a numbered item with exactly **four** optio
    **Answer:** b) Talk to your computer with text commands — it's a direct
    text conversation with the operating system.
 ```
+
+The answer line's shape matters, because a runtime parses it:
+
+- `**Answer:**` is literal, bold and colon included.
+- It opens with the correct option's label, then restates that option's text, then gives the reason. A runtime strips the restated text to find the reason, so an answer that gives only the letter has no reason to read out.
+- It may wrap across as many source lines as it needs. Indented continuation lines belong to the same answer.
 
 The reason is not decoration. A runtime reads it aloud as feedback, and a learner who guessed correctly still needs to hear why.
 
@@ -287,6 +320,8 @@ The `- [ ]` requirements are the unit of feedback: a tutor reports on each one s
 ### Next Up
 
 When present, one or two sentences teasing the next lesson. When absent — and declared absent — a runtime generates a teaser from the manifest instead.
+
+**On the last lesson of a course there is nothing to tease**, and no manifest entry for a runtime to generate one from. Declare `next_up` absent, and say that in the intent. Do not write a `## Next Up` that promises material the course does not contain.
 
 ## Assets
 

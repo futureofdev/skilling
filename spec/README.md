@@ -1,6 +1,10 @@
 # The Skilling specification
 
-**Version 1.0.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
+**Version 1.0.1-draft** · Specification text licensed [CC BY 4.0](LICENSE)
+
+> The patch level is editorial. Courses declare `spec_version` as `"major.minor"`, so a
+> `"1.0"` course is unaffected by anything in 1.0.1 — the text says more, and requires
+> nothing new.
 
 Skilling is an open format for AI-tutored, skill-based courses. It specifies three things precisely enough that independent implementations interoperate:
 

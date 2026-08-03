@@ -2,6 +2,65 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## 1.0.1-draft — 2026-08-03
+
+Editorial only. Fourteen places where the text did not say what it meant, found by handing
+[course format](course-format.md) to three readers who had nothing else — no repository, no
+example course, no author to ask — and asking each to author a conforming course. All three
+courses validated with zero findings, which was the *weak* result; the useful output was the
+list of things each of them had to guess.
+
+Two were genuine divergences, where readers made different choices from the same sentence:
+
+- **Whether a phase `overview.md` obeys the lesson section rules.** One reader used `##`
+  headings in an overview; two deliberately avoided them, unsure whether the "no other `##`
+  headings" rule reached that far. It does not: an overview now explicitly has no constraints
+  at all.
+- **Whether markdown tables are allowed inside a section.** The list "Prose, code blocks,
+  `###` subheadings, lists" read as exhaustive to one reader, who avoided a table that would
+  have taught his subject better, while another used one. The list is now stated to be
+  illustrative.
+
+Twelve more were unanimous guesses — every reader had to decide, and every reader said so:
+
+- **Phase numbers are not zero-padded**; only lesson numbers are. All three inferred this
+  correctly from one example and flagged it as an inference.
+- **`## Homework Assignment` is never declared in `sections`.** Its presence is settled by the
+  manifest.
+- **Registry order applies to optional sections too**, not only required ones.
+- **The absence form is exactly `status: none` plus a non-empty `intent`** — a closed
+  vocabulary, now stated as one.
+- **The last lesson of a course has no `## Next Up`** and nothing for a runtime to generate a
+  teaser from. Previously the specification simply stopped short of saying so.
+- **A `#` heading is not forbidden**, since only `##` is constrained — but it duplicates the
+  frontmatter title, and now says so.
+- **A new course starts at `1.0.0`.**
+- **Badge ids follow the same rules as the course `id`** — which the validator already
+  enforced while the text constrained only uniqueness. A specification narrower than its own
+  tool is a specification bug.
+- **A registered badge need not be unlocked by any lesson.**
+- **Unknown fields are rejected, not ignored** — true of the implementation, unstated in the
+  text.
+- **The course directory's own name is free** and need not match `id`.
+- **The quiz answer line's shape is parsed**, so it is now specified: literal `**Answer:**`,
+  label, restated option text, then the reason, wrapping freely.
+
+Two clarifications go further than wording:
+
+- **"Structural count" is now defined.** It means a count of the course's own phases and
+  lessons, or of the learner's position among them. A course titled *Three Useful Knots* was
+  never in breach, but two readers worried it might be. The rule is also now stated to cover
+  `overview.md` and `intent` strings, because a runtime reads those to the learner.
+- **"Self-contained" was generalised from a coding course and said so by accident.** A reader
+  observed that "nothing outside the lesson" makes any physical-skill exercise impossible,
+  since you cannot tie a knot in a markdown file. It means no outside *information*; required
+  equipment is fine and should be named.
+
+One finding is not fixed here because it needs new mechanism: a badge is written to the record
+when its lesson completes, which can be *before* the learner has done the homework that badge
+implies. A reader spotted this independently. It is addressed in 1.1, where the specification
+starts distinguishing a completion marker from a capability claim.
+
 ## Errata against 1.0.0-draft
 
 Corrections the reference implementation forced. Recorded rather than silently worked
