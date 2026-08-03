@@ -40,6 +40,16 @@ tasks:
     cmds:
       - uv run python -m skilling.schemas --check schemas/
 
+  docs:
+    desc: Regenerate docs/error-codes.md from the catalogue (must be committed current)
+    cmds:
+      - uv run python -m skilling.docs docs/error-codes.md
+
+  docs:check:
+    desc: Fail if the committed error-code catalogue is stale
+    cmds:
+      - uv run python -m skilling.docs --check docs/error-codes.md
+
   validate:example:
     desc: Validate the example course — expects zero findings
     cmds:
@@ -52,4 +62,5 @@ tasks:
       - task: typecheck
       - task: test
       - task: schemas:check
+      - task: docs:check
       - task: validate:example

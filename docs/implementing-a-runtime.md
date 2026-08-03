@@ -1,0 +1,113 @@
+# Implementing a runtime
+
+How to build a conforming tutor. The requirements are in [runtime](../spec/runtime.md); this page is how to satisfy them without rewriting the parts that already exist.
+
+## What you are actually adding
+
+The delivery loop, the record write set, and persistence are all mechanical, and all of them are already in the `skilling` package. A tutor adds exactly one thing: judgement — teaching prose, re-explanation, and (optionally) homework verdicts.
+
+If you find yourself writing a state machine or deciding what completion should write, stop. That is the part that is specified, tested, and shared.
+
+```python
+from skilling import load_course, FileProgressStore
+from skilling import machine, runtime
+
+course = load_course("./brewing-basics")
+store = FileProgressStore("./.skilling")
+record, revision = runtime.load_or_create(store, course, learner_id="a1b2c3")
+```
+
+## Drive the machine; don't reimplement it
+
+The loop is pure functions over an explicit state value. No I/O, no clock, no model.
+
+```python
+from skilling.machine import LessonShape, Input, Beat, advance, legal_inputs, start
+
+shape = LessonShape(has_exercise=True, is_phase_end=False)
+state = start(shape)                      # welcome
+state = advance(state, Input.NEXT)        # objectives
+state = advance(state, Input.NEXT)        # concept
+state = advance(state, Input.NEXT)        # gate-concept
+```
+
+At any point, `legal_inputs(state)` tells you what the learner may do next — which is what you turn into tool definitions if your tutor is a model with tools. An input that is not legal raises `IllegalTransition` rather than being quietly absorbed, so a model that tries to skip the quiz fails loudly in development instead of subtly in production.
+
+The machine *permits*; it does not advise. Where the specification says a runtime "should" offer something, that is a predicate:
+
+```python
+if machine.should_offer_revisit(state):     # two or more wrong in this quiz
+    ...
+```
+
+## Hold the gates properly
+
+A gate is an open wait. Two things are easy to get wrong and both matter:
+
+- **No timeouts, ever.** Not a short one. A learner who leaves mid-exercise and returns in a fortnight must find the same gate. If you record beat-level position (`position.beat`), resume lands exactly there.
+- **Going deeper is not progress.** `Input.GO_DEEPER` returns to the concept beat without advancing position. A learner asking four follow-up questions has moved nowhere, and a runtime that advances them is punishing curiosity.
+
+If you are embedding a model, the temptation is to let it decide when to move on. Don't: the model narrates, the machine transitions. That separation is what makes conformance checkable at all, since [nothing in the specification binds prose](../spec/runtime.md#scope-of-conformance).
+
+## Let the shared write set do the writing
+
+```python
+outcome = runtime.complete_lesson(store, course, record, revision, lesson)
+record, revision = outcome.record, outcome.revision
+
+if outcome.already_completed:
+    ...   # a revisit; nothing was counted, and nothing should be announced as progress
+for badge in outcome.badges_awarded:
+    ...   # tell the learner
+if outcome.phase_completed is not None:
+    ...   # celebrate; your words
+if outcome.homework_placed:
+    ...   # show the assignment
+```
+
+This writes the log first and then the record, so no observable state can show a completion without its log entry. It is idempotent by coordinate. It applies the streak in the record's timezone. It unions the lesson's declared badges into the record.
+
+That last one is the reason to reuse this rather than reimplement it: in the course this format generalises, eleven lessons declared badges and the delivery system wrote none of them, for months, unnoticed. It was not a hard bug. It was an easy one, in code nobody thought was interesting.
+
+## Persist through the store, not around it
+
+```python
+from skilling.store import Conflict
+
+try:
+    revision = store.put_record(updated, revision)
+except Conflict:
+    ...   # someone else wrote; re-read and retry, never force
+```
+
+Writes are optimistically concurrent. A `Conflict` is information, not an obstacle — silently overwriting is the failure mode the revision token exists to prevent.
+
+To add a backend, implement the `ProgressStore` protocol and run the existing suite against it. The suite is written against the protocol and parametrised over implementations, so a new backend costs one entry in `BACKENDS` and no new assertions.
+
+## Homework: mechanics are given, judgement is yours
+
+The core does place, display, queue, submit, archive, and idempotence. What it cannot do is look at a learner's work.
+
+If your tutor can judge work, you owe two things the specification is strict about:
+
+- A check returns a verdict **per requirement** — `met`, `partial`, `not-yet` — each with a reason. Not an overall grade. The `- [ ]` items are the unit of feedback because that is what a learner can act on.
+- A check **never** changes slot state, no matter how finished the work looks. Separating feedback from completion is what lets a learner ask "how am I doing?" a dozen times without accidentally finishing.
+
+Submission needs its own explicit confirmation, distinct from the input that asked for it. Not inferred from a passing check, not from enthusiasm, not from silence.
+
+If your tutor *cannot* judge work, display the assignment and accept a confirmed submission. That is conforming — checking is optional, and pretending to check would be worse than declining to.
+
+## Claiming conformance
+
+A claim names its class and version range: *"Conforming Runtime, Skilling 1.0"*. Then hold two lines:
+
+- **Don't grow a catalogue inside the runtime.** Course discovery, cohorts, enrolment, reporting — all of that belongs outside. A runtime delivers one course to one learner.
+- **Don't let anything write learner state around the runtime.** Reading records for reporting is fine. Writing them is not, and neither is synthesising learner input to unlock a gate.
+
+An implementation that ignores those isn't a Skilling runtime with extras. It is an LMS using a borrowed file format.
+
+## A worked reference
+
+`skilling deliver` is a complete Conforming Runtime in about three hundred lines with no model in it — see [`cli/walk.py`](../packages/skilling/src/skilling/cli/walk.py). It re-prints rather than re-explains and cannot judge homework, and it conforms anyway. That is the shape of the contract: everything mechanical is required, and nothing about the teaching is.
+
+Read it before building yours. It is the smallest honest answer to "what must I actually do?"
