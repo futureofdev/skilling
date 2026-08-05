@@ -176,9 +176,9 @@ class Walker:
 
         recorded = self.record.position.beat
         state = (
-            machine.resume(shape, recorded)
+            LessonState.resume(shape, recorded)
             if recorded and recorded in set(Beat)
-            else machine.start(shape)
+            else LessonState.start(shape)
         )
 
         questions = []

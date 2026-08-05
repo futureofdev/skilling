@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from skilling.loader import Course, load_course
+from skilling.loader import Course
 
 from . import fixtures as fx
 
@@ -34,7 +34,7 @@ def clean_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def clean(clean_dir: Path) -> Course:
-    return load_course(clean_dir)
+    return Course.load(clean_dir)
 
 
 @pytest.fixture
@@ -53,4 +53,4 @@ def corrupt(tmp_path: Path) -> Callable[[Callable[[Path], None]], Path]:
 
 @pytest.fixture
 def example() -> Course:
-    return load_course(EXAMPLE_COURSE)
+    return Course.load(EXAMPLE_COURSE)

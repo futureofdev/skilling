@@ -10,9 +10,17 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ._clock import today_in
+from .errors import SPEC_MAJOR, SPEC_MINOR
+
+if TYPE_CHECKING:
+    from .loader import Course
+
+SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEMVER_RE = re.compile(
@@ -306,6 +314,31 @@ class Record(Strict):
     timezone: str = "UTC"
     streak_days: int = Field(default=0, ge=0)
     telemetry: Telemetry = Field(default_factory=Telemetry)
+
+    @classmethod
+    def new(
+        cls,
+        course: Course,
+        learner_id: str,
+        *,
+        zone: str = "UTC",
+        now: datetime | None = None,
+    ) -> Record:
+        today = today_in(zone, now)
+        first = course.first_lesson
+        return cls(
+            learner_id=learner_id,
+            course_id=course.id,
+            course_version=course.version,
+            spec_version=SPEC_VERSION,
+            position=Position(phase=first.phase, lesson=first.number),
+            completed=[],
+            skills_unlocked=[],
+            started_at=today,
+            last_activity=today,
+            timezone=zone,
+            streak_days=0,
+        )
 
     def has_met(self, objective_id: str) -> bool:
         return any(o.id == objective_id for o in self.objectives_met)

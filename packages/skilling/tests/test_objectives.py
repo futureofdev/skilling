@@ -14,7 +14,7 @@ import pytest
 from skilling import lesson as md
 from skilling import runtime
 from skilling.errors import Code
-from skilling.loader import Course, load_course
+from skilling.loader import Course
 from skilling.models import Capability
 from skilling.store import FileProgressStore
 from skilling.store.file import LOCAL_LEARNER
@@ -55,7 +55,7 @@ def _make_structured(root: Path) -> None:
 @pytest.fixture
 def structured(clean_dir: Path) -> Course:
     _make_structured(clean_dir)
-    return load_course(clean_dir)
+    return Course.load(clean_dir)
 
 
 # ------------------------------------------------------------------------------ the format
@@ -301,7 +301,7 @@ def test_an_objective_may_not_author_a_structural_count(clean_dir: Path) -> None
 
 
 def test_the_example_course_uses_structured_objectives() -> None:
-    course = load_course(EXAMPLE_COURSE)
+    course = Course.load(EXAMPLE_COURSE)
     lesson = course.lesson_at("1.2")
     assert lesson
     fm = md.parse_lesson(lesson.path).frontmatter
@@ -313,7 +313,7 @@ def test_the_example_course_uses_structured_objectives() -> None:
 
 def test_badges_and_objectives_stay_separate(tmp_path: Path) -> None:
     """A badge marks completion; an objective claims a capability. Neither implies the other."""
-    course = load_course(EXAMPLE_COURSE)
+    course = Course.load(EXAMPLE_COURSE)
     store = FileProgressStore(tmp_path / "state")
     record, revision = runtime.load_or_create(store, course, LOCAL_LEARNER, now=NOW)
 

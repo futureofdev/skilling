@@ -9,10 +9,12 @@ The delivery loop, the record write set, and persistence are all mechanical, and
 If you find yourself writing a state machine or deciding what completion should write, stop. That is the part that is specified, tested, and shared.
 
 ```python
-from skilling import load_course, FileProgressStore
+from pathlib import Path
+
+from skilling import Course, FileProgressStore
 from skilling import machine, runtime
 
-course = load_course("./brewing-basics")
+course = Course.load(Path("./brewing-basics"))
 store = FileProgressStore("./.skilling")
 record, revision = runtime.load_or_create(store, course, learner_id="a1b2c3")
 ```
@@ -22,10 +24,11 @@ record, revision = runtime.load_or_create(store, course, learner_id="a1b2c3")
 The loop is pure functions over an explicit state value. No I/O, no clock, no model.
 
 ```python
-from skilling.machine import LessonShape, Input, Beat, advance, legal_inputs, start
+from skilling import LessonShape, LessonState
+from skilling.machine import Input, Beat, advance, legal_inputs
 
 shape = LessonShape(has_exercise=True, is_phase_end=False)
-state = start(shape)                      # welcome
+state = LessonState.start(shape)          # welcome
 state = advance(state, Input.NEXT)        # objectives
 state = advance(state, Input.NEXT)        # concept
 state = advance(state, Input.NEXT)        # gate-concept

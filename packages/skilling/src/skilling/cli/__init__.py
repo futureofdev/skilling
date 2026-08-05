@@ -9,7 +9,7 @@ import typer
 from .. import __version__, runtime
 from ..diff import compare_paths
 from ..hooks import Dispatcher, parse_sink
-from ..loader import CourseLoadError, load_course
+from ..loader import Course, CourseLoadError
 from ..runtime import today_in
 from ..store import FileProgressStore
 from ..store.file import LOCAL_LEARNER
@@ -96,7 +96,7 @@ def show(
 ) -> None:
     """Print the resolved structure and every derived count."""
     try:
-        resolved = load_course(course)
+        resolved = Course.load(course)
     except CourseLoadError as exc:
         render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
         raise typer.Exit(1) from exc
@@ -134,7 +134,7 @@ def deliver(
 ) -> None:
     """Walk the delivery loop. A Conforming Runtime — no language model involved."""
     try:
-        resolved = load_course(course)
+        resolved = Course.load(course)
     except CourseLoadError as exc:
         render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
         raise typer.Exit(1) from exc

@@ -15,20 +15,22 @@ uvx skilling diff ./v1 ./v2           # classify a version bump
 ## Library
 
 ```python
-from skilling import load_course, validate_course, FileProgressStore
-from skilling.machine import LessonShape, start, advance, Input
+from pathlib import Path
+
+from skilling import Course, LessonState, validate_course, FileProgressStore
+from skilling.machine import LessonShape, advance, Input
 
 report = validate_course("./my-course")
 if not report.ok:
     for finding in report.errors:
         print(finding.code, finding.location, finding.message)
 
-course = load_course("./my-course")
+course = Course.load(Path("./my-course"))
 course.lesson_count  # derived, never authored
 course.next_lesson("1.2")
 course.is_last_in_phase("1.3")
 
-state = start(LessonShape(has_exercise=True, is_phase_end=False))
+state = LessonState.start(LessonShape(has_exercise=True, is_phase_end=False))
 state = advance(state, Input.NEXT)  # welcome → objectives
 ```
 

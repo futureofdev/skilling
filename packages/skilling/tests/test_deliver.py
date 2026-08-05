@@ -18,7 +18,7 @@ from typer.testing import CliRunner
 from skilling import lesson as md
 from skilling.cli import app
 from skilling.errors import Code
-from skilling.loader import load_course
+from skilling.loader import Course
 
 from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE
@@ -406,7 +406,7 @@ def test_no_teaching_prose_appears_in_any_event(tmp_path: Path) -> None:
     _deliver_with_sink(state, events, CONSENTED_WALK)
     stream = events.read_text(encoding="utf-8")
 
-    course = load_course(EXAMPLE_COURSE)
+    course = Course.load(EXAMPLE_COURSE)
     checked = 0
     for lesson in course.lessons():
         parsed = md.parse_lesson(lesson.path)

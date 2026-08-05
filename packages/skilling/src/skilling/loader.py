@@ -77,6 +77,10 @@ class Course:
 
     # ------------------------------------------------------------------ derived values
 
+    @classmethod
+    def load(cls, root: Path) -> Course:
+        return resolve(root, load_manifest(root))
+
     @property
     def id(self) -> str:
         return self.manifest.id
@@ -245,8 +249,3 @@ def resolve(root: Path, manifest: Manifest) -> Course:
             )
         )
     return Course(root=root, manifest=manifest, phases=tuple(phases))
-
-
-def load_course(root: Path | str) -> Course:
-    root = Path(root)
-    return resolve(root, load_manifest(root))

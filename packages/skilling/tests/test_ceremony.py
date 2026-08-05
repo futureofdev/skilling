@@ -15,7 +15,7 @@ import pytest
 from skilling import ceremony as cer
 from skilling import runtime
 from skilling.errors import Code
-from skilling.loader import Course, load_course
+from skilling.loader import Course
 from skilling.models import Brand
 from skilling.store import FileProgressStore
 from skilling.store.file import LOCAL_LEARNER
@@ -58,7 +58,7 @@ def _with_ceremony(root: Path, block: str, *, highlight: bool = True) -> Course:
             "  - number: 0\n    slug: start\n    name: Start\n    highlight: learned the first "
             "two things\n",
         )
-    return load_course(root)
+    return Course.load(root)
 
 
 # --------------------------------------------------------------------------- placeholders
@@ -167,7 +167,7 @@ def test_a_ceremony_with_no_brand_and_no_template_yields_nothing(clean_dir: Path
 def test_a_single_phase_course_still_gets_its_phase_template() -> None:
     """Finishing the only phase finishes the course; an author who wrote one template should
     not be handed flat facts because of it."""
-    course = load_course(EXAMPLE_COURSE)
+    course = Course.load(EXAMPLE_COURSE)
     text = cer.share_text(course, None, course.phases[0], course_complete=True)
     assert text and text.startswith("Just finished Skilling Basics")
 

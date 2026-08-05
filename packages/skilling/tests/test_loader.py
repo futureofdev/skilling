@@ -12,7 +12,6 @@ from skilling.loader import (
     CourseLoadError,
     discover_lesson_files,
     lesson_filename,
-    load_course,
     phase_dirname,
 )
 
@@ -99,21 +98,21 @@ def test_discovery_finds_files_the_manifest_does_not_know_about(clean_dir: Path)
 
 def test_a_missing_manifest_is_a_load_failure(tmp_path: Path) -> None:
     with pytest.raises(CourseLoadError) as caught:
-        load_course(tmp_path)
+        Course.load(tmp_path)
     assert caught.value.code is Code.MANIFEST_MISSING
 
 
 def test_a_broken_manifest_is_a_load_failure(tmp_path: Path) -> None:
     (tmp_path / "course.yaml").write_text("id: [unclosed\n", encoding="utf-8")
     with pytest.raises(CourseLoadError) as caught:
-        load_course(tmp_path)
+        Course.load(tmp_path)
     assert caught.value.code is Code.MANIFEST_UNPARSEABLE
 
 
 def test_a_course_with_missing_lesson_files_still_loads(clean_dir: Path) -> None:
     """Loading must survive a broken course, or the validator could never report on it."""
     (clean_dir / "phases" / "phase-0-start" / "lesson-01-one.md").unlink()
-    course = load_course(clean_dir)
+    course = Course.load(clean_dir)
     assert course.lesson_count == 3
     lesson = course.lesson_at("0.1")
     assert lesson and not lesson.path.is_file()

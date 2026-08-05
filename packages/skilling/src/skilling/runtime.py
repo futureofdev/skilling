@@ -11,11 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import datetime
 from typing import NamedTuple
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import lesson as md
+from ._clock import next_streak as next_streak
+from ._clock import today_in as today_in
+from ._clock import utc_now as utc_now
 from .errors import SPEC_MAJOR, SPEC_MINOR
 from .hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 from .loader import Course, ResolvedLesson
@@ -47,54 +49,6 @@ class ObjectivesMarked(NamedTuple):
     newly_met: list[str]
 
 
-def utc_now() -> datetime:
-    return datetime.now(tz=UTC)
-
-
-def today_in(zone: str, now: datetime | None = None) -> date:
-    """Today's date in the record's timezone — the streak is defined in local days."""
-    moment = now or utc_now()
-    try:
-        return moment.astimezone(ZoneInfo(zone)).date()
-    except (ZoneInfoNotFoundError, ValueError):
-        return moment.astimezone(ZoneInfo("UTC")).date()
-
-
-def next_streak(last_activity: date | None, today: date, current: int) -> int:
-    """Yesterday → increment. Today → unchanged. Older or unset → 1."""
-    if last_activity is None:
-        return 1
-    if last_activity == today:
-        return max(current, 1)
-    if last_activity == today - timedelta(days=1):
-        return current + 1
-    return 1
-
-
-def new_record(
-    course: Course,
-    learner_id: str,
-    *,
-    zone: str = "UTC",
-    now: datetime | None = None,
-) -> Record:
-    today = today_in(zone, now)
-    first = course.first_lesson
-    return Record(
-        learner_id=learner_id,
-        course_id=course.id,
-        course_version=course.version,
-        spec_version=SPEC_VERSION,
-        position=Position(phase=first.phase, lesson=first.number),
-        completed=[],
-        skills_unlocked=[],
-        started_at=today,
-        last_activity=today,
-        timezone=zone,
-        streak_days=0,
-    )
-
-
 def load_or_create(
     store: ProgressStore,
     course: Course,
@@ -106,7 +60,7 @@ def load_or_create(
     found = store.get_record(learner_id, course.id)
     if found:
         return StoredRecord(*found)
-    record = new_record(course, learner_id, zone=zone, now=now)
+    record = Record.new(course, learner_id, zone=zone, now=now)
     revision = store.put_record(record, None)
     return StoredRecord(record, revision)
 

@@ -14,7 +14,7 @@ import pytest
 
 from skilling import ceremony as cer
 from skilling import lesson as md
-from skilling.loader import Course, load_course
+from skilling.loader import Course
 from skilling.validate import validate_course
 
 from .conftest import REPO_ROOT
@@ -24,7 +24,7 @@ GOLDEN = REPO_ROOT / "examples" / "coding-bootcamp"
 
 @pytest.fixture(scope="module")
 def golden() -> Course:
-    return load_course(GOLDEN)
+    return Course.load(GOLDEN)
 
 
 def test_it_validates_with_zero_findings() -> None:

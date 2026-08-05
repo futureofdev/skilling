@@ -7,8 +7,8 @@ job can validate a course and a reporting job can read a record without either.
 """
 
 from .errors import SPEC_MAJOR, SPEC_MINOR, Code, Severity
-from .loader import Course, CourseLoadError, ResolvedLesson, ResolvedPhase, load_course
-from .machine import Beat, IllegalTransition, Input, LessonShape, LessonState, advance, start
+from .loader import Course, CourseLoadError, ResolvedLesson, ResolvedPhase
+from .machine import Beat, IllegalTransition, Input, LessonShape, LessonState, advance
 from .models import (
     Assignment,
     CompletionEntry,
@@ -60,7 +60,5 @@ __all__ = [
     "Severity",
     "__version__",
     "advance",
-    "load_course",
-    "start",
     "validate_course",
 ]

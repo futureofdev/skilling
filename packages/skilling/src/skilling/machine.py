@@ -95,14 +95,16 @@ class LessonState:
     def questions_remaining(self) -> int:
         return max(0, self.shape.question_count - self.question_index)
 
+    @classmethod
+    def start(cls, shape: LessonShape) -> LessonState:
+        return cls(beat=Beat.WELCOME, shape=shape)
 
-def start(shape: LessonShape) -> LessonState:
-    return LessonState(beat=Beat.WELCOME, shape=shape)
-
-
-def resume(shape: LessonShape, beat: Beat | str, *, question_index: int = 0) -> LessonState:
-    """Rebuild state from a recorded position. A gate resumes as the same open gate."""
-    return LessonState(beat=Beat(beat), shape=shape, question_index=question_index)
+    @classmethod
+    def resume(
+        cls, shape: LessonShape, beat: Beat | str, *, question_index: int = 0
+    ) -> LessonState:
+        """Rebuild state from a recorded position. A gate resumes as the same open gate."""
+        return cls(beat=Beat(beat), shape=shape, question_index=question_index)
 
 
 def should_offer_revisit(state: LessonState) -> bool:

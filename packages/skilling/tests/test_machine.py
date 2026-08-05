@@ -19,9 +19,7 @@ from skilling.machine import (
     LessonState,
     advance,
     legal_inputs,
-    resume,
     should_offer_revisit,
-    start,
 )
 
 WITH_EXERCISE = LessonShape(has_exercise=True, is_phase_end=False)
@@ -103,7 +101,7 @@ def test_revisiting_the_concept_returns_to_the_quiz_not_the_exercise() -> None:
 
 
 def test_wrong_answers_accumulate_and_trigger_the_revisit_offer() -> None:
-    state = start(WITH_EXERCISE)
+    state = LessonState.start(WITH_EXERCISE)
     for _ in range(3):
         state = advance(state, Input.NEXT)
     state = advance(state, Input.PROCEED)
@@ -122,7 +120,7 @@ def test_wrong_answers_accumulate_and_trigger_the_revisit_offer() -> None:
 
 
 def test_a_full_walk_reaches_done_with_a_ceremony() -> None:
-    state = start(PHASE_END)
+    state = LessonState.start(PHASE_END)
     path = [
         Input.NEXT,  # welcome -> objectives
         Input.NEXT,  # objectives -> concept
@@ -143,7 +141,7 @@ def test_a_full_walk_reaches_done_with_a_ceremony() -> None:
 
 
 def test_a_lesson_without_an_exercise_skips_the_beat_and_its_gate() -> None:
-    state = start(NO_EXERCISE)
+    state = LessonState.start(NO_EXERCISE)
     for _ in range(3):
         state = advance(state, Input.NEXT)
     assert state.beat is Beat.GATE_CONCEPT
@@ -155,17 +153,17 @@ def test_a_lesson_without_an_exercise_skips_the_beat_and_its_gate() -> None:
 
 def test_a_gate_resumes_as_the_same_open_gate() -> None:
     for gate in (Beat.GATE_CONCEPT, Beat.GATE_EXERCISE):
-        state = resume(WITH_EXERCISE, gate)
+        state = LessonState.resume(WITH_EXERCISE, gate)
         assert state.beat is gate
         assert state.at_gate
         assert set(legal_inputs(state)) == set(legal_inputs(at(gate)))
 
 
 def test_resume_accepts_the_recorded_string_form() -> None:
-    assert resume(WITH_EXERCISE, "gate-concept").beat is Beat.GATE_CONCEPT
+    assert LessonState.resume(WITH_EXERCISE, "gate-concept").beat is Beat.GATE_CONCEPT
 
 
 def test_state_is_immutable() -> None:
-    state = start(WITH_EXERCISE)
+    state = LessonState.start(WITH_EXERCISE)
     advance(state, Input.NEXT)
     assert state.beat is Beat.WELCOME, "advance must not mutate the state it is given"
