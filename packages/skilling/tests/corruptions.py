@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from skilling.errors import Code
+from skilling.conformance import Code
 
 from . import fixtures as fx
 

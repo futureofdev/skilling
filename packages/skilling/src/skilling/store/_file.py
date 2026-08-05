@@ -21,8 +21,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel
 
-from ..models import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
-from .protocol import Conflict, Revision
+from ..course import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
+from ._protocol import Conflict, Revision
 
 RECORD_NAME = "record.yaml"
 LOG_NAME = "completed.yaml"

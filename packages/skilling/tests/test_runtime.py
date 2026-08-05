@@ -7,11 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from skilling import runtime
-from skilling.loader import Course
-from skilling.models import Record
-from skilling.store import Conflict, FileProgressStore
-from skilling.store.file import LOCAL_LEARNER
+from skilling import delivery as runtime
+from skilling.course import Course, Record
+from skilling.store import LOCAL_LEARNER, Conflict, FileProgressStore
 
 NOW = datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC)
 

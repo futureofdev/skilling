@@ -31,7 +31,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import Field
 
-from .models import Record, Strict
+from ..course import Record, Strict
 
 
 class EventName(StrEnum):
@@ -163,7 +163,7 @@ class Dispatcher:
         self.first_party = list(first_party)
         self.telemetry = list(telemetry)
         if spec_version is None:
-            from .errors import SPEC_MAJOR, SPEC_MINOR
+            from ..conformance import SPEC_MAJOR, SPEC_MINOR
 
             spec_version = f"{SPEC_MAJOR}.{SPEC_MINOR}"
         self.spec_version = spec_version

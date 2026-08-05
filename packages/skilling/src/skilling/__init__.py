@@ -6,12 +6,12 @@ and a progress store. Nothing here imports an agent framework or needs an API ke
 job can validate a course and a reporting job can read a record without either.
 """
 
-from .errors import SPEC_MAJOR, SPEC_MINOR, Code, Severity
-from .loader import Course, CourseLoadError, ResolvedLesson, ResolvedPhase
-from .machine import Beat, IllegalTransition, Input, LessonShape, LessonState, advance
-from .models import (
+from .conformance import SPEC_MAJOR, SPEC_MINOR, Code, Finding, Report, Severity, validate_course
+from .course import (
     Assignment,
     CompletionEntry,
+    Course,
+    CourseLoadError,
     HomeworkArchiveEntry,
     HomeworkSlot,
     LessonFrontmatter,
@@ -19,9 +19,11 @@ from .models import (
     Position,
     Record,
     Requirement,
+    ResolvedLesson,
+    ResolvedPhase,
 )
+from .delivery import Beat, IllegalTransition, Input, LessonShape, LessonState, advance
 from .store import Conflict, FileProgressStore, ProgressStore
-from .validate import Finding, Report, validate_course
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
 __version__ = "0.3.0"

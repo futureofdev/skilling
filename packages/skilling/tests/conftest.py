@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from skilling.loader import Course
+from skilling.course import Course
 
 from . import fixtures as fx
 

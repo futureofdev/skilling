@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from .loader import Course
+from ._loader import Course
 
 Level = Literal["none", "patch", "minor", "major"]
 

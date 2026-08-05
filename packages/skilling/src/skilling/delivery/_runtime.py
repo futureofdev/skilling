@@ -14,17 +14,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import NamedTuple
 
-from . import lesson as md
-from ._clock import next_streak as next_streak
-from ._clock import today_in as today_in
-from ._clock import utc_now as utc_now
-from .errors import SPEC_MAJOR, SPEC_MINOR
-from .hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
-from .loader import Course, ResolvedLesson
-from .models import (
+from ..conformance import SPEC_MAJOR, SPEC_MINOR
+from ..course import (
     Assignment,
     Capability,
     CompletionEntry,
+    Course,
     HomeworkArchiveEntry,
     HomeworkSlot,
     Objective,
@@ -32,8 +27,15 @@ from .models import (
     Position,
     Record,
     Requirement,
+    ResolvedLesson,
+    next_streak,
+    parse_homework,
+    parse_lesson,
+    today_in,
+    utc_now,
 )
-from .store.protocol import ProgressStore
+from ..store import ProgressStore
+from ._hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
 
@@ -77,18 +79,18 @@ class CompletionOutcome:
 
 
 def skills_for(lesson: ResolvedLesson) -> list[str]:
-    parsed = md.parse_lesson(lesson.path)
+    parsed = parse_lesson(lesson.path)
     return list(parsed.frontmatter.skills_unlocked) if parsed.frontmatter else []
 
 
 def assignment_from_lesson(
     lesson: ResolvedLesson, *, now: datetime | None = None
 ) -> Assignment | None:
-    parsed = md.parse_lesson(lesson.path)
+    parsed = parse_lesson(lesson.path)
     section = parsed.section("homework")
     if section is None:
         return None
-    hw = md.parse_homework(section.body)
+    hw = parse_homework(section.body)
     if not hw.complete:
         return None
     assert hw.title and hw.objective and hw.submission
@@ -279,7 +281,7 @@ def set_telemetry_consent(
 
 
 def objectives_of(lesson: ResolvedLesson) -> list[Objective]:
-    parsed = md.parse_lesson(lesson.path)
+    parsed = parse_lesson(lesson.path)
     return list(parsed.frontmatter.objectives) if parsed.frontmatter else []
 
 

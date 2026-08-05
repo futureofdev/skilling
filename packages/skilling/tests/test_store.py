@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from skilling.models import (
+from skilling.course import (
     CompletionEntry,
     HomeworkArchiveEntry,
     HomeworkSlot,

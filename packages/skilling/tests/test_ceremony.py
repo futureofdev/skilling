@@ -12,14 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from skilling import ceremony as cer
-from skilling import runtime
-from skilling.errors import Code
-from skilling.loader import Course
-from skilling.models import Brand
-from skilling.store import FileProgressStore
-from skilling.store.file import LOCAL_LEARNER
-from skilling.validate import validate_course
+from skilling import delivery as cer
+from skilling import delivery as runtime
+from skilling.conformance import Code, validate_course
+from skilling.course import Brand, Course
+from skilling.store import LOCAL_LEARNER, FileProgressStore
 
 from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE

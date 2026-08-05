@@ -11,18 +11,31 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import ceremony as cer
-from . import lesson as md
-from .errors import CATALOGUE, SPEC_MAJOR, SPEC_MINOR, Code, Severity
-from .loader import (
+from ..course import (
+    BY_HEADING,
+    BY_SLOT,
     MANIFEST_NAME,
+    OPTIONAL_SECTION_KEYS,
+    REGISTRY_ORDER,
+    SECTION_REGISTRY,
     Course,
     CourseLoadError,
+    Manifest,
+    ParsedLesson,
+    Section,
+    SectionAbsence,
+    asset_references,
     discover_lesson_files,
+    is_course_id,
+    is_semver,
     load_manifest,
+    parse_homework,
+    parse_lesson,
+    parse_quiz,
     resolve,
+    strip_code,
 )
-from .models import OPTIONAL_SECTION_KEYS, Manifest, SectionAbsence, is_course_id, is_semver
+from ._errors import CATALOGUE, SPEC_MAJOR, SPEC_MINOR, Code, Severity
 
 # A working set of SPDX identifiers plus the escape hatch a private course needs. Not the
 # full SPDX list: a curated set catches the typo ("Apache2", "CC-BY-4") that a permissive
@@ -193,7 +206,7 @@ def _scan_counts(
     offset: int = 1,
     where: str,
 ) -> None:
-    for i, line in enumerate(md.strip_code(text).splitlines()):
+    for i, line in enumerate(strip_code(text).splitlines()):
         for pattern in patterns:
             m = pattern.search(line)
             if m:
@@ -304,6 +317,11 @@ def _check_manifest(out: _Collector, manifest: Manifest, raw: str) -> None:
 
 def _check_ceremony(out: _Collector, manifest: Manifest, raw: str) -> None:
     """Ceremony copy is learner-facing, so it is held to the same rules as a lesson body."""
+    # Deferred: delivery's own _runtime module imports conformance eagerly (for SPEC_MAJOR/
+    # SPEC_MINOR), so an eager import here would close a conformance<->delivery cycle at
+    # package-init time. By call time both packages are already loaded.
+    from ..delivery import PLACEHOLDERS, placeholders_in, unknown_placeholders
+
     # Highlights are scanned whether or not a ceremony block exists: a highlight reaches a
     # learner through any runtime that composes its own copy, block or no block.
     for phase in manifest.phases:
@@ -321,17 +339,17 @@ def _check_ceremony(out: _Collector, manifest: Manifest, raw: str) -> None:
         return
 
     for field, template in ceremony.templates().items():
-        for name in cer.unknown_placeholders(template):
+        for name in unknown_placeholders(template):
             out.add(
                 Code.CEREMONY_UNKNOWN_PLACEHOLDER,
                 f"{field} uses {{{name}}}, which no runtime can fill. Known placeholders: "
-                + ", ".join(sorted(cer.PLACEHOLDERS))
+                + ", ".join(sorted(PLACEHOLDERS))
                 + ".",
                 path=MANIFEST_NAME,
                 line=_line_of(raw, field),
             )
 
-        if "phase_highlight" in cer.placeholders_in(template):
+        if "phase_highlight" in placeholders_in(template):
             for phase in manifest.phases:
                 if not (phase.highlight or "").strip():
                     out.add(
@@ -458,7 +476,7 @@ def _check_disk(out: _Collector, course: Course) -> None:
 # ------------------------------------------------------------------------------ lessons
 
 
-def _check_lesson(out: _Collector, course: Course, resolved, parsed: md.ParsedLesson) -> None:
+def _check_lesson(out: _Collector, course: Course, resolved, parsed: ParsedLesson) -> None:
     path = parsed.path
 
     if parsed.frontmatter_missing:
@@ -525,13 +543,13 @@ def _check_lesson(out: _Collector, course: Course, resolved, parsed: md.ParsedLe
     _scan_counts(out, body, _BODY_COUNTS, path=path, offset=body_start, where="This lesson")
 
 
-def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
+def _check_sections(out: _Collector, resolved, parsed: ParsedLesson) -> None:
     path = parsed.path
     fm = parsed.frontmatter
     assert fm is not None
 
     for section in parsed.sections:
-        if section.heading not in md.BY_HEADING:
+        if section.heading not in BY_HEADING:
             out.add(
                 Code.SECTION_UNKNOWN_HEADING,
                 f"'## {section.heading}' is not in the section registry. Use '###' subheadings "
@@ -540,8 +558,8 @@ def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
                 line=section.line,
             )
 
-    known = [s for s in parsed.sections if s.heading in md.BY_HEADING]
-    positions = [md.REGISTRY_ORDER[s.heading] for s in known]
+    known = [s for s in parsed.sections if s.heading in BY_HEADING]
+    positions = [REGISTRY_ORDER[s.heading] for s in known]
     for i in range(1, len(positions)):
         if positions[i] < positions[i - 1]:
             out.add(
@@ -556,7 +574,7 @@ def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
     present = parsed.slots
     structured_objectives = bool(fm.objectives)
 
-    for spec in md.SECTION_REGISTRY:
+    for spec in SECTION_REGISTRY:
         if not spec.required or spec.slot in present:
             continue
         if spec.slot == "objectives" and structured_objectives:
@@ -623,7 +641,7 @@ def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
             )
 
     for key in OPTIONAL_SECTION_KEYS:
-        spec = md.BY_SLOT[key]
+        spec = BY_SLOT[key]
         declaration = fm.declaration(key)
         if declaration is None:
             out.add(
@@ -677,7 +695,7 @@ def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
         )
 
 
-def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
+def _check_section_bodies(out: _Collector, parsed: ParsedLesson) -> None:
     path = parsed.path
 
     objectives = parsed.section("objectives")
@@ -724,7 +742,7 @@ def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
         _check_about(out, path, parsed, quiz)
 
     if homework := parsed.section("homework"):
-        parsed_hw = md.parse_homework(homework.body)
+        parsed_hw = parse_homework(homework.body)
         if gaps := parsed_hw.missing():
             out.add(
                 Code.HOMEWORK_SECTION_MALFORMED,
@@ -747,14 +765,14 @@ def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
             )
 
 
-def _check_about(out: _Collector, path: Path, parsed: md.ParsedLesson, section: md.Section) -> None:
+def _check_about(out: _Collector, path: Path, parsed: ParsedLesson, section: Section) -> None:
     """An objective may only point at questions that exist. The coupling is loose by design —
     `about` steers what a tutor says, so a stale entry costs a sentence, not a record."""
     fm = parsed.frontmatter
     if fm is None or not fm.objectives:
         return
 
-    numbers = {q.number for q in md.parse_quiz(section.body, section.body_line)}
+    numbers = {q.number for q in parse_quiz(section.body, section.body_line)}
     for objective in fm.objectives:
         for referenced in objective.about:
             if referenced not in numbers:
@@ -767,8 +785,8 @@ def _check_about(out: _Collector, path: Path, parsed: md.ParsedLesson, section: 
                 )
 
 
-def _check_quiz(out: _Collector, path: Path, section: md.Section) -> None:
-    questions = md.parse_quiz(section.body, section.body_line)
+def _check_quiz(out: _Collector, path: Path, section: Section) -> None:
+    questions = parse_quiz(section.body, section.body_line)
 
     if len(questions) != 3:
         out.add(
@@ -819,8 +837,8 @@ def _check_quiz(out: _Collector, path: Path, section: md.Section) -> None:
             )
 
 
-def _check_assets(out: _Collector, course: Course, parsed: md.ParsedLesson) -> None:
-    for target, line in md.asset_references(parsed.raw):
+def _check_assets(out: _Collector, course: Course, parsed: ParsedLesson) -> None:
+    for target, line in asset_references(parsed.raw):
         if target.startswith("/"):
             out.add(
                 Code.ASSET_REFERENCE_ABSOLUTE,
@@ -874,7 +892,7 @@ def validate_course(root: Path | str) -> Report:
     for resolved in course.lessons():
         if not resolved.path.is_file():
             continue
-        parsed = md.parse_lesson(resolved.path)
+        parsed = parse_lesson(resolved.path)
         _check_lesson(out, course, resolved, parsed)
 
     for phase in course.phases:

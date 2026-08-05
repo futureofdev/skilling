@@ -1,8 +1,8 @@
-"""Time helpers shared by ``models`` and ``runtime``.
+"""Time helpers shared by ``course`` and ``delivery``.
 
-Kept separate from both so that ``models.Record.new`` can compute "today" without ``models``
-importing ``runtime`` — ``runtime`` already imports ``models``, and a mutual import is a cycle
-either module would have to work around. This module depends on neither.
+Lives here rather than in ``delivery`` so that ``_models.Record.new`` can compute "today"
+without ``course`` reaching into ``delivery`` — ``delivery`` already depends on ``course``,
+and the reverse edge would cycle. This module depends on nothing in the package.
 """
 
 from __future__ import annotations

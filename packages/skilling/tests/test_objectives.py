@@ -11,14 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from skilling import lesson as md
-from skilling import runtime
-from skilling.errors import Code
-from skilling.loader import Course
-from skilling.models import Capability
-from skilling.store import FileProgressStore
-from skilling.store.file import LOCAL_LEARNER
-from skilling.validate import validate_course
+from skilling import course as md
+from skilling import delivery as runtime
+from skilling.conformance import Code, validate_course
+from skilling.course import Capability, Course
+from skilling.store import LOCAL_LEARNER, FileProgressStore
 
 from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE
@@ -139,7 +136,7 @@ def test_both_capabilities_settle_both_kinds(structured: Course) -> None:
 
 def test_a_quiz_settles_nothing() -> None:
     """There is no evidence value for a quiz, and no code path that produces one."""
-    from skilling.models import SETTLES
+    from skilling.course import SETTLES
 
     assert "quiz" not in {evidence for _, evidence in SETTLES.values()}
 

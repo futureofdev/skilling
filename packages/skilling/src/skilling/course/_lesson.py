@@ -15,7 +15,7 @@ from typing import NamedTuple
 import yaml
 from pydantic import ValidationError
 
-from .models import LessonFrontmatter
+from ._models import LessonFrontmatter
 
 
 @dataclass(frozen=True)

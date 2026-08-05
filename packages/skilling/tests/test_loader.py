@@ -6,14 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from skilling.errors import Code
-from skilling.loader import (
-    Course,
-    CourseLoadError,
-    discover_lesson_files,
-    lesson_filename,
-    phase_dirname,
-)
+from skilling.conformance import Code
+from skilling.course import Course, CourseLoadError, discover_lesson_files
+from skilling.course._loader import lesson_filename, phase_dirname
 
 
 def test_counts_are_derived(clean: Course) -> None:

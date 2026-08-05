@@ -17,8 +17,15 @@ uvx skilling diff ./v1 ./v2           # classify a version bump
 ```python
 from pathlib import Path
 
-from skilling import Course, LessonState, validate_course, FileProgressStore
-from skilling.machine import LessonShape, advance, Input
+from skilling import (
+    Course,
+    FileProgressStore,
+    Input,
+    LessonShape,
+    LessonState,
+    advance,
+    validate_course,
+)
 
 report = validate_course("./my-course")
 if not report.ok:
@@ -34,7 +41,7 @@ state = LessonState.start(LessonShape(has_exercise=True, is_phase_end=False))
 state = advance(state, Input.NEXT)  # welcome → objectives
 ```
 
-`skilling.runtime` holds the completion write set — log first, then record, idempotent by coordinate — so a tutor does not reimplement it and quietly drop a badge.
+`skilling.delivery` holds the completion write set — log first, then record, idempotent by coordinate — so a tutor does not reimplement it and quietly drop a badge.
 
 ## Conformance
 

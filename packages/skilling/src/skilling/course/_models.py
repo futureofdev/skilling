@@ -15,12 +15,9 @@ from typing import TYPE_CHECKING, Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ._clock import today_in
-from .errors import SPEC_MAJOR, SPEC_MINOR
 
 if TYPE_CHECKING:
-    from .loader import Course
-
-SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
+    from ._loader import Course
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEMVER_RE = re.compile(
@@ -324,13 +321,18 @@ class Record(Strict):
         zone: str = "UTC",
         now: datetime | None = None,
     ) -> Record:
+        # Deferred: conformance's own package init reaches back into course (validate_course
+        # inspects manifests and lessons), so importing it at module load time would cycle.
+        # By call time every package is already loaded.
+        from ..conformance import SPEC_MAJOR, SPEC_MINOR
+
         today = today_in(zone, now)
         first = course.first_lesson
         return cls(
             learner_id=learner_id,
             course_id=course.id,
             course_version=course.version,
-            spec_version=SPEC_VERSION,
+            spec_version=f"{SPEC_MAJOR}.{SPEC_MINOR}",
             position=Position(phase=first.phase, lesson=first.number),
             completed=[],
             skills_unlocked=[],

@@ -10,13 +10,16 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import ValidationError
 
-from .errors import Code
-from .lesson import format_validation_error
-from .models import Manifest, PhaseEntry
+from ._lesson import format_validation_error
+from ._models import Manifest, PhaseEntry
+
+if TYPE_CHECKING:
+    from ..conformance import Code
 
 MANIFEST_NAME = "course.yaml"
 PHASES_DIR = "phases"
@@ -193,6 +196,10 @@ def discover_lesson_files(root: Path) -> list[Path]:
 
 
 def load_manifest(root: Path) -> Manifest:
+    # Deferred for the same reason Record.new defers it: conformance's own init reaches back
+    # into course, so importing it at module load time would cycle.
+    from ..conformance import Code
+
     path = root / MANIFEST_NAME
     if not path.is_file():
         raise CourseLoadError(

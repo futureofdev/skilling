@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from skilling import docs
-from skilling.errors import CATALOGUE, Code
+from skilling.codegen import docs
+from skilling.conformance import CATALOGUE, Code
 
 from .conftest import REPO_ROOT
 

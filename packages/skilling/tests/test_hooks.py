@@ -14,8 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from skilling import runtime
-from skilling.hooks import (
+from skilling import delivery as runtime
+from skilling.course import Course, Position, Record, Telemetry
+from skilling.delivery import (
     Dispatcher,
     Event,
     EventName,
@@ -26,10 +27,7 @@ from skilling.hooks import (
     new_anonymous_id,
     parse_sink,
 )
-from skilling.loader import Course
-from skilling.models import Position, Record, Telemetry
-from skilling.store import FileProgressStore
-from skilling.store.file import LOCAL_LEARNER
+from skilling.store import LOCAL_LEARNER, FileProgressStore
 
 NOW = datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC)
 

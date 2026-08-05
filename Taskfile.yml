@@ -33,22 +33,22 @@ tasks:
   schemas:
     desc: Regenerate schemas/ from the Pydantic models (must be committed current)
     cmds:
-      - uv run python -m skilling.schemas schemas/
+      - uv run python -m skilling.codegen.schemas schemas/
 
   schemas:check:
     desc: Fail if committed schemas are stale
     cmds:
-      - uv run python -m skilling.schemas --check schemas/
+      - uv run python -m skilling.codegen.schemas --check schemas/
 
   docs:
     desc: Regenerate docs/error-codes.md from the catalogue (must be committed current)
     cmds:
-      - uv run python -m skilling.docs docs/error-codes.md
+      - uv run python -m skilling.codegen.docs docs/error-codes.md
 
   docs:check:
     desc: Fail if the committed error-code catalogue is stale
     cmds:
-      - uv run python -m skilling.docs --check docs/error-codes.md
+      - uv run python -m skilling.codegen.docs --check docs/error-codes.md
 
   validate:examples:
     desc: Validate every example course — each expects zero findings

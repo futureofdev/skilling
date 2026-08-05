@@ -15,10 +15,10 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from skilling import lesson as md
+from skilling import course as md
 from skilling.cli import app
-from skilling.errors import Code
-from skilling.loader import Course
+from skilling.conformance import Code
+from skilling.course import Course
 
 from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE

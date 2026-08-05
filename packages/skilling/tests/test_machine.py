@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from skilling.machine import (
+from skilling.delivery._machine import (
     QUESTION_COUNT,
     Beat,
     IllegalTransition,
