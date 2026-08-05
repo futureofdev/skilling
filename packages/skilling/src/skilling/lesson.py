@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import yaml
 from pydantic import ValidationError
@@ -81,7 +82,13 @@ class ParsedLesson:
 _FM_DELIM = re.compile(r"^---\s*$")
 
 
-def split_frontmatter(text: str) -> tuple[str | None, str, int]:
+class SplitFrontmatter(NamedTuple):
+    frontmatter: str | None
+    body: str
+    body_start_line: int
+
+
+def split_frontmatter(text: str) -> SplitFrontmatter:
     """Return ``(frontmatter_yaml, body, body_start_line)``.
 
     ``frontmatter_yaml`` is None when the file does not open with a ``---`` block.
@@ -89,11 +96,11 @@ def split_frontmatter(text: str) -> tuple[str | None, str, int]:
     """
     lines = text.splitlines()
     if not lines or not _FM_DELIM.match(lines[0]):
-        return None, text, 1
+        return SplitFrontmatter(None, text, 1)
     for i in range(1, len(lines)):
         if _FM_DELIM.match(lines[i]):
-            return "\n".join(lines[1:i]), "\n".join(lines[i + 1 :]), i + 2
-    return None, text, 1
+            return SplitFrontmatter("\n".join(lines[1:i]), "\n".join(lines[i + 1 :]), i + 2)
+    return SplitFrontmatter(None, text, 1)
 
 
 def parse_lesson(path: Path) -> ParsedLesson:

@@ -15,8 +15,8 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 import yaml
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ def _dump(model: BaseModel) -> str:
     )
 
 
-def _dump_list(models: list[Any]) -> str:
+def _dump_list(models: Sequence[BaseModel]) -> str:
     return yaml.safe_dump(
         [m.model_dump(mode="json") for m in models],
         sort_keys=False,

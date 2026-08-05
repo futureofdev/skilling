@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import NamedTuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import lesson as md
@@ -33,6 +34,17 @@ from .models import (
 from .store.protocol import ProgressStore
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
+
+
+class StoredRecord(NamedTuple):
+    record: Record
+    revision: str | None
+
+
+class ObjectivesMarked(NamedTuple):
+    record: Record
+    revision: str | None
+    newly_met: list[str]
 
 
 def utc_now() -> datetime:
@@ -90,13 +102,13 @@ def load_or_create(
     *,
     zone: str = "UTC",
     now: datetime | None = None,
-) -> tuple[Record, str | None]:
+) -> StoredRecord:
     found = store.get_record(learner_id, course.id)
     if found:
-        return found
+        return StoredRecord(*found)
     record = new_record(course, learner_id, zone=zone, now=now)
     revision = store.put_record(record, None)
-    return record, revision
+    return StoredRecord(record, revision)
 
 
 @dataclass
@@ -298,7 +310,7 @@ def set_telemetry_consent(
     record: Record,
     revision: str | None,
     opt_in: bool,
-) -> tuple[Record, str | None]:
+) -> StoredRecord:
     """Record the learner's answer, and assign an anonymous id on the first yes.
 
     The id is write-once and never derived from ``learner_id``: a learner who says yes gets a
@@ -309,7 +321,7 @@ def set_telemetry_consent(
         telemetry = telemetry.model_copy(update={"anonymous_id": new_anonymous_id()})
 
     updated = record.model_copy(update={"telemetry": telemetry})
-    return updated, store.put_record(updated, revision)
+    return StoredRecord(updated, store.put_record(updated, revision))
 
 
 def objectives_of(lesson: ResolvedLesson) -> list[Objective]:
@@ -344,7 +356,7 @@ def mark_objectives_met(
     capabilities: Iterable[Capability] = (),
     *,
     now: datetime | None = None,
-) -> tuple[Record, str | None, list[str]]:
+) -> ObjectivesMarked:
     """Record the objectives a runtime has genuinely established. Returns the new ids.
 
     The capability rule is enforced *here* rather than trusted to the caller, for the same
@@ -357,7 +369,7 @@ def mark_objectives_met(
     permitted = {o.id: o for o in settleable(lesson, capabilities)}
     fresh = [oid for oid in met if oid in permitted and not record.has_met(oid)]
     if not fresh:
-        return record, revision, []
+        return ObjectivesMarked(record, revision, [])
 
     today = today_in(record.timezone, now or utc_now())
     entries = []
@@ -367,7 +379,7 @@ def mark_objectives_met(
         entries.append(ObjectiveMet(id=oid, at=today, evidence=settles[1]))  # type: ignore[arg-type]
 
     updated = record.model_copy(update={"objectives_met": [*record.objectives_met, *entries]})
-    return updated, store.put_record(updated, revision), fresh
+    return ObjectivesMarked(updated, store.put_record(updated, revision), fresh)
 
 
 def submit_homework(

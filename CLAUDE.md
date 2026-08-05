@@ -44,6 +44,7 @@ is a one-line `uv run` wrapper — read `Taskfile.yml` and run those directly.
   by the maintainer before merge. Unrelated fixes discovered en route become their own PR.
 - Research the current idiom before adopting any new library, pattern, or convention — fetch
   live docs; training-data memory goes stale.
+- Python conventions for `packages/` are path-scoped in `.claude/rules/python.md`.
 
 ## Keeping this file current
 

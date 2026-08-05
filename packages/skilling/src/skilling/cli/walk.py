@@ -26,7 +26,7 @@ from .. import machine, runtime
 from ..hooks import NO_HOOKS, Dispatcher, EventName
 from ..loader import Course, ResolvedLesson
 from ..machine import Beat, Input, LessonShape, LessonState
-from ..models import Record
+from ..models import Record, SectionAbsence
 from ..store.protocol import ProgressStore
 
 
@@ -57,6 +57,7 @@ class Walker:
         self.revision: str | None
         self.correct: dict[int, bool] = {}
         """Per-lesson quiz results, keyed by question number. Drives objectives_met."""
+        self._outcome: runtime.CompletionOutcome | None = None
 
     # ------------------------------------------------------------------------ prompts
 
@@ -302,7 +303,7 @@ class Walker:
         """Surface the author's stated reason in place of the skipped exercise beat."""
         fm = parsed.frontmatter
         declaration = fm.declaration("exercise") if fm else None
-        intent = getattr(declaration, "intent", "")
+        intent = declaration.intent if isinstance(declaration, SectionAbsence) else ""
         if intent:
             self.console.print(f"[dim]No exercise in this lesson — {intent}[/]\n")
 
@@ -439,7 +440,7 @@ class Walker:
 
         self._share(phase)
 
-        outcome = getattr(self, "_outcome", None)
+        outcome = self._outcome
         if outcome and outcome.homework_placed:
             self._homework(now=now)
         elif outcome and outcome.homework_queued:
