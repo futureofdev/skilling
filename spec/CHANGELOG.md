@@ -31,6 +31,21 @@ resulting residual: a resumed session may re-offer a revisit already offered, or
 from the concept gate when a return to the quiz was pending. Mild, recoverable, and at most
 once per resume.
 
+### Attestation on `objectives_met`
+
+`objectives_met` gains `provenance`, required whenever `evidence` is `observed`: `checked` (what
+was actually inspected), `verify` (the objective's verify sentence, verbatim), and `attested_by`
+(which host is making the claim). [Objectives and the record](runtime.md#objectives-and-the-record)
+states why plainly — it is recorded **because the attestation cannot be verified**, not as a
+substitute for verification. A store has no way to confirm that a host actually ran the check it
+claims to; the honest response is to write down exactly who made the claim and what they said
+they checked, so a later reader can weigh it, rather than either refusing the claim outright or
+accepting it silently.
+
+`explained` and `homework` entries carry no `provenance` — only `observed` is a claim about
+something outside the conversation. Additive: a 1.1/1.2 record with `explained` or `homework`
+evidence keeps loading unchanged, because neither ever needed provenance to begin with.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.

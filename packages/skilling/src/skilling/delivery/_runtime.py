@@ -17,6 +17,7 @@ from typing import NamedTuple
 from ..conformance import SPEC_MAJOR, SPEC_MINOR
 from ..course import (
     Assignment,
+    Attestation,
     Capability,
     CompletionEntry,
     Course,
@@ -311,6 +312,7 @@ def mark_objectives_met(
     met: Iterable[str],
     capabilities: Iterable[Capability] = (),
     *,
+    attestation: Attestation | None = None,
     now: datetime | None = None,
 ) -> ObjectivesMarked:
     """Record the objectives a runtime has genuinely established. Returns the new ids.
@@ -320,22 +322,99 @@ def mark_objectives_met(
     observe must not be *able* to write it. Evidence follows from the kind, so a caller cannot
     label an observation as an explanation either.
 
+    ``attestation``, since 1.3, is applied to observed entries in this batch — an observed
+    claim with no attestation is, like one beyond capability, unwritable rather than merely
+    ignored, so it is silently excluded from what gets written. ``explained``/``homework``
+    entries ignore it.
+
     A quiz is never grounds for any of this. It settles nothing.
     """
     permitted = {o.id: o for o in settleable(lesson, capabilities)}
-    fresh = [oid for oid in met if oid in permitted and not record.has_met(oid)]
-    if not fresh:
+    candidates = [oid for oid in met if oid in permitted and not record.has_met(oid)]
+    if not candidates:
         return ObjectivesMarked(record, revision, [])
 
     today = today_in(record.timezone, now or utc_now())
     entries = []
-    for oid in fresh:
+    fresh = []
+    for oid in candidates:
         settles = permitted[oid].settled_by()
         assert settles is not None
-        entries.append(ObjectiveMet(id=oid, at=today, evidence=settles[1]))  # type: ignore[arg-type]
+        _, evidence = settles
+        if evidence == "observed" and attestation is None:
+            continue
+        entries.append(
+            ObjectiveMet(
+                id=oid,
+                at=today,
+                evidence=evidence,  # type: ignore[arg-type]
+                provenance=attestation if evidence == "observed" else None,
+            )
+        )
+        fresh.append(oid)
+
+    if not fresh:
+        return ObjectivesMarked(record, revision, [])
 
     updated = record.model_copy(update={"objectives_met": [*record.objectives_met, *entries]})
     return ObjectivesMarked(updated, store.put_record(updated, revision), fresh)
+
+
+def settle_objective(
+    store: ProgressStore,
+    record: Record,
+    revision: str | None,
+    lesson: ResolvedLesson,
+    objective_id: str,
+    capabilities: Iterable[Capability],
+    *,
+    attestation: Attestation | None = None,
+    now: datetime | None = None,
+) -> ObjectivesMarked:
+    """One objective, capability-enforced, provenance-required for observed evidence.
+
+    Unlike ``mark_objectives_met``'s batch, best-effort marking, a caller settling one named
+    objective deserves to know exactly why it was refused: raises ``ValueError`` naming the
+    failed precondition rather than writing a weaker entry.
+    """
+    objective = next((o for o in objectives_of(lesson) if o.id == objective_id), None)
+    if objective is None:
+        raise ValueError(f"lesson {lesson.coordinate!r} has no objective {objective_id!r}")
+
+    settles = objective.settled_by()
+    if settles is None:
+        raise ValueError(f"objective {objective_id!r} (kind {objective.kind!r}) settles nothing")
+    capability, evidence = settles
+
+    if capability not in set(capabilities):
+        raise ValueError(
+            f"objective {objective_id!r} needs the {capability.value!r} capability to "
+            "settle, which this runtime does not hold"
+        )
+
+    if objective.kind == "practice" and not objective.verify:
+        raise ValueError(
+            f"objective {objective_id!r} has no verify clause, so it cannot be settled"
+        )
+
+    if evidence == "observed" and attestation is None:
+        raise ValueError(
+            "observed evidence requires provenance: what was checked, which verify sentence, "
+            "which host — recorded because the attestation cannot be verified"
+        )
+
+    if record.has_met(objective_id):
+        return ObjectivesMarked(record, revision, [])
+
+    today = today_in(record.timezone, now or utc_now())
+    entry = ObjectiveMet(
+        id=objective_id,
+        at=today,
+        evidence=evidence,  # type: ignore[arg-type]
+        provenance=attestation if evidence == "observed" else None,
+    )
+    updated = record.model_copy(update={"objectives_met": [*record.objectives_met, entry]})
+    return ObjectivesMarked(updated, store.put_record(updated, revision), [objective_id])
 
 
 def submit_homework(
