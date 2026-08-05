@@ -206,6 +206,6 @@ An implementation that ignores those isn't a Skilling runtime with extras. It is
 
 ## A worked reference
 
-`skilling deliver` is a complete Conforming Runtime in about three hundred lines with no model in it — see [`cli/_walk.py`](../packages/skilling/src/skilling/cli/_walk.py). It re-prints rather than re-explains and cannot judge homework, and it conforms anyway. That is the shape of the contract: everything mechanical is required, and nothing about the teaching is.
+`skilling deliver` is a complete Conforming Runtime in about three hundred lines with no model in it — see [`cli/learning/_walk.py`](../packages/skilling/src/skilling/cli/learning/_walk.py). It re-prints rather than re-explains and cannot judge homework, and it conforms anyway. That is the shape of the contract: everything mechanical is required, and nothing about the teaching is.
 
 Read it before building yours. It is the smallest honest answer to "what must I actually do?"

@@ -9,7 +9,7 @@ Known Skilling implementations and their conformance claims. Claims follow [conf
 | [`coding-bootcamp`](../examples/coding-bootcamp/) — 9 phases, 64 lessons | Conforming Course | 1.2 | shipped |
 | [`hello-skilling`](../examples/hello-skilling/) — 3 lessons | Conforming Course | 1.2 | shipped |
 | [`skilling`](../packages/skilling/) — models, loader, validator | Course tooling | 1.2 | shipped |
-| [`skilling deliver`](../packages/skilling/src/skilling/cli/_walk.py) | Conforming Runtime (no capabilities), Conforming Producer | 1.2 | shipped |
+| [`skilling deliver`](../packages/skilling/src/skilling/cli/learning/_walk.py) | Conforming Runtime (no capabilities), Conforming Producer | 1.2 | shipped |
 | [`skilling.store.FileProgressStore`](../packages/skilling/src/skilling/store/_file.py) | Conforming Store | 1.2 | shipped |
 | Skilling tutor on Pydantic AI | Conforming Runtime (converse, assess) | 1.2 | planned |
 | Skilling in a coding harness, over MCP | Conforming Runtime (converse, observe, assess) | 1.2 | specified for, not built |

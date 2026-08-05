@@ -20,7 +20,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 
-from ..course import (
+from ...course import (
     Course,
     ParsedLesson,
     QuizQuestion,
@@ -30,7 +30,7 @@ from ..course import (
     parse_lesson,
     parse_quiz,
 )
-from ..delivery import (
+from ...delivery import (
     NO_HOOKS,
     Beat,
     CompletionOutcome,
@@ -48,7 +48,7 @@ from ..delivery import (
     submit_homework,
     utc_now,
 )
-from ..store import ProgressStore
+from ...store import ProgressStore
 
 
 class LearnerLeft(Exception):

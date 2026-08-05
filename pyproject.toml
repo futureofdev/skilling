@@ -30,8 +30,9 @@ src = ["packages/skilling/src"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
-# Calling typer.Option/Argument in a default is the framework's whole interface.
-"packages/skilling/src/skilling/cli/__init__.py" = ["B008"]
+# Calling typer.Option/Argument in a default is the framework's whole interface. Scoped to the
+# CLI tree rather than one file, because commands live in groups under it.
+"packages/skilling/src/skilling/cli/**/*.py" = ["B008"]
 
 [tool.pyright]
 include = ["packages"]

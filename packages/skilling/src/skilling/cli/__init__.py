@@ -1,27 +1,28 @@
-"""The ``skilling`` command line."""
+"""The ``skilling`` command line.
+
+Assembly only. Commands live in groups by audience — ``authoring`` for people writing courses,
+``learning`` for delivering one — so that adding a command touches one new module and one line
+here, rather than a file every other change also wants to edit.
+
+Groups re-export their commands; this module decides the order they register in, because
+registration order is the order ``--help`` lists them and that should be a single deliberate
+statement rather than a side effect of import order.
+"""
 
 from __future__ import annotations
-
-from pathlib import Path
 
 import typer
 
 from .. import __version__
-from ..conformance import validate_course
-from ..course import Course, CourseLoadError, compare_paths
-from ..delivery import Dispatcher, parse_sink, set_telemetry_consent, today_in
-from ..store import LOCAL_LEARNER, FileProgressStore
 from . import _render as render
-from ._scaffold import scaffold
-from ._walk import Walker
+from .authoring import diff, init, show, today, validate
+from .learning import deliver
 
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
     help="Tooling for the Skilling course format: validate, scaffold, inspect, deliver.",
 )
-
-DEFAULT_STATE = Path(".skilling")
 
 
 def _version(value: bool) -> None:
@@ -41,159 +42,10 @@ def root(
     pass
 
 
-@app.command()
-def validate(
-    course: Path = typer.Argument(..., help="Path to the course directory."),
-    as_json: bool = typer.Option(False, "--json", help="Machine-readable output for CI."),
-    strict: bool = typer.Option(
-        False, "--strict", help="Treat warnings as failures as well as errors."
-    ),
-) -> None:
-    """Check a course against the format. Exits non-zero when it does not conform."""
-    report = validate_course(course)
-    if as_json:
-        render.findings_json(report)
-    else:
-        render.findings(report, root=str(course))
+COMMANDS = (validate, init, show, deliver, diff, today)
 
-    failed = not report.ok or (strict and report.warnings)
-    raise typer.Exit(1 if failed else 0)
-
-
-@app.command()
-def init(
-    target: Path = typer.Argument(..., help="Directory to create the course in."),
-    title: str = typer.Option(None, "--title", help="Course title. Defaults from the directory."),
-) -> None:
-    """Scaffold a conforming course skeleton."""
-    if target.exists() and any(target.iterdir()):
-        render.err_console.print(f"[red]{target} exists and is not empty.[/]")
-        raise typer.Exit(1)
-
-    target.mkdir(parents=True, exist_ok=True)
-    written = scaffold(target, title=title)
-    for path in written:
-        render.console.print(f"[green]created[/] {path}")
-
-    report = validate_course(target)
-    render.console.print()
-    if report.clean:
-        render.console.print("[bold green]The scaffold validates clean.[/] Start editing.")
-    else:
-        render.findings(report, root=str(target))
-    render.console.print(f"\n[dim]Next: skilling deliver {target}[/]")
-
-
-@app.command()
-def show(
-    course: Path = typer.Argument(..., help="Path to the course directory."),
-    state: Path = typer.Option(
-        None, "--state", help="Progress state root, to show a learner's position too."
-    ),
-) -> None:
-    """Print the resolved structure and every derived count."""
-    try:
-        resolved = Course.load(course)
-    except CourseLoadError as exc:
-        render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
-        raise typer.Exit(1) from exc
-
-    completed: list[str] = []
-    if state:
-        store = FileProgressStore(state)
-        found = store.get_record(LOCAL_LEARNER, resolved.id)
-        if found:
-            completed = found[0].completed
-    render.course_summary(resolved, completed=completed)
-
-
-@app.command()
-def deliver(
-    course: Path = typer.Argument(..., help="Path to the course directory."),
-    state: Path = typer.Option(
-        DEFAULT_STATE, "--state", help="Where to keep the learner's progress record."
-    ),
-    learner: str = typer.Option(LOCAL_LEARNER, "--learner", help="Learner id for the record."),
-    zone: str = typer.Option("UTC", "--timezone", help="IANA timezone for streak dates."),
-    sink: list[str] = typer.Option(
-        None,
-        "--sink",
-        help="First-party hook sink, inside your trust boundary. e.g. jsonl:events.jsonl",
-    ),
-    telemetry_sink: list[str] = typer.Option(
-        None,
-        "--telemetry-sink",
-        help="Sink that leaves your trust boundary. Consent-gated and anonymised.",
-    ),
-    no_telemetry: bool = typer.Option(
-        False, "--no-telemetry", help="Record a decline without asking, and send nothing."
-    ),
-) -> None:
-    """Walk the delivery loop. A Conforming Runtime — no language model involved."""
-    try:
-        resolved = Course.load(course)
-    except CourseLoadError as exc:
-        render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
-        raise typer.Exit(1) from exc
-
-    report = validate_course(course)
-    if not report.ok:
-        render.err_console.print(
-            f"[red]This course does not conform ({len(report.errors)} error(s)).[/] "
-            f"Run: skilling validate {course}"
-        )
-        raise typer.Exit(1)
-
-    try:
-        first_party = [parse_sink(spec) for spec in (sink or [])]
-        telemetry = [] if no_telemetry else [parse_sink(spec) for spec in (telemetry_sink or [])]
-    except ValueError as exc:
-        render.err_console.print(f"[red]{exc}[/]")
-        raise typer.Exit(1) from exc
-
-    dispatcher = Dispatcher(first_party=first_party, telemetry=telemetry)
-    store = FileProgressStore(state, learner_id=learner)
-    walker = Walker(
-        resolved,
-        store,
-        learner_id=learner,
-        console=render.console,
-        zone=zone,
-        hooks=dispatcher,
-        ask_consent=not no_telemetry,
-    )
-    try:
-        code = walker.run()
-        if no_telemetry and walker.record.telemetry.opt_in is None:
-            set_telemetry_consent(store, walker.record, walker.revision, False)
-    finally:
-        dispatcher.close()
-    raise typer.Exit(code)
-
-
-@app.command()
-def diff(
-    old: Path = typer.Argument(..., help="The published course version."),
-    new: Path = typer.Argument(..., help="The candidate course version."),
-    strict: bool = typer.Option(
-        False, "--strict", help="Exit non-zero when the declared bump is insufficient."
-    ),
-) -> None:
-    """Classify the change between two course versions and check coordinate stability."""
-    try:
-        result = compare_paths(old, new)
-    except CourseLoadError as exc:
-        render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
-        raise typer.Exit(1) from exc
-
-    render.diff_summary(result)
-    raise typer.Exit(1 if strict and not result.satisfied else 0)
-
-
-@app.command()
-def today(zone: str = typer.Option("UTC", "--timezone")) -> None:
-    """Print today's date in a timezone — the unit the streak algorithm counts in."""
-    render.console.print(str(today_in(zone)))
+for _command in COMMANDS:
+    app.command()(_command)
 
 
 def main() -> None:
