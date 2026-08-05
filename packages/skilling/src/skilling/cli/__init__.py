@@ -17,7 +17,7 @@ from .. import __version__
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
-from .runtime import advance, ceremony, complete, next
+from .runtime import advance, answer, ceremony, complete, next, quiz
 
 app = typer.Typer(
     add_completion=False,
@@ -43,14 +43,14 @@ def root(
     pass
 
 
-COMMANDS = (validate, init, show, deliver, diff, today, next, advance, complete, ceremony)
+COMMANDS = (validate, init, show, deliver, diff, today, next, advance, complete, ceremony, answer)
 
 for _command in COMMANDS:
     app.command()(_command)
 
-GROUPS: tuple[tuple[str, typer.Typer], ...] = ()
-"""Sub-apps registered as ``skilling <name> ...`` — ``quiz``/``objective``/``homework`` land
-here one line at a time, rather than each editing this module's imports and registration."""
+GROUPS: tuple[tuple[str, typer.Typer], ...] = (("quiz", quiz),)
+"""Sub-apps registered as ``skilling <name> ...`` — ``objective``/``homework`` land here one
+line at a time, rather than each editing this module's imports and registration."""
 
 for _group in GROUPS:
     # Indexed rather than unpacked: pyright narrows an empty tuple literal to `tuple[()]`,
