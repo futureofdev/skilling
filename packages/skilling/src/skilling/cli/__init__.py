@@ -18,7 +18,7 @@ from .. import __version__
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
-from .packaging import pack
+from .packaging import install, pack, uninstall
 
 app = typer.Typer(
     add_completion=False,
@@ -44,7 +44,7 @@ def root(
     pass
 
 
-COMMANDS = (validate, init, show, deliver, diff, today, pack)
+COMMANDS = (validate, init, show, deliver, diff, today, pack, install, uninstall)
 
 for _command in COMMANDS:
     app.command()(_command)

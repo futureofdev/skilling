@@ -14,14 +14,21 @@ from ._generate import (
     derive_description,
     write_pack,
 )
+from ._hosts import RECEIPT_NAME, HostTarget, InstallResult, Platform, install, uninstall
 
 __all__ = [
+    "RECEIPT_NAME",
     "GeneratedFile",
     "GeneratedPack",
+    "HostTarget",
+    "InstallResult",
     "Pack",
     "PackFinding",
     "PackRefused",
+    "Platform",
     "audit",
     "derive_description",
+    "install",
+    "uninstall",
     "write_pack",
 ]
