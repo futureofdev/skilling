@@ -17,6 +17,7 @@ from .. import __version__
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
+from .runtime import advance, ceremony, complete, next
 
 app = typer.Typer(
     add_completion=False,
@@ -42,10 +43,21 @@ def root(
     pass
 
 
-COMMANDS = (validate, init, show, deliver, diff, today)
+COMMANDS = (validate, init, show, deliver, diff, today, next, advance, complete, ceremony)
 
 for _command in COMMANDS:
     app.command()(_command)
+
+GROUPS: tuple[tuple[str, typer.Typer], ...] = ()
+"""Sub-apps registered as ``skilling <name> ...`` — ``quiz``/``objective``/``homework`` land
+here one line at a time, rather than each editing this module's imports and registration."""
+
+for _group in GROUPS:
+    # Indexed rather than unpacked: pyright narrows an empty tuple literal to `tuple[()]`,
+    # whose (nonexistent) element type is Never — destructuring assignment from it is a
+    # type error even though the loop body never runs. Indexing sidesteps it; a real entry
+    # in GROUPS makes the whole question moot again.
+    app.add_typer(_group[1], name=_group[0])
 
 
 def main() -> None:
