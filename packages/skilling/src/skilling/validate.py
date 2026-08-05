@@ -597,6 +597,31 @@ def _check_sections(out: _Collector, resolved, parsed: md.ParsedLesson) -> None:
             where=f"Objective {objective.id!r}",
         )
 
+        # Only practice can be observed from outside. A knowledge objective with a verify
+        # clause is a category error, not a stricter check.
+        if objective.kind == "knowledge" and (objective.verify or objective.check):
+            out.add(
+                Code.OBJECTIVE_VERIFY_ON_KNOWLEDGE,
+                f"Objective {objective.id!r} is knowledge but carries verify or check. Knowledge "
+                "is settled by a tutor hearing the learner explain it, not by looking at their "
+                "machine — if it can be observed, it is practice.",
+                path=path,
+                line=1,
+            )
+        if objective.check and not objective.verify:
+            out.add(
+                Code.OBJECTIVE_CHECK_WITHOUT_VERIFY,
+                f"Objective {objective.id!r} has a check but no verify. A check is one way to "
+                "establish something; verify is what says what that something is, and a runtime "
+                "may decline the check.",
+                path=path,
+                line=1,
+            )
+        if objective.verify:
+            _scan_counts(
+                out, objective.verify, _BODY_COUNTS, path=path, where=f"{objective.id!r} verify"
+            )
+
     for key in OPTIONAL_SECTION_KEYS:
         spec = md.BY_SLOT[key]
         declaration = fm.declaration(key)
@@ -696,7 +721,7 @@ def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
 
     if quiz := parsed.section("quiz"):
         _check_quiz(out, path, quiz)
-        _check_tested_by(out, path, parsed, quiz)
+        _check_about(out, path, parsed, quiz)
 
     if homework := parsed.section("homework"):
         parsed_hw = md.parse_homework(homework.body)
@@ -722,23 +747,21 @@ def _check_section_bodies(out: _Collector, parsed: md.ParsedLesson) -> None:
             )
 
 
-def _check_tested_by(
-    out: _Collector, path: Path, parsed: md.ParsedLesson, section: md.Section
-) -> None:
-    """An objective may only point at questions that exist. Renumbering a quiz means
-    revisiting whatever pointed at it."""
+def _check_about(out: _Collector, path: Path, parsed: md.ParsedLesson, section: md.Section) -> None:
+    """An objective may only point at questions that exist. The coupling is loose by design —
+    `about` steers what a tutor says, so a stale entry costs a sentence, not a record."""
     fm = parsed.frontmatter
     if fm is None or not fm.objectives:
         return
 
     numbers = {q.number for q in md.parse_quiz(section.body, section.body_line)}
     for objective in fm.objectives:
-        for referenced in objective.tested_by:
+        for referenced in objective.about:
             if referenced not in numbers:
                 out.add(
-                    Code.OBJECTIVE_TESTED_BY_INVALID,
-                    f"Objective {objective.id!r} is tested_by question {referenced}, which this "
-                    f"quiz does not have. It has: {sorted(numbers) or 'none'}.",
+                    Code.OBJECTIVE_ABOUT_INVALID,
+                    f"Objective {objective.id!r} says it is about question {referenced}, which "
+                    f"this quiz does not have. It has: {sorted(numbers) or 'none'}.",
                     path=path,
                     line=section.line,
                 )

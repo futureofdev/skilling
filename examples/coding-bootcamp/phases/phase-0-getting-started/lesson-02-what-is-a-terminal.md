@@ -7,13 +7,16 @@ prerequisites: ["0.1"]
 skills_unlocked: []
 objectives:
   - id: what-the-terminal-is
+    kind: knowledge
     text: "Understand what the terminal is and why developers use it"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: open-the-terminal
+    kind: knowledge
     text: "Know how to open the terminal on your computer"
   - id: run-your-first-commands
+    kind: practice
     text: "Be able to run your first terminal commands"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

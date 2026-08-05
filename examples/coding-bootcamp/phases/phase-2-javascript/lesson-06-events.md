@@ -7,15 +7,19 @@ prerequisites: ["2.5"]
 skills_unlocked: []
 objectives:
   - id: add-event-listeners
+    kind: practice
     text: "Add event listeners to DOM elements"
-    tested_by: [3]
+    about: [3]
   - id: handle-common-events
+    kind: practice
     text: "Handle click, input, and submit events"
-    tested_by: [1]
+    about: [1]
   - id: the-event-object
+    kind: practice
     text: "Use the event object to get details about the event"
-    tested_by: [2]
+    about: [2]
   - id: build-a-counter
+    kind: practice
     text: "Build an interactive counter"
 sections:
   key_terms: present

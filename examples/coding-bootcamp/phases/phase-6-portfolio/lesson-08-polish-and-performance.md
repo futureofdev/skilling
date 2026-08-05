@@ -7,15 +7,19 @@ prerequisites: ["6.7"]
 skills_unlocked: [portfolio-complete]
 objectives:
   - id: run-lighthouse
+    kind: practice
     text: "Run Lighthouse to measure performance"
-    tested_by: [2]
+    about: [2]
   - id: optimise-images-and-fonts
+    kind: practice
     text: "Optimise images and fonts"
-    tested_by: [1]
+    about: [1]
   - id: meta-tags-for-sharing
+    kind: practice
     text: "Add meta tags for search and social sharing"
-    tested_by: [3]
+    about: [3]
   - id: verify-accessibility
+    kind: practice
     text: "Verify the site is accessible"
 sections:
   key_terms:

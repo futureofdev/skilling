@@ -7,15 +7,19 @@ prerequisites: ["1.6"]
 skills_unlocked: []
 objectives:
   - id: media-queries
+    kind: practice
     text: "Use media queries to adapt styles for different screen sizes"
-    tested_by: [2]
+    about: [2]
   - id: mobile-first
+    kind: knowledge
     text: "Understand mobile-first design"
-    tested_by: [1]
+    about: [1]
   - id: the-viewport-meta-tag
+    kind: practice
     text: "Use the viewport meta tag correctly"
-    tested_by: [3]
+    about: [3]
   - id: layouts-across-devices
+    kind: practice
     text: "Build layouts that work on mobile, tablet, and desktop"
 sections:
   key_terms: present

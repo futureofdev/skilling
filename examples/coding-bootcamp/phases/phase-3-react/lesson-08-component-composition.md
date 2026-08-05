@@ -7,16 +7,20 @@ prerequisites: ["3.7"]
 skills_unlocked: []
 objectives:
   - id: compose-reusable-components
+    kind: practice
     text: "Compose complex interfaces from simple, reusable components"
   - id: lift-state-up
+    kind: practice
     text: "Lift state up to share it between components"
-    tested_by: [1]
+    about: [1]
   - id: callbacks-as-props
+    kind: practice
     text: "Pass callbacks as props for child-to-parent communication"
-    tested_by: [2]
+    about: [2]
   - id: when-to-split
+    kind: knowledge
     text: "Understand when to split components and when to keep them together"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

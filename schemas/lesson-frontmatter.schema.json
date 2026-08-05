@@ -2,29 +2,62 @@
   "$defs": {
     "Objective": {
       "additionalProperties": false,
-      "description": "An addressable learning objective. Since 1.1.\n\nA lesson's contract, given an id so a tutor can target remediation at the one a wrong\nanswer implicates instead of re-presenting the whole concept.",
+      "description": "An addressable learning objective. Since 1.1; ``kind`` and ``verify`` since 1.2.\n\nA lesson's contract, given an id so a tutor can target remediation at the one a wrong\nanswer implicates instead of re-presenting the whole concept.",
       "properties": {
+        "about": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "About",
+          "type": "array"
+        },
+        "check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Check"
+        },
         "id": {
           "maxLength": 64,
           "minLength": 1,
           "title": "Id",
           "type": "string"
         },
-        "tested_by": {
-          "items": {
-            "type": "integer"
-          },
-          "title": "Tested By",
-          "type": "array"
+        "kind": {
+          "enum": [
+            "knowledge",
+            "practice"
+          ],
+          "title": "Kind",
+          "type": "string"
         },
         "text": {
           "minLength": 1,
           "title": "Text",
           "type": "string"
+        },
+        "verify": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verify"
         }
       },
       "required": [
         "id",
+        "kind",
         "text"
       ],
       "title": "Objective",
@@ -52,7 +85,7 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.1/lesson-frontmatter.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.2/lesson-frontmatter.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",

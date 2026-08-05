@@ -131,7 +131,7 @@ The record is what is durably true about one learner in one course. It is keyed 
 learner_id: "a1b2c3"
 course_id: hello-skilling
 course_version: "1.0.0"
-spec_version: "1.1"
+spec_version: "1.2"
 position:
   phase: 1
   lesson: 3
@@ -143,7 +143,7 @@ skills_unlocked: [course-basics]
 objectives_met:          # since 1.1; optional
   - id: read-a-manifest
     at: 2026-08-03
-    evidence: quiz
+    evidence: explained
 started_at: 2026-08-03
 last_activity: 2026-08-03
 timezone: Europe/London  # IANA name; defaults to UTC
@@ -172,15 +172,45 @@ objectives_met:
     evidence: quiz         # quiz | exercise | homework | tutor
 ```
 
-`evidence` is a closed set naming *how* the objective was demonstrated. `tutor` means a runtime with judgement decided it; the other three name the beat that showed it.
+`evidence` is a closed set naming *how* the objective was demonstrated:
 
-**Writing this is optional.** A runtime that cannot judge whether an objective was met writes nothing — the same position as homework checking, and it conforms. What a runtime must not do is guess: an objective recorded as met without evidence is worse than one left absent, because a later tutor will believe it.
+| `evidence` | Means |
+|---|---|
+| `explained` | The learner explained it to a tutor's satisfaction |
+| `observed` | A runtime looked at their machine or their work and saw it |
+| `homework` | It follows from a homework requirement's verdict |
 
-`tested_by` is the bridge for a runtime with no model in it. When every question testing an objective is answered correctly, that objective was demonstrated by the quiz, and it may be recorded with `evidence: quiz`. When any of them was answered wrongly, it was not.
+**Writing this is optional.** A runtime that cannot gather the right evidence writes nothing — the same position as homework checking, and it conforms. What a runtime must not do is guess: an objective recorded as met without evidence is worse than one left absent, because a later tutor will believe it and skip teaching something the learner never learned.
+
+**A quiz settles nothing.** Three four-option questions cannot demonstrate a capability — one question is guessed right a quarter of the time, and no multiple-choice question can establish that software is installed or a commit exists. There is no `evidence: quiz`.
+
+## Capabilities and what may be settled
+
+**Since 1.2.** A runtime's [`kind`-handling](course-format.md#what-kind-of-claim-it-is) depends on what it can actually observe, so a conformance claim names its capabilities:
+
+| Capability | The runtime can | So it may settle |
+|---|---|---|
+| `converse` | hold a conversation and judge an explanation | `knowledge` objectives, with `evidence: explained` |
+| `observe` | inspect the learner's filesystem, repository, or command output | `practice` objectives, with `evidence: observed` |
+| `assess` | judge a submitted work product against requirements | homework verdicts, and objectives that follow from them |
+
+**A runtime must not settle an objective whose kind it lacks the capability for.** A chat tutor with no filesystem access leaves every `practice` objective alone, however confident the learner sounds. A text walker with none of the three settles nothing at all.
+
+Claims read *"Conforming Runtime (converse, assess), Skilling 1.2"*. A runtime with no capabilities is still a Conforming Runtime — it delivers the loop, holds the gates, and writes a correct record. It simply makes no capability claims about the learner, which is the truthful thing for it to do.
+
+### Verifying a practice objective
+
+A runtime with `observe` and a `verify` clause has everything it needs: the clause says what success looks like, and the runtime works out how to look. It records `evidence: observed` when it finds it and leaves the objective alone when it does not.
+
+A `check` command, where the course supplies one, is a **proposal**. A runtime may decline it, must put it through its host's permission model, and must never run it silently. `verify` stays the authority on what is being established.
+
+A `practice` objective with no `verify` cannot be observed from outside. Leave it unsettled unless `assess` gives you grounds — "apply the design system consistently" is a judgement, not a check.
 
 ### Objective-targeted remediation
 
-When a learner answers a question wrongly and that question is `tested_by` an objective, remediation should **name that objective** — "this one is about opening a terminal; let me go over that part again" — rather than re-presenting the whole concept. That specificity is the entire reason objectives are addressable, and it is the difference between a tutor who noticed what went wrong and one who simply repeated itself.
+When a learner answers a question wrongly and that question is [`about`](course-format.md#remediation-not-evidence) an objective, remediation should **name that objective** — "this one is about opening a terminal; let me go over that part again" — rather than re-presenting the whole concept. That specificity is the entire reason objectives are addressable, and it is the difference between a tutor who noticed what went wrong and one who simply repeated itself.
+
+Note the asymmetry, because it is the point: `about` steers what a tutor *says*, where being slightly wrong costs a slightly-off sentence. Evidence goes into a record that outlives the conversation, where being slightly wrong is a lie. Those needs are different enough to deserve different fields.
 
 ### A badge is not an objective
 

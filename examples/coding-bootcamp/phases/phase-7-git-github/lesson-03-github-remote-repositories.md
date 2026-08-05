@@ -7,16 +7,23 @@ prerequisites: ["7.2"]
 skills_unlocked: []
 objectives:
   - id: create-a-repository
+    kind: practice
     text: "Create a GitHub repository"
   - id: connect-a-remote
+    kind: practice
     text: "Connect a local repository to GitHub"
-    tested_by: [1]
+    verify: "The repository has an origin remote pointing at a GitHub repository"
+    about: [1]
   - id: push-code
+    kind: practice
     text: "Push code to GitHub"
-    tested_by: [2]
+    verify: "The remote branch and the local branch point at the same commit"
+    about: [2]
   - id: pull-changes
+    kind: practice
     text: "Pull changes from GitHub"
-    tested_by: [3]
+    verify: "The learner has fetched and integrated a commit that was made on the remote"
+    about: [3]
 sections:
   key_terms: present
   exercise: present

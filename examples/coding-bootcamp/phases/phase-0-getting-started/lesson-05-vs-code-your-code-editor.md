@@ -7,14 +7,19 @@ prerequisites: ["0.4"]
 skills_unlocked: [vs-code-setup]
 objectives:
   - id: install-vs-code
+    kind: practice
     text: "Have VS Code installed and configured"
+    verify: "VS Code is installed and launches on this machine"
   - id: keyboard-shortcuts
+    kind: knowledge
     text: "Know the key VS Code keyboard shortcuts"
   - id: essential-extensions
+    kind: practice
     text: "Have essential extensions installed"
   - id: open-a-project
+    kind: knowledge
     text: "Know how to open a project in VS Code"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

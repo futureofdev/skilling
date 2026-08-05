@@ -7,16 +7,22 @@ prerequisites: ["0.5"]
 skills_unlocked: [git-basics]
 objectives:
   - id: what-version-control-is
+    kind: knowledge
     text: "Understand what version control is and why it matters"
-    tested_by: [3]
+    about: [3]
   - id: init-a-repository
+    kind: practice
     text: "Initialise a git repository"
+    verify: "A git repository exists in the learner's project directory"
   - id: make-your-first-commit
+    kind: practice
     text: "Make your first commit"
-    tested_by: [1]
+    verify: "The repository's history contains at least one commit the learner authored"
+    about: [1]
   - id: the-staging-area
+    kind: knowledge
     text: "Understand the staging area"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

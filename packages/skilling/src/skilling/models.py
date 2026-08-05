@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -152,18 +153,60 @@ SectionDecl = Literal["present"] | SectionAbsence
 OPTIONAL_SECTION_KEYS: tuple[str, ...] = ("key_terms", "exercise", "next_up")
 
 
+ObjectiveKind = Literal["knowledge", "practice"]
+
+
+class Capability(StrEnum):
+    """What a runtime can actually observe. Since 1.2.
+
+    Which capabilities a runtime has decides which objective kinds it may settle — a chat
+    tutor cannot see a filesystem, so it must leave every ``practice`` objective alone
+    however confident the learner sounds.
+    """
+
+    CONVERSE = "converse"
+    """Can hold a conversation and judge an explanation. Settles ``knowledge``."""
+
+    OBSERVE = "observe"
+    """Can inspect the learner's filesystem, repository or command output. Settles
+    ``practice``."""
+
+    ASSESS = "assess"
+    """Can judge a submitted work product against requirements. Settles homework."""
+
+
+#: Which capability settles which kind, and the evidence it produces.
+SETTLES: dict[ObjectiveKind, tuple[Capability, str]] = {
+    "knowledge": (Capability.CONVERSE, "explained"),
+    "practice": (Capability.OBSERVE, "observed"),
+}
+
+
 class Objective(Strict):
-    """An addressable learning objective. Since 1.1.
+    """An addressable learning objective. Since 1.1; ``kind`` and ``verify`` since 1.2.
 
     A lesson's contract, given an id so a tutor can target remediation at the one a wrong
     answer implicates instead of re-presenting the whole concept.
     """
 
     id: Slug
+    kind: ObjectiveKind
+    """What would count as evidence, and therefore which runtimes can settle it at all."""
+
     text: str = Field(min_length=1)
-    tested_by: list[int] = Field(default_factory=list)
-    """Quiz question numbers testing this objective. What lets a model-free runtime decide
-    an objective was demonstrated."""
+    about: list[int] = Field(default_factory=list)
+    """Quiz questions that touch this objective. Steers remediation; **not** evidence — a
+    quiz settles nothing, because one four-option question is guessed right a quarter of the
+    time and none can establish that software is installed."""
+
+    verify: str | None = None
+    """For a ``practice`` objective: what success looks like, for a runtime that can look.
+    Prose rather than a command, because an agent with shell access is good at working out
+    *how*, and `node --version` is wrong behind a version manager."""
+
+    check: str | None = None
+    """An optional literal command. A *proposal*: a runtime may decline it, must run it
+    through its host's permission model, and must never run it silently."""
 
     @field_validator("id")
     @classmethod
@@ -171,6 +214,14 @@ class Objective(Strict):
         if not SLUG_RE.match(v):
             raise ValueError("must be lowercase kebab-case")
         return v
+
+    @property
+    def observable(self) -> bool:
+        """Can a runtime that can look actually settle this from outside?"""
+        return self.kind == "practice" and bool(self.verify)
+
+    def settled_by(self) -> tuple[Capability, str] | None:
+        return SETTLES.get(self.kind)
 
 
 class LessonFrontmatter(Strict):
@@ -190,7 +241,8 @@ class LessonFrontmatter(Strict):
         return None
 
     def objectives_for_question(self, number: int) -> list[Objective]:
-        return [o for o in self.objectives if number in o.tested_by]
+        """Objectives a question touches — for remediation, never for evidence."""
+        return [o for o in self.objectives if number in o.about]
 
     @field_validator("prerequisites")
     @classmethod
@@ -220,7 +272,8 @@ class Position(Strict):
         return f"{self.phase}.{self.lesson}"
 
 
-Evidence = Literal["quiz", "exercise", "homework", "tutor"]
+#: How an objective was demonstrated. There is no "quiz": a quiz settles nothing.
+Evidence = Literal["explained", "observed", "homework"]
 
 
 class ObjectiveMet(Strict):

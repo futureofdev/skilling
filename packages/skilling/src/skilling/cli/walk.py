@@ -398,21 +398,13 @@ class Walker:
     def _complete(
         self, state: LessonState, lesson: ResolvedLesson, *, now: datetime | None = None
     ) -> LessonState:
-        objectives_met: list[str] = []
-        if not self.record.has_completed(lesson.coordinate):
-            # Written before the completion so a sink cannot see a completion whose objectives
-            # have not yet landed.
-            self.record, self.revision, objectives_met = runtime.mark_objectives_met(
-                self.store, self.record, self.revision, lesson, self.correct, now=now
-            )
-
+        # A quiz settles nothing: one four-option question is guessed right a quarter of the
+        # time, and none can establish that software is installed. This walker holds no
+        # capabilities, so it records no capability claims at all — which is the truth.
         outcome = runtime.complete_lesson(
             self.store, self.course, self.record, self.revision, lesson, now=now, hooks=self.hooks
         )
         self.record, self.revision = outcome.record, outcome.revision
-
-        for objective in objectives_met:
-            self.console.print(f"[green]Objective demonstrated:[/] {objective}")
 
         if outcome.already_completed:
             self.console.print(

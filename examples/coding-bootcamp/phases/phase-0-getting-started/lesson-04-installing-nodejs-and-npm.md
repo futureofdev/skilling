@@ -7,16 +7,22 @@ prerequisites: ["0.3"]
 skills_unlocked: [nodejs-installed]
 objectives:
   - id: what-node-is
+    kind: knowledge
     text: "Understand what Node.js is and why we need it"
-    tested_by: [1]
+    about: [1]
   - id: install-node-and-npm
+    kind: practice
     text: "Have Node.js and npm installed on your computer"
-    tested_by: [3]
+    verify: "Both node and npm report a version number when asked for one"
+    about: [3]
   - id: verify-your-install
+    kind: practice
     text: "Be able to verify your installation"
+    verify: "The versions node and npm report are readable and recent enough for this course"
   - id: what-npm-is
+    kind: knowledge
     text: "Understand what npm is and why it matters"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

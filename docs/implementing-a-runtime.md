@@ -160,15 +160,35 @@ Derived numbers arrive as placeholders. `{completed_count}` and `{lesson_count}`
 
 ## Name the objective, not the lesson
 
-**Since 1.1.** When a lesson carries [structured objectives](../spec/course-format.md#structured-objectives) and a wrong answer's question is `tested_by` one of them, say which:
+**Since 1.1.** When a wrong answer's question is [`about`](../spec/course-format.md#remediation-not-evidence) an objective, say which:
 
 ```python
 implicated = fm.objectives_for_question(question.number)
 ```
 
-"That one was about opening a terminal" beats re-printing the concept at someone. This is the entire payoff for making objectives addressable, and it is the difference between a tutor who noticed what went wrong and one that repeats itself.
+"That one was about opening a terminal" beats re-printing the concept at someone. This is the entire payoff for making objectives addressable.
 
-Recording `objectives_met` is optional — the same position as homework checking. If you can judge, write it with the right `evidence`. If you cannot, `runtime.mark_objectives_met` will settle whatever `tested_by` proves and leave the rest alone. Never guess: an objective recorded without evidence is worse than one left absent, because the next tutor will believe it and skip teaching it.
+## Declare what you can actually see
+
+**Since 1.2.** Your conformance claim names its capabilities, and they decide what you may write about a learner:
+
+```python
+from skilling.models import Capability
+
+caps = [Capability.CONVERSE, Capability.ASSESS]     # a chat tutor: no filesystem
+record, revision, settled = runtime.mark_objectives_met(
+    store, record, revision, lesson,
+    met=["what-npm-is", "install-node"],            # what you believe
+    capabilities=caps,                              # what you may claim
+)
+# settled == ["what-npm-is"] — install-node is practice, and you cannot see a machine
+```
+
+The rule is enforced in `mark_objectives_met`, not left to you, for the same reason telemetry consent lives in the dispatcher: a runtime that claims more than it can observe must not be *able* to write it. Evidence follows from the kind, so you cannot label an observation as an explanation either.
+
+**A quiz settles nothing.** There is no `evidence: quiz` and no code path that produces one. One four-option question is guessed right a quarter of the time, and none can establish that software is installed. Use `about` for remediation and leave the record alone.
+
+If you have `observe` — a coding harness with shell and filesystem access — `runtime.settleable(lesson, caps)` gives you the objectives you may settle, each with the `verify` sentence saying what to look for. Work out *how* yourself; that is what you are good at. A course's `check` command, if it supplies one, is a proposal you may decline and must never run silently.
 
 ## Claiming conformance
 

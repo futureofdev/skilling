@@ -7,16 +7,20 @@ prerequisites: ["0.6"]
 skills_unlocked: []
 objectives:
   - id: client-server-model
+    kind: knowledge
     text: "Understand the client-server model"
-    tested_by: [3]
+    about: [3]
   - id: what-happens-on-a-url
+    kind: knowledge
     text: "Know what happens when you type a URL in a browser"
-    tested_by: [1]
+    about: [1]
   - id: http-requests-and-responses
+    kind: knowledge
     text: "Understand HTTP requests and responses at a basic level"
   - id: html-css-js-roles
+    kind: knowledge
     text: "Know what HTML, CSS, and JavaScript each do"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

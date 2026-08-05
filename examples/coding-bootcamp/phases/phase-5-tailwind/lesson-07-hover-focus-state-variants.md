@@ -7,16 +7,20 @@ prerequisites: ["5.6"]
 skills_unlocked: [tailwind-fundamentals]
 objectives:
   - id: hover-styles
+    kind: practice
     text: "Add hover styles with the hover: prefix"
-    tested_by: [1]
+    about: [1]
   - id: focus-states
+    kind: practice
     text: "Style focus states with the focus: prefix"
   - id: transitions
+    kind: practice
     text: "Use transition for smooth animations"
-    tested_by: [2]
+    about: [2]
   - id: group-variants
+    kind: practice
     text: "Apply group for parent-triggered child styles"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise:

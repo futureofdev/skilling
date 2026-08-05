@@ -7,16 +7,20 @@ prerequisites: ["6.6"]
 skills_unlocked: []
 objectives:
   - id: a-controlled-contact-form
+    kind: practice
     text: "Build the controlled React contact form"
-    tested_by: [2]
+    about: [2]
   - id: validation-with-messages
+    kind: practice
     text: "Implement validation with error messages"
   - id: async-submission-states
+    kind: practice
     text: "Handle async submission states"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: success-and-error-feedback
+    kind: practice
     text: "Show success and error feedback"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms:
     status: none

@@ -99,29 +99,78 @@ def test_objective_ids_are_unique_within_each_lesson(golden: Course) -> None:
         assert len(ids) == len(set(ids)), lesson.coordinate
 
 
-def test_most_objectives_are_settled_by_the_quiz(golden: Course) -> None:
-    """`tested_by` is only filled where the question genuinely tests the objective, so full
-    coverage would be a sign of careless mapping rather than a good one."""
-    total = mapped = 0
+def test_every_objective_declares_what_kind_of_claim_it_is(golden: Course) -> None:
+    kinds: dict[str, int] = {"knowledge": 0, "practice": 0}
     for lesson in golden.lessons():
         fm = md.parse_lesson(lesson.path).frontmatter
         assert fm
-        total += len(fm.objectives)
-        mapped += sum(1 for o in fm.objectives if o.tested_by)
+        for objective in fm.objectives:
+            kinds[objective.kind] += 1
 
-    assert total > 200
-    assert mapped / total > 0.6, "a quiz that settles almost nothing is not pulling its weight"
-    assert mapped < total, "if every objective were settled by a quiz, the mapping is too loose"
+    assert sum(kinds.values()) > 200
+    assert kinds["practice"] > kinds["knowledge"], "a hands-on course is mostly practice"
 
 
-def test_tested_by_only_names_questions_that_exist(golden: Course) -> None:
+def test_only_practice_objectives_carry_verification(golden: Course) -> None:
+    for lesson in golden.lessons():
+        fm = md.parse_lesson(lesson.path).frontmatter
+        assert fm
+        for objective in fm.objectives:
+            if objective.kind == "knowledge":
+                assert not objective.verify, f"{lesson.coordinate}/{objective.id}"
+                assert not objective.check
+
+
+def test_verify_is_written_where_observation_is_possible_and_nowhere_else(
+    golden: Course,
+) -> None:
+    """Deliberately partial. Most practice here cannot be observed from outside — "apply the
+    design system consistently" is a judgement — and inventing a check for those is exactly
+    the false confidence 1.2 exists to remove."""
+    observable = unobservable = 0
+    for lesson in golden.lessons():
+        fm = md.parse_lesson(lesson.path).frontmatter
+        assert fm
+        for objective in fm.objectives:
+            if objective.kind != "practice":
+                continue
+            if objective.verify:
+                observable += 1
+                assert len(objective.verify.split()) >= 5, objective.id
+            else:
+                unobservable += 1
+
+    assert observable >= 20, "the environment, git and deploy objectives are checkable"
+    assert unobservable > observable, "and most of the rest honestly are not"
+
+
+def test_a_runtime_with_no_capabilities_may_settle_nothing_here(golden: Course) -> None:
+    from skilling import runtime
+
+    for lesson in golden.lessons():
+        assert runtime.settleable(lesson, []) == [], lesson.coordinate
+
+
+def test_observation_reaches_exactly_the_verified_practice_objectives(golden: Course) -> None:
+    from skilling import runtime
+    from skilling.models import Capability
+
+    reached = 0
+    for lesson in golden.lessons():
+        for objective in runtime.settleable(lesson, [Capability.OBSERVE]):
+            assert objective.kind == "practice" and objective.verify
+            reached += 1
+    assert reached >= 20
+
+
+def test_about_only_names_questions_that_exist(golden: Course) -> None:
     for lesson in golden.lessons():
         parsed = md.parse_lesson(lesson.path)
         fm, quiz = parsed.frontmatter, parsed.section("quiz")
         assert fm and quiz
         numbers = {q.number for q in md.parse_quiz(quiz.body, quiz.body_line)}
         for objective in fm.objectives:
-            assert set(objective.tested_by) <= numbers, f"{lesson.coordinate}/{objective.id}"
+            assert set(objective.about) <= numbers, f"{lesson.coordinate}/{objective.id}"
 
 
 # ---------------------------------------------------------------------- declared absences

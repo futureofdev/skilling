@@ -7,14 +7,17 @@ prerequisites: ["1.1"]
 skills_unlocked: [course-anatomy]
 objectives:
   - id: declare-absence
+    kind: knowledge
     text: Explain why silence about a missing section is a defect and a declared absence is not
-    tested_by: [1]
+    about: [1]
   - id: name-the-sections
+    kind: knowledge
     text: Name the required sections of a lesson and put them in the right order
-    tested_by: [2]
+    about: [2]
   - id: read-frontmatter
+    kind: knowledge
     text: Say what a lesson's frontmatter declares, and why it repeats the manifest
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

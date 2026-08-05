@@ -7,12 +7,16 @@ prerequisites: ["1.8"]
 skills_unlocked: [web-fundamentals]
 objectives:
   - id: build-a-responsive-page
+    kind: practice
     text: "Build a complete, styled, responsive webpage from scratch"
-    tested_by: [1, 3]
+    verify: "A page exists that reflows sensibly at both a phone width and a desktop width"
+    about: [1, 3]
   - id: apply-what-you-learned
+    kind: practice
     text: "Apply HTML, CSS, Flexbox, Grid, responsiveness and forms together"
-    tested_by: [2]
+    about: [2]
   - id: have-a-real-project
+    kind: practice
     text: "Have a real project to show off"
 sections:
   key_terms:

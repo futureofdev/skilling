@@ -7,16 +7,20 @@ prerequisites: ["4.2"]
 skills_unlocked: []
 objectives:
   - id: create-a-layout
+    kind: practice
     text: "Create a reusable layout component"
   - id: use-slot
+    kind: practice
     text: "Use <slot /> to inject page content"
-    tested_by: [1]
+    about: [1]
   - id: pass-props-to-layouts
+    kind: practice
     text: "Pass props to layouts"
-    tested_by: [2, 3]
+    about: [2, 3]
   - id: astro-and-react-children
+    kind: knowledge
     text: "Understand Astro's equivalent of React children"
-    tested_by: [1]
+    about: [1]
 sections:
   key_terms: present
   exercise:

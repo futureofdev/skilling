@@ -7,12 +7,15 @@ prerequisites: ["5.2"]
 skills_unlocked: []
 objectives:
   - id: text-utilities
+    kind: practice
     text: "Use Tailwind text utilities for size, weight, colour and alignment"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: background-and-border-colours
+    kind: practice
     text: "Apply background and border colours"
-    tested_by: [3]
+    about: [3]
   - id: css-custom-properties
+    kind: practice
     text: "Use CSS custom properties alongside Tailwind"
 sections:
   key_terms: present

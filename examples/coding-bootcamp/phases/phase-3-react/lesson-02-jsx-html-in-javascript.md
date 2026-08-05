@@ -7,16 +7,20 @@ prerequisites: ["3.1"]
 skills_unlocked: []
 objectives:
   - id: write-jsx
+    kind: practice
     text: "Write JSX correctly"
   - id: jsx-vs-html
+    kind: knowledge
     text: "Know the differences between JSX and HTML"
-    tested_by: [1]
+    about: [1]
   - id: embed-expressions
+    kind: practice
     text: "Embed JavaScript expressions in JSX"
-    tested_by: [2]
+    about: [2]
   - id: render-lists
+    kind: practice
     text: "Render lists with .map()"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

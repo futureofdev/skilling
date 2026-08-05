@@ -1,10 +1,11 @@
 # The Skilling specification
 
-**Version 1.1.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
+**Version 1.2.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
 
-> 1.1 is additive: it introduces hooks, telemetry, ceremony facts, and addressable
-> objectives, and requires nothing new of a course. A `spec_version: "1.0"` course validates
-> unchanged under a 1.1 tool — there is a test that proves it.
+> 1.2 introduces objective kinds, runtime capabilities, and verification. It is additive except
+> for one deliberate correction: 1.1's `tested_by` becomes `about`, and a quiz no longer settles
+> an objective. Nothing that only uses 1.0 or 1.1's other surfaces is affected, and there is a
+> test that proves `spec_version: "1.0"` courses validate unchanged.
 
 Skilling is an open format for AI-tutored, skill-based courses. It specifies three things precisely enough that independent implementations interoperate:
 
@@ -16,7 +17,7 @@ In 1984 Benjamin Bloom showed that students taught one-to-one outperform classro
 
 ## Conformance
 
-Four classes. Each is claimed and checked independently; one implementation may claim several. A conformance claim names its class and the specification version range it targets — "Conforming Course, Skilling 1.1" — because "Skilling-compatible" on its own is not a claim.
+Four classes. Each is claimed and checked independently; one implementation may claim several. A conformance claim names its class and the specification version range it targets — "Conforming Course, Skilling 1.2" — because "Skilling-compatible" on its own is not a claim.
 
 ### Conforming Course
 
@@ -33,6 +34,8 @@ Zero errors means conforming.
 Delivers courses through the [delivery loop](runtime.md#the-delivery-loop): beats in order, gates held open, quiz one question at a time with reasons, remediation offered, completion written idempotently, ceremony at phase boundaries, resume from the record.
 
 Notably, this does not require a language model. A text walker that holds the gates and writes a correct record conforms — which is the point of [scoping conformance to transitions](runtime.md#scope-of-conformance) rather than to prose.
+
+**Since 1.2 a claim also names its [capabilities](runtime.md#capabilities-and-what-may-be-settled)** — `converse`, `observe`, `assess` — because what a runtime can settle about a learner depends on what it can actually see. A runtime with none of them is still conforming; it simply makes no capability claims, which is the truthful thing for it to do.
 
 ### Conforming Store
 
@@ -69,7 +72,7 @@ Nothing is bound here that no implementation has run. These arrive as minor vers
 |---|---|
 | **Assessed mode** — answer keys held apart from learner-visible content | Needs a runtime that holds keys and a real cohort to be assessed |
 | **Runtime API** — the embedding surface a product builds an interface on | Needs a second interface to bind against, or it binds one product's accidents |
-| **MCP binding** — delivery into a coding agent for hands-on courses | Needs the statefulness questions answered by running code |
+| **MCP binding** — delivery into a coding agent for hands-on courses | The surface that would give a runtime the `observe` capability, and the only honest way to settle a `practice` objective. Specified for, not yet built |
 | **Skill packs** — a course compiled to Agent-Skills format | Needs the generator |
 | **Concept-level prerequisites** — `requires: can read a YAML mapping` | Additive; waiting on a tutor that can assess a claim like that |
 | **Lesson guidance** — what a tutor should avoid or defer | Additive; the ceremony pattern generalised, and not yet needed by a real course |
@@ -89,7 +92,7 @@ This format is not designed from first principles. It generalises one 64-lesson 
 | One phase had two lessons numbered 04, two numbered 05, and no 02 or 03 — undetected for months | [Numbering and bijection rules](course-format.md#numbering-and-structure), mechanically checked |
 | A learner could answer all three quiz questions wrongly and be congratulated | [Remediation](runtime.md#remediation) is required, with a re-explanation offered on every wrong answer |
 | 24 of 64 lessons silently lacked an exercise, so the tutor improvised a different course each time | [Declared absence](course-format.md#declared-absence): absence is fine, undeclared absence is not |
-| Answer keys sat inline with learner-visible content, so the course could never be assessed | **Not yet fixed.** Informal delivery keeps answers inline by design; the separation arrives with assessed mode at 1.1 |
+| Answer keys sat inline with learner-visible content, so the course could never be assessed | **Not yet fixed.** Informal delivery keeps answers inline by design; the separation waits for assessed mode |
 
 The last row is deliberate. A specification that claimed to have solved every problem it inherited on the first draft would be lying about the easiest thing to check.
 

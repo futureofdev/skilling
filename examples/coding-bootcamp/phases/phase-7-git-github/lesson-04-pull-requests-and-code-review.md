@@ -7,15 +7,19 @@ prerequisites: ["7.3"]
 skills_unlocked: []
 objectives:
   - id: open-a-pull-request
+    kind: practice
     text: "Create a pull request on GitHub"
-    tested_by: [1]
+    about: [1]
   - id: write-good-descriptions
+    kind: practice
     text: "Write good pull request descriptions"
-    tested_by: [2]
+    about: [2]
   - id: the-review-process
+    kind: knowledge
     text: "Understand the code review process"
-    tested_by: [3]
+    about: [3]
   - id: merge-a-pull-request
+    kind: practice
     text: "Merge a pull request on GitHub"
 sections:
   key_terms: present

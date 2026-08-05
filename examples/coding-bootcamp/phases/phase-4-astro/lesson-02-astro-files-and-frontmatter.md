@@ -7,13 +7,17 @@ prerequisites: ["4.1"]
 skills_unlocked: []
 objectives:
   - id: write-astro-files
+    kind: practice
     text: "Write valid .astro files"
   - id: the-frontmatter-script
+    kind: practice
     text: "Use the frontmatter script section"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: frontmatter-to-template
+    kind: practice
     text: "Pass data from frontmatter to the template"
   - id: import-components
+    kind: practice
     text: "Import and use other components"
 sections:
   key_terms: present

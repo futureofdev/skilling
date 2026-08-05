@@ -7,14 +7,17 @@ prerequisites: ["2.8"]
 skills_unlocked: []
 objectives:
   - id: what-react-solves
+    kind: knowledge
     text: "Understand what React is and the problem it solves"
-    tested_by: [1]
+    about: [1]
   - id: vanilla-vs-react
+    kind: knowledge
     text: "Know the difference between vanilla JavaScript DOM manipulation and React's approach"
-    tested_by: [3]
+    about: [3]
   - id: the-component-model
+    kind: knowledge
     text: "Understand the component mental model"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

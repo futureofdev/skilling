@@ -7,17 +7,21 @@ prerequisites: ["5.3"]
 skills_unlocked: []
 objectives:
   - id: padding-and-margin
+    kind: practice
     text: "Use padding and margin utilities"
-    tested_by: [1]
+    about: [1]
   - id: width-and-height
+    kind: practice
     text: "Control element width and height"
-    tested_by: [3]
+    about: [3]
   - id: max-width-for-readability
+    kind: practice
     text: "Use max-width for readable content"
-    tested_by: [2]
+    about: [2]
   - id: centre-with-mx-auto
+    kind: practice
     text: "Centre elements with mx-auto"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise:

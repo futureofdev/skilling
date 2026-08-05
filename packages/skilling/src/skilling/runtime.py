@@ -9,6 +9,7 @@ reaching records.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -19,9 +20,11 @@ from .hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 from .loader import Course, ResolvedLesson
 from .models import (
     Assignment,
+    Capability,
     CompletionEntry,
     HomeworkArchiveEntry,
     HomeworkSlot,
+    Objective,
     ObjectiveMet,
     Position,
     Record,
@@ -309,24 +312,27 @@ def set_telemetry_consent(
     return updated, store.put_record(updated, revision)
 
 
-def objectives_demonstrated_by_quiz(lesson: ResolvedLesson, correct: dict[int, bool]) -> list[str]:
-    """Which of a lesson's objectives the quiz demonstrated.
-
-    An objective counts as demonstrated when *every* question testing it was answered
-    correctly. An objective with no ``tested_by`` cannot be settled this way — that needs a
-    runtime with judgement, and guessing would be worse than leaving it absent.
-    """
+def objectives_of(lesson: ResolvedLesson) -> list[Objective]:
     parsed = md.parse_lesson(lesson.path)
-    if parsed.frontmatter is None:
-        return []
+    return list(parsed.frontmatter.objectives) if parsed.frontmatter else []
 
-    met: list[str] = []
-    for objective in parsed.frontmatter.objectives:
-        if not objective.tested_by:
+
+def settleable(lesson: ResolvedLesson, capabilities: Iterable[Capability]) -> list[Objective]:
+    """The objectives this runtime is *permitted* to settle, given what it can observe.
+
+    A ``practice`` objective additionally needs a ``verify`` clause: without one there is
+    nothing saying what to look for, so even a runtime that can look cannot honestly settle it.
+    """
+    held = set(capabilities)
+    out: list[Objective] = []
+    for objective in objectives_of(lesson):
+        settles = objective.settled_by()
+        if settles is None or settles[0] not in held:
             continue
-        if all(correct.get(number) for number in objective.tested_by):
-            met.append(objective.id)
-    return met
+        if objective.kind == "practice" and not objective.verify:
+            continue
+        out.append(objective)
+    return out
 
 
 def mark_objectives_met(
@@ -334,26 +340,33 @@ def mark_objectives_met(
     record: Record,
     revision: str | None,
     lesson: ResolvedLesson,
-    correct: dict[int, bool],
+    met: Iterable[str],
+    capabilities: Iterable[Capability] = (),
     *,
     now: datetime | None = None,
-    evidence: str = "quiz",
 ) -> tuple[Record, str | None, list[str]]:
-    """Write the objectives a quiz demonstrated. Returns the newly recorded ids."""
-    candidates = objectives_demonstrated_by_quiz(lesson, correct)
-    fresh = [oid for oid in candidates if not record.has_met(oid)]
+    """Record the objectives a runtime has genuinely established. Returns the new ids.
+
+    The capability rule is enforced *here* rather than trusted to the caller, for the same
+    reason telemetry consent lives in the dispatcher: a runtime that claims more than it can
+    observe must not be *able* to write it. Evidence follows from the kind, so a caller cannot
+    label an observation as an explanation either.
+
+    A quiz is never grounds for any of this. It settles nothing.
+    """
+    permitted = {o.id: o for o in settleable(lesson, capabilities)}
+    fresh = [oid for oid in met if oid in permitted and not record.has_met(oid)]
     if not fresh:
         return record, revision, []
 
     today = today_in(record.timezone, now or utc_now())
-    updated = record.model_copy(
-        update={
-            "objectives_met": [
-                *record.objectives_met,
-                *(ObjectiveMet(id=oid, at=today, evidence=evidence) for oid in fresh),  # type: ignore[arg-type]
-            ]
-        }
-    )
+    entries = []
+    for oid in fresh:
+        settles = permitted[oid].settled_by()
+        assert settles is not None
+        entries.append(ObjectiveMet(id=oid, at=today, evidence=settles[1]))  # type: ignore[arg-type]
+
+    updated = record.model_copy(update={"objectives_met": [*record.objectives_met, *entries]})
     return updated, store.put_record(updated, revision), fresh
 
 

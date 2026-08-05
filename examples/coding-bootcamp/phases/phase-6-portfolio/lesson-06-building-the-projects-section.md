@@ -7,14 +7,18 @@ prerequisites: ["6.5"]
 skills_unlocked: []
 objectives:
   - id: projects-with-filtering
+    kind: practice
     text: "Build the React Projects component with tag filtering"
-    tested_by: [2, 3]
+    about: [2, 3]
   - id: usestate-for-the-filter
+    kind: practice
     text: "Use useState for the active filter state"
   - id: usememo-to-optimise
+    kind: practice
     text: "Use useMemo to optimise the filtered list"
-    tested_by: [1]
+    about: [1]
   - id: hover-effects-on-cards
+    kind: practice
     text: "Implement hover effects on project cards"
 sections:
   key_terms:

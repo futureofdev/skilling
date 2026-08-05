@@ -7,16 +7,20 @@ prerequisites: ["1.7"]
 skills_unlocked: []
 objectives:
   - id: create-forms
+    kind: practice
     text: "Create HTML forms with various input types"
-    tested_by: [2]
+    about: [2]
   - id: labels-for-accessibility
+    kind: practice
     text: "Use labels correctly for accessibility"
-    tested_by: [1]
+    about: [1]
   - id: style-forms
+    kind: practice
     text: "Style forms with CSS"
   - id: form-validation-basics
+    kind: knowledge
     text: "Understand form validation basics"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

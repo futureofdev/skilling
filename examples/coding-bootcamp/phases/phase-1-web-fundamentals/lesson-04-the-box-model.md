@@ -7,16 +7,20 @@ prerequisites: ["1.3"]
 skills_unlocked: []
 objectives:
   - id: the-box-model
+    kind: knowledge
     text: "Understand the CSS box model: content, padding, border, margin"
-    tested_by: [1]
+    about: [1]
   - id: border-box
+    kind: practice
     text: "Use box-sizing: border-box correctly"
-    tested_by: [2]
+    about: [2]
   - id: debug-with-devtools
+    kind: practice
     text: "Debug layout issues using browser DevTools"
   - id: control-spacing
+    kind: practice
     text: "Control spacing between and around elements"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

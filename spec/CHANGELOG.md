@@ -2,6 +2,87 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## 1.2.0-draft — 2026-08-05
+
+**A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.
+That was wrong, and the golden example made it obvious: 168 capability claims written into the
+record on the strength of multiple-choice answers, 142 of them resting on a single four-option
+question — guessed right a quarter of the time. Worse, 31 described actions a quiz cannot
+observe at all. `Have Node.js and npm installed on your computer` was being settled by *"Why
+use nvm instead of installing Node.js directly?"*, which a learner with no Node at all answers
+correctly.
+
+The specification's own [what the record knows](../docs/concepts/what-the-record-knows.md) says
+an objective recorded without evidence is worse than one left absent, because a later tutor
+believes it. 1.1 shipped 168 violations of that.
+
+### The diagnosis
+
+`tested_by` conflated two jobs with wildly different accuracy requirements.
+
+**Aboutness** — "this question touches that objective" — steers what a tutor says next. Cheap,
+useful, and tolerant of error: being slightly off costs a slightly-off sentence.
+
+**Evidence** — "this learner can do that" — goes into a record that outlives the conversation.
+Expensive, load-bearing, and intolerant of error.
+
+One field cannot serve both. 1.2 separates them.
+
+### Objective kinds
+
+Every structured objective now declares a `kind`:
+
+- **`knowledge`** — the learner can explain something. Settled by a tutor probing in
+  conversation.
+- **`practice`** — the learner did something, or their machine is in some state. Settled only by
+  a runtime that can go and look.
+
+The distinction is not academic: `Understand what npm is` and `Have npm installed` read alike
+and need completely different evidence. Courses sit heavily on one side — the golden example is
+72% practice, and `hello-skilling` is 100% knowledge.
+
+### Runtime capabilities
+
+A Conforming Runtime claim now names what it can observe — `converse`, `observe`, `assess` — and
+**a runtime must not settle an objective whose kind it lacks the capability for.** A chat tutor
+with no filesystem access leaves every `practice` objective alone however confident the learner
+sounds. A text walker settles nothing at all, and is still conforming.
+
+This is what makes the honest outcome the *default* rather than a discipline.
+
+### Verification
+
+A `practice` objective may carry `verify` — a sentence describing what success looks like, for a
+runtime that can go and look:
+
+```yaml
+verify: Both node and npm report a version number when asked for one
+```
+
+Prose rather than a command, for the same reason [ceremony carries facts rather than
+sentences](course-format.md#ceremony): an agent with shell access is good at working out *how*
+to check something, and a literal command is a liability — `node --version` is wrong behind a
+version manager, and Windows and macOS need different commands for the identical objective.
+
+An optional literal `check` is available where determinism matters, and is explicitly a
+**proposal**: a runtime may decline it, must put it through its host's permission model, and
+must never run it silently.
+
+`verify` is optional even on a `practice` objective. "Apply the design system consistently" is a
+judgement, not a check, and an objective with no `verify` stays unsettled — which is the honest
+outcome and better than a check that pretends.
+
+### Also
+
+- **`tested_by` → `about`**, and there is no `evidence: quiz`. Evidence values are now
+  `explained`, `observed`, `homework`.
+- **The quiz has an honest job:** a checkpoint that surfaces confusion and drives remediation.
+  It settles nothing. All of the golden example's mappings survive with their real purpose
+  intact.
+- **The MCP binding now has a reason to exist.** It was deferred as "a surface we should
+  support"; it is the surface that would give a runtime `observe`, and therefore the only honest
+  way to settle a `practice` objective. Specified for, not yet built.
+
 ## Errata against 1.1.0-draft
 
 Found by porting a real 64-lesson course — the one this format was generalised from — into the

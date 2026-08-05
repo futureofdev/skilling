@@ -7,16 +7,20 @@ prerequisites: ["2.3"]
 skills_unlocked: []
 objectives:
   - id: if-else
+    kind: practice
     text: "Write if/else statements"
   - id: ternary-expressions
+    kind: practice
     text: "Use ternary expressions for concise conditions"
-    tested_by: [1]
+    about: [1]
   - id: loop-over-arrays
+    kind: practice
     text: "Loop over arrays with .forEach() and for...of"
-    tested_by: [3]
+    about: [3]
   - id: logical-operators
+    kind: practice
     text: "Use && and || for logical conditions"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

@@ -7,12 +7,16 @@ prerequisites: ["3.8"]
 skills_unlocked: [react-fundamentals]
 objectives:
   - id: build-a-multi-component-app
+    kind: practice
     text: "Build a complete multi-component React app"
-    tested_by: [1, 2]
+    verify: "A React app exists whose interface is assembled from more than one component"
+    about: [1, 2]
   - id: apply-the-react-concepts
+    kind: practice
     text: "Apply the React concepts from this phase together"
-    tested_by: [3]
+    about: [3]
   - id: have-a-react-project
+    kind: practice
     text: "Have a real React project in your portfolio"
 sections:
   key_terms:

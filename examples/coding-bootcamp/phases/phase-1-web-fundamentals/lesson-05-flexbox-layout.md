@@ -7,12 +7,15 @@ prerequisites: ["1.4"]
 skills_unlocked: []
 objectives:
   - id: display-flex
+    kind: practice
     text: "Use display: flex to create flexible layouts"
-    tested_by: [3]
+    about: [3]
   - id: direction-and-alignment
+    kind: practice
     text: "Control direction, alignment, and distribution of items"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: build-a-nav-and-card-row
+    kind: practice
     text: "Build a navigation bar and a card row with flexbox"
 sections:
   key_terms: present

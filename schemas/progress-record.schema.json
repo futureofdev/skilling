@@ -11,10 +11,9 @@
         },
         "evidence": {
           "enum": [
-            "quiz",
-            "exercise",
-            "homework",
-            "tutor"
+            "explained",
+            "observed",
+            "homework"
           ],
           "title": "Evidence",
           "type": "string"
@@ -92,7 +91,7 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.1/progress-record.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.2/progress-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",

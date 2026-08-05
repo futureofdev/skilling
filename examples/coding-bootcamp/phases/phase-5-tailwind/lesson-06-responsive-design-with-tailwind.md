@@ -7,12 +7,15 @@ prerequisites: ["5.5"]
 skills_unlocked: []
 objectives:
   - id: responsive-prefixes
+    kind: practice
     text: "Use Tailwind's responsive prefixes"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: mobile-first-with-tailwind
+    kind: practice
     text: "Apply mobile-first design with Tailwind"
-    tested_by: [3]
+    about: [3]
   - id: adapt-mobile-to-desktop
+    kind: practice
     text: "Build layouts that adapt from mobile to desktop"
 sections:
   key_terms: present

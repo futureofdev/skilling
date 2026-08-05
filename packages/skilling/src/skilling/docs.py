@@ -89,11 +89,14 @@ _GROUPS: list[tuple[str, str, tuple[Code, ...]]] = [
     ),
     (
         "Structured objectives",
-        "Addressable learning objectives, since spec 1.1.",
+        "Addressable learning objectives, since spec 1.1; kinds and verification since 1.2. "
+        "`about` steers remediation and is never evidence — a quiz settles nothing.",
         (
             Code.OBJECTIVES_DECLARED_TWICE,
             Code.OBJECTIVE_ID_DUPLICATE,
-            Code.OBJECTIVE_TESTED_BY_INVALID,
+            Code.OBJECTIVE_ABOUT_INVALID,
+            Code.OBJECTIVE_VERIFY_ON_KNOWLEDGE,
+            Code.OBJECTIVE_CHECK_WITHOUT_VERIFY,
         ),
     ),
 ]

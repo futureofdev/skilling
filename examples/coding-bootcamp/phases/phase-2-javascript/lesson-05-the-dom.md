@@ -7,16 +7,20 @@ prerequisites: ["2.4"]
 skills_unlocked: []
 objectives:
   - id: select-elements
+    kind: practice
     text: "Select HTML elements using JavaScript"
-    tested_by: [1]
+    about: [1]
   - id: change-content-and-styles
+    kind: practice
     text: "Read and change element content and styles"
-    tested_by: [3]
+    about: [3]
   - id: create-and-append
+    kind: practice
     text: "Create and append new elements"
   - id: the-dom-tree
+    kind: knowledge
     text: "Understand the DOM tree"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

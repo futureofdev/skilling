@@ -7,12 +7,15 @@ prerequisites: ["6.1"]
 skills_unlocked: []
 objectives:
   - id: a-fixed-nav-in-astro
+    kind: practice
     text: "Build a fixed navigation bar in Astro"
-    tested_by: [2]
+    about: [2]
   - id: scroll-aware-styling
+    kind: practice
     text: "Implement scroll-aware styling with vanilla JavaScript"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: smooth-scroll-links
+    kind: practice
     text: "Create smooth-scroll anchor links"
 sections:
   key_terms:

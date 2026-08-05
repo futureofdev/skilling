@@ -7,14 +7,17 @@ prerequisites: ["3.9"]
 skills_unlocked: []
 objectives:
   - id: ship-less-javascript
+    kind: knowledge
     text: "Understand Astro's ship-less-JavaScript philosophy"
-    tested_by: [1]
+    about: [1]
   - id: astro-vs-react-frameworks
+    kind: knowledge
     text: "Know the difference between Astro and React or Next.js"
-    tested_by: [3]
+    about: [3]
   - id: what-islands-are
+    kind: knowledge
     text: "Understand what Islands Architecture is"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise:

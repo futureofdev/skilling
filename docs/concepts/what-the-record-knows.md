@@ -11,7 +11,14 @@ The record can say two different things about a learner, and the difference matt
 | | Means | Written when |
 |---|---|---|
 | `skills_unlocked` | This lesson completed | The lesson's final quiz feedback is delivered |
-| `objectives_met` | This capability was demonstrated | A runtime judged it, or a quiz proved it |
+| `objectives_met` | This capability was demonstrated | A runtime with the right capability gathered evidence for it |
+
+> **1.1 got this wrong and 1.2 fixes it.** 1.1 let a quiz settle an objective, which put 168
+> capability claims into the golden example's record on the strength of multiple-choice answers
+> — 142 of them resting on a single four-option question. Worse, 31 described actions a quiz
+> cannot observe: `Have Node.js installed` was being settled by *"Why use nvm instead of
+> installing Node.js directly?"*, which a learner with no Node at all answers correctly. This
+> page said such claims are worse than absence, and then the implementation made 168 of them.
 
 A badge is a **completion marker**. An objective is a **capability claim**. A runtime must not infer either from the other.
 
@@ -35,23 +42,69 @@ Giving them ids costs an author almost nothing and buys three things:
 - **A record that means something.** `objectives_met` is a list of things this learner demonstrated, with evidence of how.
 - **A tutor that can pick up where another left off.** A fresh runtime reading the record learns what the learner can do, not only which files they were shown.
 
-## Evidence, and the refusal to guess
+## Kinds, capabilities, and the refusal to guess
 
-Every entry in `objectives_met` carries `evidence`: `quiz`, `exercise`, `homework`, or `tutor`. That is deliberately a closed set, and it is deliberately mandatory.
+**Since 1.2**, an objective declares what *kind* of claim it is, and a runtime declares what it
+can *see*. The two have to match before anything is written.
+
+| Kind | The claim | Needs a runtime that can |
+|---|---|---|
+| `knowledge` | The learner can explain something | hold a conversation and judge the answer (`converse`) |
+| `practice` | The learner did something, or their machine is in some state | go and look (`observe`) |
+
+`Understand what npm is` and `Have npm installed` read alike and need completely different
+evidence: one is a conversation, the other is a fact about a computer. A chat tutor settles the
+first and must leave the second alone however confident the learner sounds.
+
+The rule is enforced in the shared machinery rather than trusted to each runtime — the same
+reason telemetry consent lives in the dispatcher. A runtime that claims more than it can observe
+is not merely discouraged; it is unable to write it.
+
+Every entry in `objectives_met` carries `evidence` — `explained`, `observed`, or `homework` —
+and there is deliberately no value for a quiz.
 
 Writing objectives is **optional** — the same position as homework checking. A runtime that cannot judge whether an objective was met writes nothing and conforms. What it must never do is guess, because an objective recorded as met without evidence is worse than one left absent: a later tutor will believe it, and will skip teaching something the learner never learned.
 
-`tested_by` is the bridge that lets a model-free runtime participate honestly. When every question testing an objective is answered correctly, the quiz demonstrated it. When any of them was wrong, it did not. No judgement required, and no guessing either.
+### What the quiz is actually for
 
-One detail that matters more than it looks: a question re-answered *after* remediation keeps its first verdict. Being told the answer and agreeing is not a demonstration.
+A quiz is a **checkpoint**, not an assessment. It surfaces confusion so remediation can happen,
+and `about` names which objective a wrong answer implicates so the tutor can say "that one was
+about opening a terminal" rather than replaying the whole concept.
+
+Note the asymmetry, because it is the whole point. `about` steers what a tutor *says*, where
+being slightly wrong costs a slightly-off sentence. Evidence goes into a record that outlives
+the conversation, where being slightly wrong is a lie. One field cannot serve both needs, and
+1.1's mistake was trying.
+
+### Verifying practice
+
+A `practice` objective may carry a `verify` clause — a sentence saying what success looks like,
+for a runtime that can go and look:
+
+```yaml
+verify: Both node and npm report a version number when asked for one
+```
+
+Prose rather than a command, deliberately. An agent with shell access is good at working out
+*how* to check something; a literal `node --version` is wrong behind a version manager and
+differs between Windows and macOS for the identical objective. A literal `check` is available
+where determinism matters, and is explicitly a proposal a runtime may decline.
 
 ## Limits
 
 **The record still knows very little.** How long a learner spent, which explanations they needed, where they hesitated, what they said — none of it is stored, and most of it never will be. That thinness is what makes the record portable, and it is a real cost: you cannot build a diagnostic profile out of it.
 
-**Objectives are only as good as the author's mapping.** `tested_by` says a question tests an objective; nobody checks that it really does. A badly aimed question produces a confidently wrong capability claim, and the format cannot see the difference.
+**Most practice cannot be observed at all.** In the golden example only 22 of 171 practice
+objectives carry a `verify` clause. "Apply the design system consistently" is a judgement, not
+a check, and inventing one would be exactly the false confidence 1.2 exists to remove. Those
+stay unsettled.
 
-**An objective with no `tested_by` is unverifiable by machinery.** Plenty of worthwhile objectives are like that — "appreciate why this matters" is not a quiz question. Those need a tutor with judgement, or they stay absent.
+**`verify` is only as good as the author's sentence.** Nothing checks that "the repository has
+an origin remote" is really what the objective meant. A vague clause produces a vague check.
+
+**No runtime today has `observe`.** The surface that would provide it — delivery into a coding
+harness over MCP — is specified for and not yet built. So the golden example's practice
+objectives are currently unsettled, honestly, and will stay that way until something can look.
 
 **Badges are unchanged, and still mean attendance.** 1.1 does not fix them; it stops the specification implying otherwise. If a badge in your course should mean a demonstrated capability, the objectives behind it are where the evidence has to come from.
 

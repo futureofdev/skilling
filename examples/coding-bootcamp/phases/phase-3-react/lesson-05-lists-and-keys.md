@@ -7,14 +7,18 @@ prerequisites: ["3.4"]
 skills_unlocked: []
 objectives:
   - id: render-arrays
+    kind: practice
     text: "Render arrays of data with .map()"
   - id: use-keys
+    kind: practice
     text: "Use keys correctly to help React identify items"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: conditional-rendering
+    kind: practice
     text: "Conditionally render content"
-    tested_by: [2]
+    about: [2]
   - id: combine-state-and-lists
+    kind: practice
     text: "Combine state and list rendering"
 sections:
   key_terms: present

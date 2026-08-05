@@ -7,17 +7,21 @@ prerequisites: ["5.1"]
 skills_unlocked: []
 objectives:
   - id: install-tailwind
+    kind: practice
     text: "Install Tailwind CSS v4 correctly with Astro"
-    tested_by: [2]
+    about: [2]
   - id: v4-versus-v3
+    kind: knowledge
     text: "Understand the differences between Tailwind v4 and v3"
-    tested_by: [1]
+    about: [1]
   - id: configure-the-vite-plugin
+    kind: practice
     text: "Configure the Vite plugin rather than the Astro integration"
-    tested_by: [2]
+    about: [2]
   - id: the-import-statement
+    kind: practice
     text: "Use the Tailwind @import statement in CSS"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise:

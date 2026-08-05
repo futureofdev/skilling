@@ -7,15 +7,19 @@ prerequisites: ["3.2"]
 skills_unlocked: []
 objectives:
   - id: create-components
+    kind: practice
     text: "Create functional React components"
   - id: pass-props
+    kind: practice
     text: "Pass data to components via props"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: destructure-props
+    kind: practice
     text: "Destructure props for cleaner code"
   - id: compose-components
+    kind: practice
     text: "Compose components together"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

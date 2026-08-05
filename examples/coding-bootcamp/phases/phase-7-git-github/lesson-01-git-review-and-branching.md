@@ -7,16 +7,22 @@ prerequisites: ["6.8"]
 skills_unlocked: []
 objectives:
   - id: review-git-basics
+    kind: practice
     text: "Review the git basics: init, add, commit, log"
   - id: create-and-switch-branches
+    kind: practice
     text: "Create and switch branches"
-    tested_by: [1]
+    verify: "The repository has more than one branch, and the learner has moved between them"
+    about: [1]
   - id: why-branching-matters
+    kind: knowledge
     text: "Understand why branching matters"
-    tested_by: [2]
+    about: [2]
   - id: merge-a-feature-branch
+    kind: practice
     text: "Merge a feature branch"
-    tested_by: [3]
+    verify: "The history shows a branch having been merged into the main line of work"
+    about: [3]
 sections:
   key_terms: present
   exercise: present

@@ -7,14 +7,18 @@ prerequisites: ["3.3"]
 skills_unlocked: []
 objectives:
   - id: use-usestate
+    kind: practice
     text: "Use useState to add state to components"
-    tested_by: [1]
+    about: [1]
   - id: update-state-correctly
+    kind: practice
     text: "Update state correctly, never mutating it directly"
-    tested_by: [2, 3]
+    about: [2, 3]
   - id: state-triggers-rerenders
+    kind: knowledge
     text: "Understand that state changes trigger re-renders"
   - id: build-interactive-components
+    kind: practice
     text: "Build interactive components"
 sections:
   key_terms: present

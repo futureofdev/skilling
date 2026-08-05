@@ -458,26 +458,24 @@ def test_ceremony_renders_the_authored_template(tmp_path: Path) -> None:
     assert "startskill.ing" in result.output
 
 
-def test_objectives_are_recorded_when_the_quiz_demonstrates_them(tmp_path: Path) -> None:
+def test_the_walker_records_no_capability_claims(tmp_path: Path) -> None:
+    """It has no capabilities: it cannot hear an explanation judged, and cannot look at a
+    machine. So it claims nothing about the learner, which is the truth."""
     state = tmp_path / "state"
     result = _deliver(state, FULL_WALK)
 
-    assert "Objective demonstrated:" in result.output
-    met = _record(state)["objectives_met"]
-    assert {o["id"] for o in met} == {"declare-absence", "name-the-sections", "read-frontmatter"}
-    assert all(o["evidence"] == "quiz" for o in met)
+    assert result.exit_code == 0
+    assert _record(state)["completed"] == ["1.1", "1.2", "1.3"], "it still delivers everything"
+    assert _record(state)["objectives_met"] == [], "and settles nothing on the way"
+    assert "Objective demonstrated" not in result.output
 
 
-def test_a_wrong_answer_withholds_only_its_own_objective(tmp_path: Path) -> None:
+def test_a_perfect_quiz_still_settles_nothing(tmp_path: Path) -> None:
+    """Answering every question correctly is not evidence of a capability — one four-option
+    question is guessed right a quarter of the time."""
     state = tmp_path / "state"
-    # Lesson 2's question 2 answered wrongly; the other two right.
-    stdin = "\n".join([*LESSON_ONE, "y", "proceed", "done", "c", "a", "no", "c", "y"]) + "\n"
-    _deliver(state, stdin)
-
-    met = {o["id"] for o in _record(state)["objectives_met"]}
-    assert "declare-absence" in met, "question 1 was right"
-    assert "read-frontmatter" in met, "question 3 was right"
-    assert "name-the-sections" not in met, "question 2 was wrong"
+    _deliver(state, "\n".join([*LESSON_ONE, "y", *LESSON_TWO, "n"]) + "\n")
+    assert _record(state)["objectives_met"] == []
 
 
 def test_remediation_names_the_implicated_objective(tmp_path: Path) -> None:

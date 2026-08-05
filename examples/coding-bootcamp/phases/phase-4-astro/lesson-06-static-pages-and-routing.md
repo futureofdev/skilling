@@ -7,14 +7,18 @@ prerequisites: ["4.5"]
 skills_unlocked: []
 objectives:
   - id: file-based-routing
+    kind: knowledge
     text: "Understand Astro's file-based routing"
-    tested_by: [1]
+    about: [1]
   - id: create-pages
+    kind: practice
     text: "Create new pages"
   - id: dynamic-routes
+    kind: practice
     text: "Create dynamic routes with [slug].astro"
-    tested_by: [2, 3]
+    about: [2, 3]
   - id: astro-url-and-site
+    kind: practice
     text: "Use Astro.url and Astro.site"
 sections:
   key_terms: present

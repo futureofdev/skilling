@@ -7,15 +7,19 @@ prerequisites: ["2.6"]
 skills_unlocked: []
 objectives:
   - id: why-async-exists
+    kind: knowledge
     text: "Understand why asynchronous code exists"
-    tested_by: [1]
+    about: [1]
   - id: async-await
+    kind: practice
     text: "Use async/await to handle Promises"
-    tested_by: [2]
+    about: [2]
   - id: fetch-from-an-api
+    kind: practice
     text: "Fetch data from a public API"
-    tested_by: [3]
+    about: [3]
   - id: loading-and-errors
+    kind: practice
     text: "Handle loading states and errors"
 sections:
   key_terms: present

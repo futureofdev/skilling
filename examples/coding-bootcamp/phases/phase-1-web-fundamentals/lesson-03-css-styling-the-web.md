@@ -7,16 +7,21 @@ prerequisites: ["1.2"]
 skills_unlocked: []
 objectives:
   - id: write-css-rules
+    kind: practice
     text: "Write CSS rules with selectors, properties, and values"
-    tested_by: [1]
+    about: [1]
   - id: link-a-stylesheet
+    kind: practice
     text: "Connect a CSS file to an HTML file"
+    verify: "The learner's page links a stylesheet that exists, and its rules take effect"
   - id: common-properties
+    kind: practice
     text: "Use the most common CSS properties"
-    tested_by: [2]
+    about: [2]
   - id: specificity-and-the-cascade
+    kind: knowledge
     text: "Understand specificity and the cascade"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

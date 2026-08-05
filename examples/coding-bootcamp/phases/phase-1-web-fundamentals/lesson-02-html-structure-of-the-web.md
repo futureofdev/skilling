@@ -7,16 +7,21 @@ prerequisites: ["1.1"]
 skills_unlocked: []
 objectives:
   - id: write-valid-html
+    kind: practice
     text: "Write valid HTML documents"
+    verify: "An HTML file exists with a doctype and matching head and body tags, nothing unclosed"
   - id: semantic-elements
+    kind: practice
     text: "Use semantic HTML elements correctly"
-    tested_by: [1]
+    about: [1]
   - id: block-vs-inline
+    kind: knowledge
     text: "Understand the difference between block and inline elements"
-    tested_by: [3]
+    about: [3]
   - id: links-images-and-lists
+    kind: practice
     text: "Create links, images, lists, and basic page structure"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

@@ -7,14 +7,17 @@ prerequisites: ["6.2"]
 skills_unlocked: []
 objectives:
   - id: a-full-viewport-hero
+    kind: practice
     text: "Build a full-viewport hero section"
-    tested_by: [3]
+    about: [3]
   - id: a-terminal-snippet
+    kind: practice
     text: "Create a terminal code snippet with CSS animations"
-    tested_by: [2]
+    about: [2]
   - id: apply-the-aesthetic
+    kind: practice
     text: "Apply the site's visual aesthetic consistently"
-    tested_by: [1]
+    about: [1]
 sections:
   key_terms:
     status: none

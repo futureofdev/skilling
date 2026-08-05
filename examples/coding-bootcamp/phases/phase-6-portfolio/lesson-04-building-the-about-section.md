@@ -7,13 +7,16 @@ prerequisites: ["6.3"]
 skills_unlocked: []
 objectives:
   - id: a-two-column-about
+    kind: practice
     text: "Build a two-column about section"
-    tested_by: [1]
+    about: [1]
   - id: a-terminal-stats-panel
+    kind: practice
     text: "Use a decorative terminal stats panel"
   - id: apply-the-design-system
+    kind: practice
     text: "Apply the design system consistently"
-    tested_by: [2, 3]
+    about: [2, 3]
 sections:
   key_terms:
     status: none

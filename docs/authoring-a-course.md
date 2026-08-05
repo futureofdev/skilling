@@ -130,14 +130,23 @@ Reach for `phase_completed_template` only when the wording is genuinely fixed: l
 
 ```yaml
 objectives:
-  - id: dial-by-taste
+  - id: taste-a-shot
+    kind: knowledge
     text: Taste a shot and say which way to move the grind
-    tested_by: [1, 3]
+    about: [1, 3]
+  - id: pull-a-balanced-shot
+    kind: practice
+    text: Pull a shot inside your target ratio and time
+    verify: A shot log shows a pull within the stated ratio and time window
 ```
 
 Declaring `objectives:` means dropping the `## Learning Objectives` section — they are mutually exclusive, because two copies of the same sentences is the drift the format refuses everywhere else.
 
-The `tested_by` mapping is what lets even a model-free runtime record that a learner demonstrated something, rather than merely attended. Worth the two extra lines.
+**`kind` is the field that matters.** `knowledge` means a tutor can settle it by hearing the learner explain; `practice` means someone has to go and look. Get it wrong and either a chat tutor claims something it cannot see, or a capability nobody can check sits unsettled forever.
+
+`about` points at the quiz questions that touch an objective. It steers remediation and is **never evidence** — a quiz settles nothing.
+
+`verify` is optional, and only for `practice`. Write one where a runtime could genuinely check ("the repository has an origin remote"); leave it off where the honest answer is judgement ("apply the design system consistently"). The golden example has 171 practice objectives and only 22 verify clauses, which is the right ratio rather than a gap.
 
 ## 10. Version it honestly
 
@@ -184,7 +193,7 @@ The full list is in [error codes](error-codes.md).
 [`examples/coding-bootcamp`](../examples/coding-bootcamp/) is a real 64-lesson course carried in this repository. Worth opening when a rule feels abstract:
 
 - **How to word a declared absence** — it has 43 of them, and the ones for phases 4, 5 and 6 show what a per-phase reason looks like rather than 22 copies of the same sentence.
-- **How much `tested_by` to write** — 168 of its 235 objectives map to a quiz question. The other 67 do not, deliberately: "appreciate why this matters" is not a quiz question, and a loose mapping produces confidently wrong capability claims.
+- **How to split knowledge from practice** — 64 of its objectives are knowledge, 171 are practice, and only 22 of those carry a `verify` clause. That ratio is the point rather than a gap: most practice cannot honestly be checked from outside.
 - **A ceremony block with a real brand in it**, and a share template that says "6 of 64 lessons done" without any author having written a number.
 
 It was ported from a course that existed before the format did, so it is also the honest record of what that costs: seven quiz answers had to gain a reason, one homework section had no submission line, and a whole phase had to be renumbered.

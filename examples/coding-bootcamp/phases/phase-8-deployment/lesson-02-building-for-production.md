@@ -7,16 +7,22 @@ prerequisites: ["8.1"]
 skills_unlocked: []
 objectives:
   - id: run-the-build
+    kind: practice
     text: "Run the production build successfully"
+    verify: "The production build completes without error"
   - id: what-dist-contains
+    kind: knowledge
     text: "Understand what the dist folder contains"
-    tested_by: [2]
+    about: [2]
   - id: preview-the-build
+    kind: practice
     text: "Preview the production build locally"
-    tested_by: [1]
+    verify: "The built site serves locally from the preview server"
+    about: [1]
   - id: fix-build-errors
+    kind: practice
     text: "Fix common build errors"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

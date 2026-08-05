@@ -7,16 +7,22 @@ prerequisites: ["8.3"]
 skills_unlocked: []
 objectives:
   - id: buy-a-domain
+    kind: practice
     text: "Purchase a domain name, if you want one"
   - id: connect-a-custom-domain
+    kind: practice
     text: "Connect a custom domain to Cloudflare Pages"
-    tested_by: [3]
+    verify: "The custom domain resolves to the deployed site"
+    about: [3]
   - id: dns-basics
+    kind: knowledge
     text: "Understand DNS basics"
-    tested_by: [1]
+    about: [1]
   - id: https-automatically
+    kind: practice
     text: "Enable HTTPS automatically"
-    tested_by: [2]
+    verify: "The site is served over HTTPS with a certificate the browser accepts"
+    about: [2]
 sections:
   key_terms: present
   exercise: present

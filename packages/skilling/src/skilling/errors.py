@@ -16,7 +16,7 @@ from enum import StrEnum
 SPEC_MAJOR = 1
 """The specification major version this implementation supports."""
 
-SPEC_MINOR = 1
+SPEC_MINOR = 2
 """The specification minor version this implementation supports."""
 
 
@@ -84,7 +84,11 @@ class Code(StrEnum):
     # --- structured objectives (since spec 1.1) ---
     OBJECTIVES_DECLARED_TWICE = "objectives-declared-twice"
     OBJECTIVE_ID_DUPLICATE = "objective-id-duplicate"
-    OBJECTIVE_TESTED_BY_INVALID = "objective-tested-by-invalid"
+    OBJECTIVE_ABOUT_INVALID = "objective-about-invalid"
+
+    # --- objective kinds and verification (since spec 1.2) ---
+    OBJECTIVE_VERIFY_ON_KNOWLEDGE = "objective-verify-on-knowledge"
+    OBJECTIVE_CHECK_WITHOUT_VERIFY = "objective-check-without-verify"
 
 
 @dataclass(frozen=True)
@@ -256,10 +260,20 @@ CATALOGUE: dict[Code, CodeInfo] = {
     _C.OBJECTIVE_ID_DUPLICATE: CodeInfo(
         _E, f"{_FORMAT}#structured-objectives", "Two objectives in one lesson share an id"
     ),
-    _C.OBJECTIVE_TESTED_BY_INVALID: CodeInfo(
+    _C.OBJECTIVE_ABOUT_INVALID: CodeInfo(
         _E,
-        f"{_FORMAT}#structured-objectives",
-        "An objective's tested_by names a quiz question that does not exist",
+        f"{_FORMAT}#remediation-not-evidence",
+        "An objective's about names a quiz question that does not exist",
+    ),
+    _C.OBJECTIVE_VERIFY_ON_KNOWLEDGE: CodeInfo(
+        _E,
+        f"{_FORMAT}#verifying-a-practice-objective",
+        "A knowledge objective carries verify or check; only practice can be observed",
+    ),
+    _C.OBJECTIVE_CHECK_WITHOUT_VERIFY: CodeInfo(
+        _E,
+        f"{_FORMAT}#verifying-a-practice-objective",
+        "A check with no verify leaves nothing saying what is being established",
     ),
 }
 

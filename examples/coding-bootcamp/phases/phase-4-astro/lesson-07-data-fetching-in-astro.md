@@ -7,14 +7,17 @@ prerequisites: ["4.6"]
 skills_unlocked: [astro-fundamentals]
 objectives:
   - id: fetch-in-frontmatter
+    kind: practice
     text: "Fetch data in Astro frontmatter"
-    tested_by: [1]
+    about: [1]
   - id: content-collections
+    kind: practice
     text: "Use Astro Content Collections for Markdown"
-    tested_by: [2]
+    about: [2]
   - id: build-time-vs-runtime
+    kind: knowledge
     text: "Understand build-time versus runtime data fetching"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise:

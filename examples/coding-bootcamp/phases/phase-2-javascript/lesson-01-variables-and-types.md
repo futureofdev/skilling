@@ -7,15 +7,19 @@ prerequisites: ["1.9"]
 skills_unlocked: []
 objectives:
   - id: let-and-const
+    kind: practice
     text: "Declare variables with let and const"
-    tested_by: [1]
+    about: [1]
   - id: primitive-types
+    kind: knowledge
     text: "Know JavaScript's primitive data types"
-    tested_by: [3]
+    about: [3]
   - id: template-literals
+    kind: practice
     text: "Use template literals for string interpolation"
-    tested_by: [2]
+    about: [2]
   - id: typeof
+    kind: knowledge
     text: "Understand typeof"
 sections:
   key_terms: present

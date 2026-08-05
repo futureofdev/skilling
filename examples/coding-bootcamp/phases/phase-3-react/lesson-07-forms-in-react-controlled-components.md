@@ -7,15 +7,19 @@ prerequisites: ["3.6"]
 skills_unlocked: []
 objectives:
   - id: controlled-components
+    kind: practice
     text: "Build controlled form components with React state"
-    tested_by: [1]
+    about: [1]
   - id: one-handlechange
+    kind: practice
     text: "Use a single handleChange for all inputs"
-    tested_by: [2]
+    about: [2]
   - id: validate-before-submit
+    kind: practice
     text: "Validate form data before submission"
-    tested_by: [3]
+    about: [3]
   - id: show-error-messages
+    kind: practice
     text: "Show error messages"
 sections:
   key_terms: present

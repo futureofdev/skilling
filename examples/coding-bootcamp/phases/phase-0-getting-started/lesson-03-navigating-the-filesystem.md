@@ -7,16 +7,21 @@ prerequisites: ["0.2"]
 skills_unlocked: []
 objectives:
   - id: filesystem-as-a-tree
+    kind: knowledge
     text: "Understand how the filesystem is organised as a tree"
   - id: navigate-with-cd
+    kind: practice
     text: "Navigate between directories using cd"
-    tested_by: [1]
+    about: [1]
   - id: create-and-remove-files
+    kind: practice
     text: "Create, list, and remove files and folders"
-    tested_by: [3]
+    verify: "A file the learner created from the terminal exists, and one they removed is gone"
+    about: [3]
   - id: absolute-vs-relative-paths
+    kind: knowledge
     text: "Understand absolute versus relative paths"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

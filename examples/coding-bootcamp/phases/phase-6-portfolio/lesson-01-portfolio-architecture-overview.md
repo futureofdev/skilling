@@ -7,11 +7,14 @@ prerequisites: ["5.7"]
 skills_unlocked: []
 objectives:
   - id: the-site-architecture
+    kind: knowledge
     text: "Understand the architecture of the portfolio site"
   - id: which-parts-are-astro
+    kind: knowledge
     text: "Know which parts of the site are Astro and which are React"
-    tested_by: [1, 2, 3]
+    about: [1, 2, 3]
   - id: plan-the-build-order
+    kind: practice
     text: "Plan the build order"
 sections:
   key_terms:

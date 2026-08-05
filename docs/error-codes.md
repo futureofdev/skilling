@@ -109,15 +109,17 @@ The `ceremony` block, since spec 1.1. Templates are learner-facing, so they are 
 
 ## Structured objectives
 
-Addressable learning objectives, since spec 1.1.
+Addressable learning objectives, since spec 1.1; kinds and verification since 1.2. `about` steers remediation and is never evidence — a quiz settles nothing.
 
 | Code | Severity | What it means | Specification |
 |---|---|---|---|
 | `objectives-declared-twice` | error | Objectives are declared in frontmatter and as a section; they are mutually exclusive | [structured-objectives](../spec/course-format.md#structured-objectives) |
 | `objective-id-duplicate` | error | Two objectives in one lesson share an id | [structured-objectives](../spec/course-format.md#structured-objectives) |
-| `objective-tested-by-invalid` | error | An objective's tested_by names a quiz question that does not exist | [structured-objectives](../spec/course-format.md#structured-objectives) |
+| `objective-about-invalid` | error | An objective's about names a quiz question that does not exist | [remediation-not-evidence](../spec/course-format.md#remediation-not-evidence) |
+| `objective-verify-on-knowledge` | error | A knowledge objective carries verify or check; only practice can be observed | [verifying-a-practice-objective](../spec/course-format.md#verifying-a-practice-objective) |
+| `objective-check-without-verify` | error | A check with no verify leaves nothing saying what is being established | [verifying-a-practice-objective](../spec/course-format.md#verifying-a-practice-objective) |
 
-46 codes: 43 errors, 3 warnings.
+48 codes: 45 errors, 3 warnings.
 
 ## Using codes in CI
 

@@ -7,14 +7,17 @@ prerequisites: []
 skills_unlocked: []
 objectives:
   - id: understand-a-computer
+    kind: knowledge
     text: "Understand what a computer is at a conceptual level"
-    tested_by: [2]
+    about: [2]
   - id: hardware-vs-software
+    kind: knowledge
     text: "Know the difference between hardware and software"
-    tested_by: [1]
+    about: [1]
   - id: what-a-program-is
+    kind: knowledge
     text: "Understand what a program is and why developers write them"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

@@ -268,23 +268,72 @@ By the end of this lesson, you will:
 
 ```yaml
 objectives:
+  - id: what-a-terminal-is
+    kind: knowledge
+    text: Say what the terminal is and why developers use it
+    about: [1, 3]
   - id: open-a-terminal
+    kind: practice
     text: Open the terminal on your own computer
-    tested_by: [1, 3]
-  - id: run-a-command
-    text: Run a command and read what it prints
-    tested_by: [2]
+    verify: A terminal is open and its prompt responds to a command
 ```
 
 | Field | Required | Constraints |
 |---|---|---|
 | `id` | Yes | Lowercase kebab-case, unique within the lesson. Stable: a learner's record refers to it. |
+| `kind` | Yes | `knowledge` or `practice`. **Since 1.2** — see [what kind of claim it is](#what-kind-of-claim-it-is). |
 | `text` | Yes | The outcome, phrased from the learner's side, as the prose form would be. |
-| `tested_by` | No | Quiz question numbers that test this objective. Each must exist. |
+| `about` | No | Quiz question numbers that touch this objective. Each must exist. Drives remediation; it is **not** evidence. |
+| `verify` | No | For a `practice` objective: what a runtime should look for to see that it was done. **Since 1.2.** |
+| `check` | No | An optional literal command a runtime *may* offer to run. **Since 1.2.** |
+
+### What kind of claim it is
+
+**Since 1.2.** An objective's `kind` says what would count as evidence, which decides which runtimes can settle it at all.
+
+| Kind | The claim | Settled by |
+|---|---|---|
+| `knowledge` | The learner can explain something | A tutor probing in conversation |
+| `practice` | The learner did something, or their machine is in some state | A runtime that can look — at the filesystem, at git, at command output |
+
+The distinction is not academic. `Understand what npm is` and `Have npm installed` read alike and need completely different evidence: one is a conversation, the other is a fact about a computer. A runtime that can hold a conversation but cannot see a filesystem must leave every `practice` objective unsettled, and [the runtime page](runtime.md#capabilities-and-what-may-be-settled) makes that a rule rather than a hope.
+
+Courses tend to sit heavily on one side. A conceptual course is nearly all `knowledge` and can be delivered by any tutor. A hands-on course is mostly `practice` and only becomes fully verifiable inside a coding harness that can inspect the learner's work.
+
+### Verifying a practice objective
+
+`verify` describes **what success looks like**, in a sentence, for a runtime that can go and look:
+
+```yaml
+  - id: install-node
+    kind: practice
+    text: Have Node.js and npm installed on your computer
+    verify: Both node and npm report a version number when asked for one
+```
+
+It is prose rather than a command on purpose, and for the same reason [ceremony carries facts rather than sentences](#ceremony): an agent with shell access is good at working out *how* to check something, and a literal command is a liability. `node --version` is wrong on a machine where Node lives behind a version manager, and the Windows learner and the macOS learner need different commands for the identical objective.
+
+Where determinism genuinely matters, add a literal `check` alongside it:
+
+```yaml
+    check: node --version && npm --version
+```
+
+A `check` is a **proposal, not an instruction.** A runtime may decline to run it, must run it through whatever permission model its host has, and must never run it silently. `verify` remains the authority on what is being established; `check` is one convenient way to establish it.
+
+`verify` is optional even on a `practice` objective. Plenty of worthwhile practice cannot be observed from outside — "apply the design system consistently" is a judgement, not a check — and an objective with no `verify` simply stays unsettled unless a runtime with judgement settles it. That is the honest outcome, and better than a check that pretends.
+
+### Remediation, not evidence
+
+`about` lists the quiz questions that touch an objective. It exists so a tutor can name what went wrong — "that one was about opening a terminal" — instead of re-presenting the whole concept.
+
+**It is not evidence, and a quiz never settles an objective.** Three four-option questions cannot demonstrate a capability: one question is guessed right a quarter of the time, and no multiple-choice question can establish that software is installed or that a commit exists. The quiz is a checkpoint that surfaces confusion, which is a genuinely useful job and a different one.
+
+> This replaces 1.1's `tested_by`, which conflated the two. See [the changelog](CHANGELOG.md).
 
 **Structured and prose objectives are mutually exclusive.** Declare `objectives:` and the `## Learning Objectives` section must be absent — a runtime renders the structured form in its place. Omit `objectives:` and the section stays required, exactly as in 1.0. Allowing both would be two sources of truth for the same sentences, which is the drift this format refuses everywhere else.
 
-`tested_by` is what makes objectives useful to a runtime that cannot judge work: when every question testing an objective is answered correctly, that objective was demonstrated, and the runtime can say so in the record. Without it, marking objectives met needs a tutor with judgement. Both are conforming; see [runtime](runtime.md#objectives-and-the-record).
+Settling an objective always needs a runtime that can gather the right evidence — a conversation for `knowledge`, a look at the learner's work for `practice`. A runtime that cannot writes nothing and conforms; see [runtime](runtime.md#objectives-and-the-record).
 
 An objective is not a badge. A badge marks that a lesson completed; an objective claims a capability was demonstrated. Keeping them separate is deliberate — see [what the record knows](../docs/concepts/what-the-record-knows.md).
 
@@ -334,7 +383,7 @@ The answer line's shape matters, because a runtime parses it:
 
 The reason is not decoration. A runtime reads it aloud as feedback, and a learner who guessed correctly still needs to hear why.
 
-Question numbers are what [`tested_by`](#structured-objectives) refers to, so renumbering a quiz means revisiting the objectives that point at it.
+Question numbers are what [`about`](#remediation-not-evidence) refers to, so renumbering a quiz means revisiting the objectives that point at it. That coupling is loose by design: `about` only steers what a tutor says next, so a stale entry costs a slightly-off sentence rather than a wrong record.
 
 ### Why the quiz is fixed and hand-written
 

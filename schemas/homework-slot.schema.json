@@ -90,7 +90,7 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.1/homework-slot.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.2/homework-slot.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.\n\nThe mailbox. An absent ``active.yaml`` means the slot is empty, so there is no\n'empty' variant of this model \u2014 absence is represented by absence.",

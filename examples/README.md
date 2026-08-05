@@ -11,7 +11,7 @@ It exercises every surface the format has:
 | | |
 |---|---|
 | Lessons | 64 across 9 phases, homework at every phase boundary |
-| Structured objectives | 235, of which 168 are mapped to quiz questions with `tested_by` |
+| Structured objectives | 235 — 64 knowledge, 171 practice, 22 with a `verify` clause |
 | Declared absences | 24 exercise, 12 key terms, 7 next-up — every one with a stated reason |
 | Badges | 12 registered, awarded across 11 lessons |
 | Ceremony | brand facts, a per-phase highlight, and a literal share template |

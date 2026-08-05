@@ -7,13 +7,16 @@ prerequisites: ["2.1"]
 skills_unlocked: []
 objectives:
   - id: write-functions
+    kind: practice
     text: "Write functions using both declaration and arrow syntax"
   - id: parameters-and-returns
+    kind: knowledge
     text: "Understand parameters and return values"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: scope
+    kind: knowledge
     text: "Understand scope: which variables are accessible where"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

@@ -7,12 +7,15 @@ prerequisites: ["5.4"]
 skills_unlocked: []
 objectives:
   - id: flex-and-grid-utilities
+    kind: practice
     text: "Create flex and grid layouts using Tailwind utilities"
-    tested_by: [1, 2]
+    about: [1, 2]
   - id: alignment-and-gap
+    kind: practice
     text: "Apply alignment and gap utilities"
-    tested_by: [3]
+    about: [3]
   - id: a-responsive-card-grid
+    kind: practice
     text: "Build a responsive card grid"
 sections:
   key_terms: present

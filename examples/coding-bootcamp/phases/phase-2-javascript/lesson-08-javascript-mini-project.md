@@ -7,14 +7,19 @@ prerequisites: ["2.7"]
 skills_unlocked: [javascript-fundamentals]
 objectives:
   - id: build-an-interactive-app
+    kind: practice
     text: "Build a complete interactive application using vanilla JavaScript"
+    verify: "An application exists that fetches data and updates the page without a reload"
   - id: combine-dom-events-and-fetch
+    kind: practice
     text: "Combine DOM manipulation, events, and async fetch"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: handle-loading-gracefully
+    kind: practice
     text: "Handle loading states and errors gracefully"
-    tested_by: [2]
+    about: [2]
   - id: have-a-javascript-project
+    kind: practice
     text: "Have a real JavaScript project to show"
 sections:
   key_terms:

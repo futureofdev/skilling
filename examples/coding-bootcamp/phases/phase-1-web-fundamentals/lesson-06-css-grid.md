@@ -7,16 +7,20 @@ prerequisites: ["1.5"]
 skills_unlocked: []
 objectives:
   - id: display-grid
+    kind: practice
     text: "Create grid layouts with display: grid"
   - id: define-columns-and-rows
+    kind: practice
     text: "Define columns and rows"
-    tested_by: [1]
+    about: [1]
   - id: responsive-grids
+    kind: practice
     text: "Use auto-fill and minmax() for responsive grids"
-    tested_by: [3]
+    about: [3]
   - id: grid-vs-flexbox
+    kind: knowledge
     text: "Know when to use Grid rather than Flexbox"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

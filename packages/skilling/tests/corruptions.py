@@ -340,8 +340,12 @@ def _objectives_declared_twice(root: Path) -> None:
         fx.LESSON_ONE_PATH,
         "skills_unlocked: []",
         "skills_unlocked: []\nobjectives:\n  - id: know-the-first-thing\n"
-        "    text: Know the first thing",
+        "    kind: knowledge\n    text: Know the first thing",
     )
+
+
+def _structured(*body: str) -> str:
+    return "skills_unlocked: []\nobjectives:\n" + "\n".join(body)
 
 
 def _objective_id_duplicate(root: Path) -> None:
@@ -349,19 +353,61 @@ def _objective_id_duplicate(root: Path) -> None:
         root,
         fx.LESSON_ONE_PATH,
         "skills_unlocked: []",
-        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    text: Know the first thing\n"
-        "  - id: know-it\n    text: Know it again",
+        _structured(
+            "  - id: know-it",
+            "    kind: knowledge",
+            "    text: Know the first thing",
+            "  - id: know-it",
+            "    kind: knowledge",
+            "    text: Know it again",
+        ),
     )
     fx.edit(root, fx.LESSON_ONE_PATH, _OBJECTIVES_SECTION, "")
 
 
-def _objective_tested_by_invalid(root: Path) -> None:
+def _objective_about_invalid(root: Path) -> None:
     fx.edit(
         root,
         fx.LESSON_ONE_PATH,
         "skills_unlocked: []",
-        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    text: Know the first thing\n"
-        "    tested_by: [9]",
+        _structured(
+            "  - id: know-it",
+            "    kind: knowledge",
+            "    text: Know the first thing",
+            "    about: [9]",
+        ),
+    )
+    fx.edit(root, fx.LESSON_ONE_PATH, _OBJECTIVES_SECTION, "")
+
+
+def _objective_verify_on_knowledge(root: Path) -> None:
+    """Only practice can be observed. A knowledge objective with a verify clause is a
+    category error, not a stricter check."""
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "skills_unlocked: []",
+        _structured(
+            "  - id: know-it",
+            "    kind: knowledge",
+            "    text: Know the first thing",
+            '    verify: "The learner has the first thing installed"',
+        ),
+    )
+    fx.edit(root, fx.LESSON_ONE_PATH, _OBJECTIVES_SECTION, "")
+
+
+def _objective_check_without_verify(root: Path) -> None:
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "skills_unlocked: []",
+        _structured(
+            "  - id: do-it",
+            "    kind: practice",
+            "    text: Do the first thing",
+            '    check: "first --version"',
+        ),
     )
     fx.edit(root, fx.LESSON_ONE_PATH, _OBJECTIVES_SECTION, "")
 
@@ -412,5 +458,7 @@ CORRUPTIONS: dict[Code, Corruption] = {
     Code.CEREMONY_HANDLE_MALFORMED: _ceremony_handle_malformed,
     Code.OBJECTIVES_DECLARED_TWICE: _objectives_declared_twice,
     Code.OBJECTIVE_ID_DUPLICATE: _objective_id_duplicate,
-    Code.OBJECTIVE_TESTED_BY_INVALID: _objective_tested_by_invalid,
+    Code.OBJECTIVE_ABOUT_INVALID: _objective_about_invalid,
+    Code.OBJECTIVE_VERIFY_ON_KNOWLEDGE: _objective_verify_on_knowledge,
+    Code.OBJECTIVE_CHECK_WITHOUT_VERIFY: _objective_check_without_verify,
 }

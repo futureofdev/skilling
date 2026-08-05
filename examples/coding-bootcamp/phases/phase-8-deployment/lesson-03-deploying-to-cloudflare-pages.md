@@ -7,16 +7,21 @@ prerequisites: ["8.2"]
 skills_unlocked: []
 objectives:
   - id: connect-github-to-cloudflare
+    kind: practice
     text: "Connect GitHub to Cloudflare Pages"
   - id: configure-build-settings
+    kind: practice
     text: "Configure build settings for Astro"
-    tested_by: [1]
+    about: [1]
   - id: deploy-successfully
+    kind: practice
     text: "Deploy successfully"
-    tested_by: [3]
+    verify: "The deployed URL returns the learner's site rather than an error page"
+    about: [3]
   - id: automatic-deployments
+    kind: knowledge
     text: "Understand automatic deployments"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise: present

@@ -7,13 +7,16 @@ prerequisites: ["4.3"]
 skills_unlocked: []
 objectives:
   - id: astro-or-react-component
+    kind: knowledge
     text: "Know when to use an Astro component and when to use a React one"
-    tested_by: [2]
+    about: [2]
   - id: the-tradeoffs
+    kind: knowledge
     text: "Understand the tradeoffs of each"
   - id: client-directives
+    kind: practice
     text: "Use client:* directives correctly"
-    tested_by: [1, 3]
+    about: [1, 3]
 sections:
   key_terms: present
   exercise:

@@ -7,13 +7,16 @@ prerequisites: ["7.5"]
 skills_unlocked: []
 objectives:
   - id: what-deployment-means
+    kind: knowledge
     text: "Understand what deployment means"
-    tested_by: [1]
+    about: [1]
   - id: static-vs-server-hosting
+    kind: knowledge
     text: "Know the difference between static hosting and server hosting"
   - id: why-cloudflare-suits-astro
+    kind: knowledge
     text: "Understand why Cloudflare Pages suits an Astro site"
-    tested_by: [2, 3]
+    about: [2, 3]
 sections:
   key_terms: present
   exercise:

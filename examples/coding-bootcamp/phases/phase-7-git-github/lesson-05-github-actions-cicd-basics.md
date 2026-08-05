@@ -7,15 +7,20 @@ prerequisites: ["7.4"]
 skills_unlocked: [git-and-github]
 objectives:
   - id: what-ci-cd-is
+    kind: knowledge
     text: "Understand what CI/CD is"
-    tested_by: [1]
+    about: [1]
   - id: create-a-workflow
+    kind: practice
     text: "Create a basic GitHub Actions workflow"
-    tested_by: [2, 3]
+    verify: "A workflow file exists under .github/workflows and its YAML parses"
+    about: [2, 3]
   - id: checks-on-every-push
+    kind: practice
     text: "Run automated checks on every push"
-    tested_by: [2]
+    about: [2]
   - id: the-link-to-deployment
+    kind: knowledge
     text: "Understand the connection to deployment"
 sections:
   key_terms: present

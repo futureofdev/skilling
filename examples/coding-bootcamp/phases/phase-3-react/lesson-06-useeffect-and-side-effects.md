@@ -7,16 +7,20 @@ prerequisites: ["3.5"]
 skills_unlocked: []
 objectives:
   - id: use-useeffect
+    kind: practice
     text: "Use useEffect for side effects"
-    tested_by: [1]
+    about: [1]
   - id: fetch-on-mount
+    kind: practice
     text: "Fetch data when a component mounts"
   - id: clean-up-effects
+    kind: practice
     text: "Clean up effects with the return function"
-    tested_by: [2]
+    about: [2]
   - id: the-dependency-array
+    kind: knowledge
     text: "Understand the dependency array"
-    tested_by: [1, 3]
+    about: [1, 3]
 sections:
   key_terms: present
   exercise: present

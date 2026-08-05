@@ -7,14 +7,17 @@ prerequisites: ["4.7"]
 skills_unlocked: []
 objectives:
   - id: utility-first-philosophy
+    kind: knowledge
     text: "Understand the utility-first CSS philosophy"
-    tested_by: [2]
+    about: [2]
   - id: tradeoffs-vs-plain-css
+    kind: knowledge
     text: "Know the tradeoffs against traditional CSS"
-    tested_by: [3]
+    about: [3]
   - id: classes-map-to-properties
+    kind: knowledge
     text: "See how Tailwind classes map to CSS properties"
-    tested_by: [1]
+    about: [1]
 sections:
   key_terms: present
   exercise:

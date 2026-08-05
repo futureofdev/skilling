@@ -7,12 +7,15 @@ prerequisites: ["6.4"]
 skills_unlocked: []
 objectives:
   - id: a-data-driven-skills-grid
+    kind: practice
     text: "Build a data-driven skills grid from a TypeScript data file"
-    tested_by: [2]
+    about: [2]
   - id: astro-templates-with-typed-data
+    kind: practice
     text: "Use Astro's template syntax with typed data"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: a-dot-indicator-display
+    kind: practice
     text: "Create a dot-indicator skill level display"
 sections:
   key_terms:

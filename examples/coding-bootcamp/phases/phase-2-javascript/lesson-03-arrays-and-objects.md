@@ -7,16 +7,20 @@ prerequisites: ["2.2"]
 skills_unlocked: []
 objectives:
   - id: create-arrays
+    kind: practice
     text: "Create and manipulate arrays"
   - id: array-methods
+    kind: practice
     text: "Use .map(), .filter(), and .find() on arrays"
-    tested_by: [1]
+    about: [1]
   - id: objects
+    kind: practice
     text: "Create and access objects"
-    tested_by: [2]
+    about: [2]
   - id: destructuring
+    kind: practice
     text: "Use destructuring for cleaner code"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

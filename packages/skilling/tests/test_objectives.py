@@ -15,6 +15,7 @@ from skilling import lesson as md
 from skilling import runtime
 from skilling.errors import Code
 from skilling.loader import Course, load_course
+from skilling.models import Capability
 from skilling.store import FileProgressStore
 from skilling.store.file import LOCAL_LEARNER
 from skilling.validate import validate_course
@@ -27,11 +28,16 @@ NOW = datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC)
 STRUCTURED = """\
 objectives:
   - id: know-the-first-thing
+    kind: knowledge
     text: Say what the first thing is
-    tested_by: [1]
-  - id: know-when
-    text: Say when to reach for it
-    tested_by: [2, 3]
+    about: [1]
+  - id: do-the-first-thing
+    kind: practice
+    text: Do the first thing on your own machine
+    verify: "The first thing exists where the learner made it"
+  - id: judge-it
+    kind: practice
+    text: Apply the first thing tastefully
 """
 
 
@@ -61,7 +67,7 @@ def test_structured_objectives_replace_the_prose_section(clean_dir: Path) -> Non
     assert report.findings == [], [f.as_dict() for f in report.findings]
 
     parsed = md.parse_lesson(clean_dir / fx.LESSON_ONE_PATH)
-    assert parsed.frontmatter and len(parsed.frontmatter.objectives) == 2
+    assert parsed.frontmatter and len(parsed.frontmatter.objectives) == 3
     assert parsed.section("objectives") is None, "the prose section is gone, not duplicated"
 
 
@@ -85,7 +91,7 @@ def test_objectives_are_addressable_by_id(structured: Course) -> None:
     assert lesson
     fm = md.parse_lesson(lesson.path).frontmatter
     assert fm
-    assert fm.objective("know-when") is not None
+    assert fm.objective("do-the-first-thing") is not None
     assert fm.objective("nonexistent") is None
 
 
@@ -95,79 +101,106 @@ def test_questions_map_back_to_objectives(structured: Course) -> None:
     fm = md.parse_lesson(lesson.path).frontmatter
     assert fm
     assert [o.id for o in fm.objectives_for_question(1)] == ["know-the-first-thing"]
-    assert [o.id for o in fm.objectives_for_question(2)] == ["know-when"]
+    assert fm.objectives_for_question(2) == [], "only question 1 is pointed at"
     assert fm.objectives_for_question(9) == []
 
 
-# ---------------------------------------------------------------------- demonstrated by quiz
+# ------------------------------------------------------------- capabilities decide evidence
 
 
-def test_all_testing_questions_correct_demonstrates_the_objective(structured: Course) -> None:
+def test_a_runtime_with_nothing_may_settle_nothing(structured: Course) -> None:
     lesson = structured.lesson_at("0.1")
     assert lesson
-    met = runtime.objectives_demonstrated_by_quiz(lesson, {1: True, 2: True, 3: True})
-    assert met == ["know-the-first-thing", "know-when"]
+    assert runtime.settleable(lesson, []) == []
 
 
-def test_one_wrong_answer_withholds_the_objective(structured: Course) -> None:
+def test_converse_settles_knowledge_only(structured: Course) -> None:
     lesson = structured.lesson_at("0.1")
     assert lesson
-    met = runtime.objectives_demonstrated_by_quiz(lesson, {1: True, 2: True, 3: False})
-    assert met == ["know-the-first-thing"], "know-when needed both 2 and 3"
+    ids = [o.id for o in runtime.settleable(lesson, [Capability.CONVERSE])]
+    assert ids == ["know-the-first-thing"]
 
 
-def test_an_unanswered_question_withholds_the_objective(structured: Course) -> None:
+def test_observe_settles_practice_that_says_what_to_look_for(structured: Course) -> None:
+    """A practice objective with no verify cannot be observed, even by a runtime that can
+    look — there is nothing telling it what success would be."""
     lesson = structured.lesson_at("0.1")
     assert lesson
-    assert runtime.objectives_demonstrated_by_quiz(lesson, {1: True}) == ["know-the-first-thing"]
+    ids = [o.id for o in runtime.settleable(lesson, [Capability.OBSERVE])]
+    assert ids == ["do-the-first-thing"], "judge-it has no verify, so it stays unsettleable"
 
 
-def test_an_objective_with_no_tested_by_is_never_settled_by_a_quiz(clean_dir: Path) -> None:
-    """Guessing would be worse than leaving it absent: a later tutor believes what it reads."""
-    fx.edit(
-        clean_dir,
-        fx.LESSON_ONE_PATH,
-        "skills_unlocked: []\n",
-        "skills_unlocked: []\nobjectives:\n  - id: unjudgeable\n    text: Appreciate the thing\n",
-    )
-    fx.edit(
-        clean_dir,
-        fx.LESSON_ONE_PATH,
-        "## Learning Objectives\nBy the end of this lesson, you will:\n- Know the first thing\n\n",
-        "",
-    )
-    course = load_course(clean_dir)
-    lesson = course.lesson_at("0.1")
+def test_both_capabilities_settle_both_kinds(structured: Course) -> None:
+    lesson = structured.lesson_at("0.1")
     assert lesson
-    assert runtime.objectives_demonstrated_by_quiz(lesson, {1: True, 2: True, 3: True}) == []
+    ids = {o.id for o in runtime.settleable(lesson, [Capability.CONVERSE, Capability.OBSERVE])}
+    assert ids == {"know-the-first-thing", "do-the-first-thing"}
 
 
-def test_a_lesson_without_objectives_yields_nothing(clean: Course) -> None:
-    lesson = clean.lesson_at("0.1")
-    assert lesson
-    assert runtime.objectives_demonstrated_by_quiz(lesson, {1: True}) == []
+def test_a_quiz_settles_nothing() -> None:
+    """There is no evidence value for a quiz, and no code path that produces one."""
+    from skilling.models import SETTLES
+
+    assert "quiz" not in {evidence for _, evidence in SETTLES.values()}
 
 
 # ------------------------------------------------------------------------- written to record
 
 
-def test_marking_writes_the_record(tmp_path: Path, structured: Course) -> None:
+def test_marking_writes_only_what_the_runtime_could_observe(
+    tmp_path: Path, structured: Course
+) -> None:
     store = FileProgressStore(tmp_path / "state")
     record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
     lesson = structured.lesson_at("0.1")
     assert lesson
 
+    # A conversational tutor claims all three. Only the knowledge one is its to claim.
     record, revision, fresh = runtime.mark_objectives_met(
-        store, record, revision, lesson, {1: True, 2: True, 3: True}, now=NOW
+        store,
+        record,
+        revision,
+        lesson,
+        ["know-the-first-thing", "do-the-first-thing", "judge-it"],
+        [Capability.CONVERSE],
+        now=NOW,
     )
 
-    assert fresh == ["know-the-first-thing", "know-when"]
-    assert [o.id for o in record.objectives_met] == fresh
-    assert all(o.evidence == "quiz" for o in record.objectives_met)
-    assert record.has_met("know-when")
+    assert fresh == ["know-the-first-thing"]
+    assert [o.evidence for o in record.objectives_met] == ["explained"]
+
+
+def test_evidence_follows_from_the_kind_not_the_caller(tmp_path: Path, structured: Course) -> None:
+    """A caller cannot label an observation as an explanation, or vice versa."""
+    store = FileProgressStore(tmp_path / "state")
+    record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
+    lesson = structured.lesson_at("0.1")
+    assert lesson
+
+    record, _, fresh = runtime.mark_objectives_met(
+        store, record, revision, lesson, ["do-the-first-thing"], [Capability.OBSERVE], now=NOW
+    )
+    assert fresh == ["do-the-first-thing"]
+    assert record.objectives_met[0].evidence == "observed"
+
+
+def test_a_claim_beyond_capability_is_not_merely_ignored_but_unwritable(
+    tmp_path: Path, structured: Course
+) -> None:
+    store = FileProgressStore(tmp_path / "state")
+    record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
+    lesson = structured.lesson_at("0.1")
+    assert lesson
+
+    updated, new_revision, fresh = runtime.mark_objectives_met(
+        store, record, revision, lesson, ["do-the-first-thing"], [], now=NOW
+    )
+    assert fresh == []
+    assert updated is record
+    assert new_revision == revision, "no write at all when nothing may be claimed"
 
     reread = store.get_record(LOCAL_LEARNER, structured.id)
-    assert reread and len(reread[0].objectives_met) == 2
+    assert reread and reread[0].objectives_met == []
 
 
 def test_marking_is_idempotent(tmp_path: Path, structured: Course) -> None:
@@ -175,34 +208,31 @@ def test_marking_is_idempotent(tmp_path: Path, structured: Course) -> None:
     record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
     lesson = structured.lesson_at("0.1")
     assert lesson
+    caps = [Capability.CONVERSE, Capability.OBSERVE]
 
     record, revision, first = runtime.mark_objectives_met(
-        store, record, revision, lesson, {1: True, 2: True, 3: True}, now=NOW
+        store, record, revision, lesson, ["know-the-first-thing"], caps, now=NOW
     )
     record, revision, second = runtime.mark_objectives_met(
-        store, record, revision, lesson, {1: True, 2: True, 3: True}, now=NOW
+        store, record, revision, lesson, ["know-the-first-thing"], caps, now=NOW
     )
+    assert first == ["know-the-first-thing"] and second == []
+    assert len(record.objectives_met) == 1
 
-    assert first and second == []
-    assert len(record.objectives_met) == 2
 
-
-def test_nothing_demonstrated_writes_nothing(tmp_path: Path, structured: Course) -> None:
+def test_an_unknown_objective_id_is_never_written(tmp_path: Path, structured: Course) -> None:
     store = FileProgressStore(tmp_path / "state")
     record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
     lesson = structured.lesson_at("0.1")
     assert lesson
-
-    updated, new_revision, fresh = runtime.mark_objectives_met(
-        store, record, revision, lesson, {1: False, 2: False, 3: False}, now=NOW
+    _, _, fresh = runtime.mark_objectives_met(
+        store, record, revision, lesson, ["invented"], [Capability.CONVERSE], now=NOW
     )
     assert fresh == []
-    assert updated is record
-    assert new_revision == revision, "no write at all when there is nothing to say"
 
 
 def test_a_runtime_that_records_nothing_still_conforms(tmp_path: Path, structured: Course) -> None:
-    """The same position as homework checking: no judgement, no claim, still conforming."""
+    """The same position as homework checking: no capability, no claim, still conforming."""
     store = FileProgressStore(tmp_path / "state")
     record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
     lesson = structured.lesson_at("0.1")
@@ -221,8 +251,8 @@ def test_tested_by_must_name_a_question_that_exists(clean_dir: Path) -> None:
         clean_dir,
         fx.LESSON_ONE_PATH,
         "skills_unlocked: []\n",
-        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    text: Know it\n"
-        "    tested_by: [4]\n",
+        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    kind: knowledge\n"
+        "    text: Know it\n    about: [4]\n",
     )
     fx.edit(
         clean_dir,
@@ -230,7 +260,7 @@ def test_tested_by_must_name_a_question_that_exists(clean_dir: Path) -> None:
         "## Learning Objectives\nBy the end of this lesson, you will:\n- Know the first thing\n\n",
         "",
     )
-    assert Code.OBJECTIVE_TESTED_BY_INVALID in validate_course(clean_dir).codes()
+    assert Code.OBJECTIVE_ABOUT_INVALID in validate_course(clean_dir).codes()
 
 
 def test_objective_ids_must_be_unique_within_a_lesson(clean_dir: Path) -> None:
@@ -238,8 +268,8 @@ def test_objective_ids_must_be_unique_within_a_lesson(clean_dir: Path) -> None:
         clean_dir,
         fx.LESSON_ONE_PATH,
         "skills_unlocked: []\n",
-        "skills_unlocked: []\nobjectives:\n  - id: same\n    text: One\n"
-        "  - id: same\n    text: Two\n",
+        "skills_unlocked: []\nobjectives:\n  - id: same\n    kind: knowledge\n    text: One\n"
+        "  - id: same\n    kind: knowledge\n    text: Two\n",
     )
     fx.edit(
         clean_dir,
@@ -255,7 +285,7 @@ def test_an_objective_may_not_author_a_structural_count(clean_dir: Path) -> None
         clean_dir,
         fx.LESSON_ONE_PATH,
         "skills_unlocked: []\n",
-        "skills_unlocked: []\nobjectives:\n  - id: know-it\n"
+        "skills_unlocked: []\nobjectives:\n  - id: know-it\n    kind: knowledge\n"
         "    text: Know where you are in lesson 1 of 3\n",
     )
     fx.edit(
@@ -276,7 +306,8 @@ def test_the_example_course_uses_structured_objectives() -> None:
     assert lesson
     fm = md.parse_lesson(lesson.path).frontmatter
     assert fm and len(fm.objectives) == 3
-    assert all(o.tested_by for o in fm.objectives), "each maps to a question, so the quiz can judge"
+    assert all(o.kind == "knowledge" for o in fm.objectives), "a conceptual course, all knowledge"
+    assert all(o.about for o in fm.objectives), "each points at a question, for remediation"
     assert validate_course(EXAMPLE_COURSE).findings == []
 
 

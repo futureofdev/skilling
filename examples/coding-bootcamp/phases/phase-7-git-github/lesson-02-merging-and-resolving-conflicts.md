@@ -7,16 +7,20 @@ prerequisites: ["7.1"]
 skills_unlocked: []
 objectives:
   - id: what-conflicts-are
+    kind: knowledge
     text: "Understand what merge conflicts are"
-    tested_by: [1]
+    about: [1]
   - id: resolve-conflicts-manually
+    kind: practice
     text: "Resolve conflicts manually"
-    tested_by: [2]
+    about: [2]
   - id: the-vs-code-merge-ui
+    kind: practice
     text: "Use VS Code's merge conflict interface"
   - id: prevent-conflicts
+    kind: practice
     text: "Prevent conflicts with good practices"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms: present
   exercise: present

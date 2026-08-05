@@ -7,13 +7,16 @@ prerequisites: ["4.4"]
 skills_unlocked: []
 objectives:
   - id: islands-in-depth
+    kind: knowledge
     text: "Understand Islands Architecture in depth"
-    tested_by: [1, 3]
+    about: [1, 3]
   - id: islands-vs-spa
+    kind: knowledge
     text: "See how it differs from React's single-page-app model"
   - id: performance-implications
+    kind: knowledge
     text: "Understand the performance implications"
-    tested_by: [2]
+    about: [2]
 sections:
   key_terms: present
   exercise:

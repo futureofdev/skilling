@@ -7,16 +7,20 @@ prerequisites: ["8.4"]
 skills_unlocked: [deployment-complete, portfolio-deployed]
 objectives:
   - id: a-pre-launch-checklist
+    kind: practice
     text: "Complete a pre-launch quality checklist"
-    tested_by: [1]
+    about: [1]
   - id: verify-across-devices
+    kind: practice
     text: "Verify every section works on mobile and desktop"
-    tested_by: [2]
+    about: [2]
   - id: share-your-portfolio
+    kind: practice
     text: "Share your portfolio with the world"
   - id: plan-your-next-steps
+    kind: practice
     text: "Plan next steps for growing as a developer"
-    tested_by: [3]
+    about: [3]
 sections:
   key_terms:
     status: none
