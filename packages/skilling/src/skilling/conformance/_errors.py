@@ -69,6 +69,7 @@ class Code(StrEnum):
     QUIZ_ANSWER_LINE_MISSING = "quiz-answer-line-missing"
     QUIZ_ANSWER_AMBIGUOUS = "quiz-answer-ambiguous"
     QUIZ_ANSWER_NO_REASON = "quiz-answer-no-reason"
+    QUIZ_QUESTION_NUMBERING = "quiz-question-numbering"
     HOMEWORK_SECTION_MALFORMED = "homework-section-malformed"
     NEXT_UP_TOO_LONG = "next-up-too-long"
 
@@ -226,6 +227,12 @@ CATALOGUE: dict[Code, CodeInfo] = {
     ),
     _C.QUIZ_ANSWER_NO_REASON: CodeInfo(
         _E, f"{_FORMAT}#quick-quiz", "An answer line states the correct option but gives no reason"
+    ),
+    _C.QUIZ_QUESTION_NUMBERING: CodeInfo(
+        _E,
+        f"{_FORMAT}#quick-quiz",
+        "Quiz questions are not numbered exactly 1, 2, 3 — markdown renders duplicates "
+        "invisibly, and `about` indexes by these numbers",
     ),
     _C.HOMEWORK_SECTION_MALFORMED: CodeInfo(
         _E,

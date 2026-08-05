@@ -16,6 +16,7 @@ import pytest
 from skilling.conformance import CATALOGUE, Code, Severity, validate_course
 from skilling.conformance._errors import missing_from_catalogue
 
+from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE
 from .corruptions import CORRUPTIONS
 
@@ -82,3 +83,16 @@ def test_every_catalogue_entry_is_well_formed() -> None:
         assert entry.summary, code
         assert not entry.summary.endswith("."), f"{code}: summaries are labels, not sentences"
         assert entry.anchor.startswith("spec/") and "#" in entry.anchor, code
+
+
+@pytest.mark.parametrize("numbers", [("1.", "1.", "1."), ("1.", "2.", "2."), ("1.", "2.", "4.")])
+def test_quiz_numbering_must_be_1_2_3(clean_dir: Path, numbers: tuple[str, str, str]) -> None:
+    """Markdown renders 1./1./1. as 1,2,3 — no human sees this, so the validator must."""
+    lesson = clean_dir / fx.LESSON_ONE_PATH
+    text = lesson.read_text(encoding="utf-8")
+    for typed, original in zip(numbers, ("1.", "2.", "3."), strict=True):
+        # rewrite only the quiz's question-number prefixes, first occurrence each
+        text = text.replace(f"\n{original} ", f"\n{typed} ", 1)
+    lesson.write_text(text, encoding="utf-8")
+    report = validate_course(clean_dir)
+    assert Code.QUIZ_QUESTION_NUMBERING in {f.code for f in report.errors}

@@ -6,6 +6,19 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside Wave 1; entries below land with the change they describe.
 
+### Quiz questions must be numbered 1, 2, 3
+
+A course with a quiz numbered `1. 1. 1.` validated cleanly and rendered, in any markdown
+viewer, as `1. 2. 3.` — indistinguishable from a correctly numbered quiz to every human who
+ever looked at it. The gap was invisible precisely where it mattered: `about` references
+[index questions by these numbers](course-format.md#quick-quiz), so a duplicate or a skipped
+number silently points remediation at the wrong question.
+
+This is 1.0's [numbering and bijection rule](course-format.md#numbering-and-structure) applied
+one level down — phases and lessons already had to number `0`/`1`..`n` with no gaps or repeats;
+quiz questions within a lesson now face the same requirement, fixed at exactly `1`, `2`, `3`.
+Both example courses already number their quizzes this way, so nothing conforming breaks.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.

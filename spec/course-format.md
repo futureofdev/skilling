@@ -361,7 +361,7 @@ Self-contained is about knowledge, not equipment. A course on espresso may requi
 
 ### Quick Quiz
 
-Exactly **three** questions. Each is a numbered item with exactly **four** options labelled `a)` through `d)`, exactly one of which is correct, followed by an answer line giving the correct option **and the reason**.
+Exactly **three** questions. Each is a numbered item with exactly **four** options labelled `a)` through `d)`, exactly one of which is correct, followed by an answer line giving the correct option **and the reason**. Questions are numbered exactly `1.`, `2.`, `3.`, in order. Markdown renders any numbering this way, so a duplicate or a gap is invisible to review — and `about` references index questions by these numbers.
 
 ```markdown
 ## Quick Quiz
