@@ -12,10 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from skilling import ceremony as cer
-from skilling import lesson as md
-from skilling.loader import Course, load_course
-from skilling.validate import validate_course
+from skilling import course as md
+from skilling import delivery as cer
+from skilling.conformance import validate_course
+from skilling.course import Course
 
 from .conftest import REPO_ROOT
 
@@ -24,7 +24,7 @@ GOLDEN = REPO_ROOT / "examples" / "coding-bootcamp"
 
 @pytest.fixture(scope="module")
 def golden() -> Course:
-    return load_course(GOLDEN)
+    return Course.load(GOLDEN)
 
 
 def test_it_validates_with_zero_findings() -> None:
@@ -145,15 +145,15 @@ def test_verify_is_written_where_observation_is_possible_and_nowhere_else(
 
 
 def test_a_runtime_with_no_capabilities_may_settle_nothing_here(golden: Course) -> None:
-    from skilling import runtime
+    from skilling import delivery as runtime
 
     for lesson in golden.lessons():
         assert runtime.settleable(lesson, []) == [], lesson.coordinate
 
 
 def test_observation_reaches_exactly_the_verified_practice_objectives(golden: Course) -> None:
-    from skilling import runtime
-    from skilling.models import Capability
+    from skilling import delivery as runtime
+    from skilling.course import Capability
 
     reached = 0
     for lesson in golden.lessons():
@@ -236,7 +236,7 @@ def test_the_share_template_renders_with_derived_counts(golden: Course) -> None:
 
 def test_no_lesson_authors_a_structural_count() -> None:
     """The source stated a lesson count in its closing section. Nothing may now."""
-    from skilling.validate import _BODY_COUNTS, _MANIFEST_COUNTS
+    from skilling.conformance._counts import _BODY_COUNTS, _MANIFEST_COUNTS
 
     for path in sorted(GOLDEN.rglob("*.md")):
         for line in md.strip_code(path.read_text(encoding="utf-8")).splitlines():
@@ -290,9 +290,8 @@ def test_every_phase_has_an_overview(golden: Course) -> None:
 def test_state_written_by_a_walk_stays_small(tmp_path: Path, golden: Course) -> None:
     """A 64-lesson course must not produce a record that grows unboundedly — the whole point
     of a derived, transcript-free record."""
-    from skilling import runtime
-    from skilling.store import FileProgressStore
-    from skilling.store.file import LOCAL_LEARNER
+    from skilling import delivery as runtime
+    from skilling.store import LOCAL_LEARNER, FileProgressStore
 
     store = FileProgressStore(tmp_path / "state")
     record, revision = runtime.load_or_create(store, golden, LOCAL_LEARNER)

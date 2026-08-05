@@ -20,14 +20,35 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 
-from .. import ceremony as cer
-from .. import lesson as md
-from .. import machine, runtime
-from ..hooks import NO_HOOKS, Dispatcher, EventName
-from ..loader import Course, ResolvedLesson
-from ..machine import Beat, Input, LessonShape, LessonState
-from ..models import Record
-from ..store.protocol import ProgressStore
+from ..course import (
+    Course,
+    ParsedLesson,
+    QuizQuestion,
+    Record,
+    ResolvedLesson,
+    SectionAbsence,
+    parse_lesson,
+    parse_quiz,
+)
+from ..delivery import (
+    NO_HOOKS,
+    Beat,
+    CompletionOutcome,
+    Dispatcher,
+    EventName,
+    Input,
+    LessonShape,
+    LessonState,
+    advance,
+    complete_lesson,
+    load_or_create,
+    set_telemetry_consent,
+    share_text,
+    should_offer_revisit,
+    submit_homework,
+    utc_now,
+)
+from ..store import ProgressStore
 
 
 class LearnerLeft(Exception):
@@ -57,6 +78,7 @@ class Walker:
         self.revision: str | None
         self.correct: dict[int, bool] = {}
         """Per-lesson quiz results, keyed by question number. Drives objectives_met."""
+        self._outcome: CompletionOutcome | None = None
 
     # ------------------------------------------------------------------------ prompts
 
@@ -109,7 +131,7 @@ class Walker:
         )
         # default=False: the honest default for a question the learner has not been asked before.
         agreed = self._confirm("Share anonymously?", default=False)
-        self.record, self.revision = runtime.set_telemetry_consent(
+        self.record, self.revision = set_telemetry_consent(
             self.store, self.record, self.revision, agreed
         )
         self.console.print(
@@ -121,7 +143,7 @@ class Walker:
     # ---------------------------------------------------------------------------- run
 
     def run(self, *, now: datetime | None = None) -> int:
-        self.record, self.revision = runtime.load_or_create(
+        self.record, self.revision = load_or_create(
             self.store, self.course, self.learner_id, zone=self.zone, now=now
         )
 
@@ -167,7 +189,7 @@ class Walker:
     # -------------------------------------------------------------------------- lesson
 
     def deliver(self, lesson: ResolvedLesson, *, now: datetime | None = None) -> None:
-        parsed = md.parse_lesson(lesson.path)
+        parsed = parse_lesson(lesson.path)
         shape = LessonShape(
             has_exercise=parsed.section("exercise") is not None,
             is_phase_end=self.course.is_last_in_phase(lesson.coordinate),
@@ -175,14 +197,14 @@ class Walker:
 
         recorded = self.record.position.beat
         state = (
-            machine.resume(shape, recorded)
+            LessonState.resume(shape, recorded)
             if recorded and recorded in set(Beat)
-            else machine.start(shape)
+            else LessonState.start(shape)
         )
 
         questions = []
         if quiz := parsed.section("quiz"):
-            questions = md.parse_quiz(quiz.body, quiz.body_line)
+            questions = parse_quiz(quiz.body, quiz.body_line)
 
         self.correct = {}
         while not state.terminal:
@@ -192,14 +214,14 @@ class Walker:
         self,
         state: LessonState,
         lesson: ResolvedLesson,
-        parsed: md.ParsedLesson,
-        questions: list[md.QuizQuestion],
+        parsed: ParsedLesson,
+        questions: list[QuizQuestion],
         *,
         now: datetime | None = None,
     ) -> LessonState:
         phase = self.course.phase_of(lesson.coordinate)
 
-        moment = now or runtime.utc_now()
+        moment = now or utc_now()
 
         match state.beat:
             case Beat.WELCOME:
@@ -211,11 +233,11 @@ class Walker:
                     occurred_at=moment,
                     coordinate=lesson.coordinate,
                 )
-                return machine.advance(state, Input.NEXT)
+                return advance(state, Input.NEXT)
 
             case Beat.OBJECTIVES:
                 self._objectives(parsed)
-                return machine.advance(state, Input.NEXT)
+                return advance(state, Input.NEXT)
 
             case Beat.CONCEPT:
                 if section := parsed.section("concept"):
@@ -224,7 +246,7 @@ class Walker:
                 if terms := parsed.section("key_terms"):
                     self.console.print("[bold]Key Terms[/]")
                     self._md(terms.body)
-                return machine.advance(state, Input.NEXT)
+                return advance(state, Input.NEXT)
 
             case Beat.GATE_CONCEPT:
                 self._persist_beat(state.beat)
@@ -233,8 +255,8 @@ class Walker:
                     "Go deeper on any of that, or move on?", ["deeper", "proceed"], "proceed"
                 )
                 if answer == "deeper":
-                    return machine.advance(state, Input.GO_DEEPER)
-                moved = machine.advance(state, Input.PROCEED)
+                    return advance(state, Input.GO_DEEPER)
+                moved = advance(state, Input.PROCEED)
                 if moved.beat is Beat.QUIZ and not state.shape.has_exercise:
                     # The exercise beat and its gate are skipped, so the author's stated
                     # reason has to be surfaced here or it is never surfaced at all.
@@ -245,7 +267,7 @@ class Walker:
                 if section := parsed.section("exercise"):
                     self.console.print("[bold]Hands-On Exercise[/]")
                     self._md(section.body)
-                return machine.advance(state, Input.NEXT)
+                return advance(state, Input.NEXT)
 
             case Beat.GATE_EXERCISE:
                 self._persist_beat(state.beat)
@@ -255,7 +277,7 @@ class Walker:
                     ["done", "hint"],
                     "done",
                 )
-                return machine.advance(state, Input.ATTEMPTED if answer == "done" else Input.HINT)
+                return advance(state, Input.ATTEMPTED if answer == "done" else Input.HINT)
 
             case Beat.QUIZ:
                 self._persist_beat(state.beat)
@@ -272,7 +294,7 @@ class Walker:
                 return self._ceremony(state, lesson, now=now)
 
             case _:
-                return machine.advance(state, Input.NEXT)
+                return advance(state, Input.NEXT)
 
     def _gate_opened(self, lesson: ResolvedLesson, beat: Beat, moment: datetime) -> None:
         self.hooks.emit(
@@ -283,7 +305,7 @@ class Walker:
             beat=str(beat),
         )
 
-    def _objectives(self, parsed: md.ParsedLesson) -> None:
+    def _objectives(self, parsed: ParsedLesson) -> None:
         """Render objectives from whichever form the lesson used — never both, since the
         format makes them mutually exclusive."""
         fm = parsed.frontmatter
@@ -298,11 +320,11 @@ class Walker:
             self.console.print("[bold]Learning Objectives[/]")
             self._md(section.body)
 
-    def _declared_absence(self, parsed: md.ParsedLesson) -> None:
+    def _declared_absence(self, parsed: ParsedLesson) -> None:
         """Surface the author's stated reason in place of the skipped exercise beat."""
         fm = parsed.frontmatter
         declaration = fm.declaration("exercise") if fm else None
-        intent = getattr(declaration, "intent", "")
+        intent = declaration.intent if isinstance(declaration, SectionAbsence) else ""
         if intent:
             self.console.print(f"[dim]No exercise in this lesson — {intent}[/]\n")
 
@@ -312,14 +334,14 @@ class Walker:
         self,
         state: LessonState,
         lesson: ResolvedLesson,
-        questions: list[md.QuizQuestion],
+        questions: list[QuizQuestion],
         moment: datetime,
     ) -> LessonState:
         index = state.question_index
         if index >= len(questions):
             # A malformed quiz should not trap a learner in a lesson they cannot finish.
             self.console.print("[yellow]This lesson's quiz is incomplete; moving on.[/]")
-            return machine.advance(state, Input.ANSWER_CORRECT)
+            return advance(state, Input.ANSWER_CORRECT)
 
         question = questions[index]
         self.console.print(f"[bold]Question {index + 1} of {state.shape.question_count}[/]")
@@ -345,17 +367,17 @@ class Walker:
 
         if correct:
             self.console.print(f"[bold green]Correct.[/] {question.answer_reason}\n")
-            return machine.advance(state, Input.ANSWER_CORRECT)
+            return advance(state, Input.ANSWER_CORRECT)
 
         expected = question.answer_label or "?"
         self.console.print(
             f"[bold yellow]Not quite.[/] The answer is [cyan]{expected})[/] — "
             f"{question.answer_reason}\n"
         )
-        return machine.advance(state, Input.ANSWER_WRONG)
+        return advance(state, Input.ANSWER_WRONG)
 
     def _implicated(
-        self, parsed: md.ParsedLesson, state: LessonState, questions: list[md.QuizQuestion]
+        self, parsed: ParsedLesson, state: LessonState, questions: list[QuizQuestion]
     ) -> str | None:
         """The objective the question just missed was testing, if the lesson said so.
 
@@ -372,26 +394,26 @@ class Walker:
         return matched[0].text if matched else None
 
     def _remediate(
-        self, state: LessonState, parsed: md.ParsedLesson, questions: list[md.QuizQuestion]
+        self, state: LessonState, parsed: ParsedLesson, questions: list[QuizQuestion]
     ) -> LessonState:
         if objective := self._implicated(parsed, state, questions):
             self.console.print(f"[dim]That one was about: {objective}.[/]")
 
-        if machine.should_offer_revisit(state):
+        if should_offer_revisit(state):
             self.console.print(
                 "[dim]That's two we've missed. Worth going back over the concept properly "
                 "before we finish?[/]"
             )
             if self._ask("Revisit the concept?", ["yes", "no"], "yes") == "yes":
-                return machine.advance(state, Input.REVISIT_CONCEPT)
-            return machine.advance(state, Input.CONTINUE)
+                return advance(state, Input.REVISIT_CONCEPT)
+            return advance(state, Input.CONTINUE)
 
         again = self._ask("Want me to go over that idea again?", ["yes", "no"], "no") == "yes"
         section = parsed.section("concept")
         if again and section:
             self.console.print("[bold]The Concept, again[/]")
             self._md(section.body)
-        return machine.advance(state, Input.CONTINUE)
+        return advance(state, Input.CONTINUE)
 
     # ---------------------------------------------------------------------- completion
 
@@ -401,7 +423,7 @@ class Walker:
         # A quiz settles nothing: one four-option question is guessed right a quarter of the
         # time, and none can establish that software is installed. This walker holds no
         # capabilities, so it records no capability claims at all — which is the truth.
-        outcome = runtime.complete_lesson(
+        outcome = complete_lesson(
             self.store, self.course, self.record, self.revision, lesson, now=now, hooks=self.hooks
         )
         self.record, self.revision = outcome.record, outcome.revision
@@ -423,7 +445,7 @@ class Walker:
         self.console.print()
 
         self._outcome = outcome
-        return machine.advance(state, Input.NEXT)
+        return advance(state, Input.NEXT)
 
     def _ceremony(
         self, state: LessonState, lesson: ResolvedLesson, *, now: datetime | None = None
@@ -439,7 +461,7 @@ class Walker:
 
         self._share(phase)
 
-        outcome = getattr(self, "_outcome", None)
+        outcome = self._outcome
         if outcome and outcome.homework_placed:
             self._homework(now=now)
         elif outcome and outcome.homework_queued:
@@ -450,7 +472,7 @@ class Walker:
         if teaser := self._next_teaser(lesson):
             self.console.print(f"[dim]Up next: {teaser}[/]\n")
 
-        return machine.advance(state, Input.NEXT)
+        return advance(state, Input.NEXT)
 
     def _share(self, phase) -> None:  # noqa: ANN001 - ResolvedPhase | None
         """Offer share copy, resolved in the order the specification gives.
@@ -459,7 +481,7 @@ class Walker:
         flatly. It invents nothing — which is the whole reason the facts are in the manifest.
         """
         finished = self.course.completed_count(self.record.completed) >= self.course.lesson_count
-        text = cer.share_text(self.course, self.record, phase, course_complete=finished)
+        text = share_text(self.course, self.record, phase, course_complete=finished)
         if not text:
             return
         self.console.print("[dim]Something to share, if you'd like to:[/]")
@@ -471,10 +493,10 @@ class Walker:
         if following is None:
             return None
         if following.path.is_file():
-            parsed = md.parse_lesson(following.path)
+            parsed = parse_lesson(following.path)
             if section := parsed.section("next_up"):
                 return " ".join(section.body.split())
-        current = md.parse_lesson(lesson.path)
+        current = parse_lesson(lesson.path)
         if section := current.section("next_up"):
             return " ".join(section.body.split())
         return f"{following.title}"
@@ -507,7 +529,7 @@ class Walker:
             self.console.print("[dim]Left in your mailbox.[/]\n")
             return
 
-        entry = runtime.submit_homework(
+        entry = submit_homework(
             self.store,
             self.learner_id,
             self.course.id,

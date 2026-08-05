@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from ..models import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
+from ..course import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
 
 Revision = str
 """An opaque token the store issues with every read. Compare it, never parse it."""

@@ -14,8 +14,7 @@ from __future__ import annotations
 
 import re
 
-from .loader import Course, ResolvedPhase
-from .models import Brand, Record
+from ..course import Brand, Course, Record, ResolvedPhase
 
 PLACEHOLDERS: frozenset[str] = frozenset(
     {

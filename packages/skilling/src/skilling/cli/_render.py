@@ -7,10 +7,8 @@ import json
 from rich.console import Console
 from rich.text import Text
 
-from ..diff import DiffResult
-from ..errors import Severity
-from ..loader import Course
-from ..validate import Report
+from ..conformance import Report, Severity
+from ..course import Course, DiffResult
 
 console = Console()
 err_console = Console(stderr=True)

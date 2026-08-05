@@ -15,8 +15,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from .errors import SPEC_MAJOR, SPEC_MINOR
-from .models import HomeworkSlot, LessonFrontmatter, Manifest, Record
+from ..conformance import SPEC_MAJOR, SPEC_MINOR
+from ..course import HomeworkSlot, LessonFrontmatter, Manifest, Record
 
 BASE_URI = f"https://startskill.ing/schemas/v{SPEC_MAJOR}.{SPEC_MINOR}"
 

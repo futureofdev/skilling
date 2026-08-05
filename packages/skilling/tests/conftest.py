@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from skilling.loader import Course, load_course
+from skilling.course import Course
 
 from . import fixtures as fx
+
+
+def pytest_configure() -> None:
+    """CLI tests assert on captured output as plain text, so the ambient colour environment
+    must not reach rich — a developer's or CI's FORCE_COLOR would thread ANSI codes through
+    every assertion. Scrubbed here because it runs before any test module imports the CLI,
+    whose module-level Consoles read the environment once at import."""
+    for var in ("FORCE_COLOR", "NO_COLOR", "CLICOLOR", "CLICOLOR_FORCE"):
+        os.environ.pop(var, None)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_COURSE = REPO_ROOT / "examples" / "hello-skilling"
@@ -23,7 +34,7 @@ def clean_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def clean(clean_dir: Path) -> Course:
-    return load_course(clean_dir)
+    return Course.load(clean_dir)
 
 
 @pytest.fixture
@@ -42,4 +53,4 @@ def corrupt(tmp_path: Path) -> Callable[[Callable[[Path], None]], Path]:
 
 @pytest.fixture
 def example() -> Course:
-    return load_course(EXAMPLE_COURSE)
+    return Course.load(EXAMPLE_COURSE)

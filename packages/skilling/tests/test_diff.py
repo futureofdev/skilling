@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from skilling.diff import compare_paths, declared_level
+from skilling.course import compare_paths, declared_level
 
 from . import fixtures as fx
 

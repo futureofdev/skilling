@@ -6,17 +6,14 @@ from pathlib import Path
 
 import typer
 
-from .. import __version__, runtime
-from ..diff import compare_paths
-from ..hooks import Dispatcher, parse_sink
-from ..loader import CourseLoadError, load_course
-from ..runtime import today_in
-from ..store import FileProgressStore
-from ..store.file import LOCAL_LEARNER
-from ..validate import validate_course
-from . import render
-from .scaffold import scaffold
-from .walk import Walker
+from .. import __version__
+from ..conformance import validate_course
+from ..course import Course, CourseLoadError, compare_paths
+from ..delivery import Dispatcher, parse_sink, set_telemetry_consent, today_in
+from ..store import LOCAL_LEARNER, FileProgressStore
+from . import _render as render
+from ._scaffold import scaffold
+from ._walk import Walker
 
 app = typer.Typer(
     add_completion=False,
@@ -96,7 +93,7 @@ def show(
 ) -> None:
     """Print the resolved structure and every derived count."""
     try:
-        resolved = load_course(course)
+        resolved = Course.load(course)
     except CourseLoadError as exc:
         render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
         raise typer.Exit(1) from exc
@@ -134,7 +131,7 @@ def deliver(
 ) -> None:
     """Walk the delivery loop. A Conforming Runtime — no language model involved."""
     try:
-        resolved = load_course(course)
+        resolved = Course.load(course)
     except CourseLoadError as exc:
         render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
         raise typer.Exit(1) from exc
@@ -168,7 +165,7 @@ def deliver(
     try:
         code = walker.run()
         if no_telemetry and walker.record.telemetry.opt_in is None:
-            runtime.set_telemetry_consent(store, walker.record, walker.revision, False)
+            set_telemetry_consent(store, walker.record, walker.revision, False)
     finally:
         dispatcher.close()
     raise typer.Exit(code)

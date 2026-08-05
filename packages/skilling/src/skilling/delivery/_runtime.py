@@ -11,17 +11,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from datetime import datetime
+from typing import NamedTuple
 
-from . import lesson as md
-from .errors import SPEC_MAJOR, SPEC_MINOR
-from .hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
-from .loader import Course, ResolvedLesson
-from .models import (
+from ..conformance import SPEC_MAJOR, SPEC_MINOR
+from ..course import (
     Assignment,
     Capability,
     CompletionEntry,
+    Course,
     HomeworkArchiveEntry,
     HomeworkSlot,
     Objective,
@@ -29,58 +27,28 @@ from .models import (
     Position,
     Record,
     Requirement,
+    ResolvedLesson,
+    next_streak,
+    parse_homework,
+    parse_lesson,
+    today_in,
+    utc_now,
 )
-from .store.protocol import ProgressStore
+from ..store import ProgressStore
+from ._hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
 
 
-def utc_now() -> datetime:
-    return datetime.now(tz=UTC)
+class StoredRecord(NamedTuple):
+    record: Record
+    revision: str | None
 
 
-def today_in(zone: str, now: datetime | None = None) -> date:
-    """Today's date in the record's timezone — the streak is defined in local days."""
-    moment = now or utc_now()
-    try:
-        return moment.astimezone(ZoneInfo(zone)).date()
-    except (ZoneInfoNotFoundError, ValueError):
-        return moment.astimezone(ZoneInfo("UTC")).date()
-
-
-def next_streak(last_activity: date | None, today: date, current: int) -> int:
-    """Yesterday → increment. Today → unchanged. Older or unset → 1."""
-    if last_activity is None:
-        return 1
-    if last_activity == today:
-        return max(current, 1)
-    if last_activity == today - timedelta(days=1):
-        return current + 1
-    return 1
-
-
-def new_record(
-    course: Course,
-    learner_id: str,
-    *,
-    zone: str = "UTC",
-    now: datetime | None = None,
-) -> Record:
-    today = today_in(zone, now)
-    first = course.first_lesson
-    return Record(
-        learner_id=learner_id,
-        course_id=course.id,
-        course_version=course.version,
-        spec_version=SPEC_VERSION,
-        position=Position(phase=first.phase, lesson=first.number),
-        completed=[],
-        skills_unlocked=[],
-        started_at=today,
-        last_activity=today,
-        timezone=zone,
-        streak_days=0,
-    )
+class ObjectivesMarked(NamedTuple):
+    record: Record
+    revision: str | None
+    newly_met: list[str]
 
 
 def load_or_create(
@@ -90,13 +58,13 @@ def load_or_create(
     *,
     zone: str = "UTC",
     now: datetime | None = None,
-) -> tuple[Record, str | None]:
+) -> StoredRecord:
     found = store.get_record(learner_id, course.id)
     if found:
-        return found
-    record = new_record(course, learner_id, zone=zone, now=now)
+        return StoredRecord(*found)
+    record = Record.new(course, learner_id, zone=zone, now=now)
     revision = store.put_record(record, None)
-    return record, revision
+    return StoredRecord(record, revision)
 
 
 @dataclass
@@ -111,18 +79,18 @@ class CompletionOutcome:
 
 
 def skills_for(lesson: ResolvedLesson) -> list[str]:
-    parsed = md.parse_lesson(lesson.path)
+    parsed = parse_lesson(lesson.path)
     return list(parsed.frontmatter.skills_unlocked) if parsed.frontmatter else []
 
 
 def assignment_from_lesson(
     lesson: ResolvedLesson, *, now: datetime | None = None
 ) -> Assignment | None:
-    parsed = md.parse_lesson(lesson.path)
+    parsed = parse_lesson(lesson.path)
     section = parsed.section("homework")
     if section is None:
         return None
-    hw = md.parse_homework(section.body)
+    hw = parse_homework(section.body)
     if not hw.complete:
         return None
     assert hw.title and hw.objective and hw.submission
@@ -298,7 +266,7 @@ def set_telemetry_consent(
     record: Record,
     revision: str | None,
     opt_in: bool,
-) -> tuple[Record, str | None]:
+) -> StoredRecord:
     """Record the learner's answer, and assign an anonymous id on the first yes.
 
     The id is write-once and never derived from ``learner_id``: a learner who says yes gets a
@@ -309,11 +277,11 @@ def set_telemetry_consent(
         telemetry = telemetry.model_copy(update={"anonymous_id": new_anonymous_id()})
 
     updated = record.model_copy(update={"telemetry": telemetry})
-    return updated, store.put_record(updated, revision)
+    return StoredRecord(updated, store.put_record(updated, revision))
 
 
 def objectives_of(lesson: ResolvedLesson) -> list[Objective]:
-    parsed = md.parse_lesson(lesson.path)
+    parsed = parse_lesson(lesson.path)
     return list(parsed.frontmatter.objectives) if parsed.frontmatter else []
 
 
@@ -344,7 +312,7 @@ def mark_objectives_met(
     capabilities: Iterable[Capability] = (),
     *,
     now: datetime | None = None,
-) -> tuple[Record, str | None, list[str]]:
+) -> ObjectivesMarked:
     """Record the objectives a runtime has genuinely established. Returns the new ids.
 
     The capability rule is enforced *here* rather than trusted to the caller, for the same
@@ -357,7 +325,7 @@ def mark_objectives_met(
     permitted = {o.id: o for o in settleable(lesson, capabilities)}
     fresh = [oid for oid in met if oid in permitted and not record.has_met(oid)]
     if not fresh:
-        return record, revision, []
+        return ObjectivesMarked(record, revision, [])
 
     today = today_in(record.timezone, now or utc_now())
     entries = []
@@ -367,7 +335,7 @@ def mark_objectives_met(
         entries.append(ObjectiveMet(id=oid, at=today, evidence=settles[1]))  # type: ignore[arg-type]
 
     updated = record.model_copy(update={"objectives_met": [*record.objectives_met, *entries]})
-    return updated, store.put_record(updated, revision), fresh
+    return ObjectivesMarked(updated, store.put_record(updated, revision), fresh)
 
 
 def submit_homework(

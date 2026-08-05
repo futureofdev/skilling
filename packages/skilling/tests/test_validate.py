@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from skilling.errors import CATALOGUE, Code, Severity, missing_from_catalogue
-from skilling.validate import validate_course
+from skilling.conformance import CATALOGUE, Code, Severity, validate_course
+from skilling.conformance._errors import missing_from_catalogue
 
 from .conftest import EXAMPLE_COURSE
 from .corruptions import CORRUPTIONS

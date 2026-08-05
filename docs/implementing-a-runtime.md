@@ -9,12 +9,14 @@ The delivery loop, the record write set, and persistence are all mechanical, and
 If you find yourself writing a state machine or deciding what completion should write, stop. That is the part that is specified, tested, and shared.
 
 ```python
-from skilling import load_course, FileProgressStore
-from skilling import machine, runtime
+from pathlib import Path
 
-course = load_course("./brewing-basics")
+from skilling import Course, FileProgressStore
+from skilling import delivery
+
+course = Course.load(Path("./brewing-basics"))
 store = FileProgressStore("./.skilling")
-record, revision = runtime.load_or_create(store, course, learner_id="a1b2c3")
+record, revision = delivery.load_or_create(store, course, learner_id="a1b2c3")
 ```
 
 ## Drive the machine; don't reimplement it
@@ -22,10 +24,11 @@ record, revision = runtime.load_or_create(store, course, learner_id="a1b2c3")
 The loop is pure functions over an explicit state value. No I/O, no clock, no model.
 
 ```python
-from skilling.machine import LessonShape, Input, Beat, advance, legal_inputs, start
+from skilling import Beat, Input, LessonShape, LessonState, advance
+from skilling.delivery import legal_inputs
 
 shape = LessonShape(has_exercise=True, is_phase_end=False)
-state = start(shape)                      # welcome
+state = LessonState.start(shape)          # welcome
 state = advance(state, Input.NEXT)        # objectives
 state = advance(state, Input.NEXT)        # concept
 state = advance(state, Input.NEXT)        # gate-concept
@@ -36,7 +39,9 @@ At any point, `legal_inputs(state)` tells you what the learner may do next — w
 The machine *permits*; it does not advise. Where the specification says a runtime "should" offer something, that is a predicate:
 
 ```python
-if machine.should_offer_revisit(state):     # two or more wrong in this quiz
+from skilling.delivery import should_offer_revisit
+
+if should_offer_revisit(state):     # two or more wrong in this quiz
     ...
 ```
 
@@ -52,7 +57,7 @@ If you are embedding a model, the temptation is to let it decide when to move on
 ## Let the shared write set do the writing
 
 ```python
-outcome = runtime.complete_lesson(store, course, record, revision, lesson)
+outcome = delivery.complete_lesson(store, course, record, revision, lesson)
 record, revision = outcome.record, outcome.revision
 
 if outcome.already_completed:
@@ -72,7 +77,7 @@ That last one is the reason to reuse this rather than reimplement it: in the cou
 ## Persist through the store, not around it
 
 ```python
-from skilling.store import Conflict
+from skilling import Conflict
 
 try:
     revision = store.put_record(updated, revision)
@@ -102,13 +107,13 @@ If your tutor *cannot* judge work, display the assignment and accept a confirmed
 **Since 1.1.** Pass a `Dispatcher` and the eight events fire from the write set and the loop. It defaults to a no-op, so hooks are opt-in for a runtime as well as for a learner.
 
 ```python
-from skilling.hooks import Dispatcher, JsonlSink, ThreadedSink
+from skilling.delivery import Dispatcher, JsonlSink, ThreadedSink
 
 hooks = Dispatcher(
     first_party=[JsonlSink("events.jsonl")],          # inside your boundary; sees learner_id
     telemetry=[ThreadedSink(YourHttpSink(url))],      # leaves it; consent-gated, anonymised
 )
-runtime.complete_lesson(store, course, record, revision, lesson, hooks=hooks)
+delivery.complete_lesson(store, course, record, revision, lesson, hooks=hooks)
 ```
 
 Three things the dispatcher does so you cannot get them wrong:
@@ -126,7 +131,7 @@ The core ships no network sink on purpose — the framework should phone nobody'
 ```python
 import json
 import urllib.request
-from skilling.hooks import Event
+from skilling.delivery import Event
 
 class HttpSink:
     def __init__(self, url: str, *, timeout: float = 2.0) -> None:
@@ -173,10 +178,10 @@ implicated = fm.objectives_for_question(question.number)
 **Since 1.2.** Your conformance claim names its capabilities, and they decide what you may write about a learner:
 
 ```python
-from skilling.models import Capability
+from skilling.course import Capability
 
 caps = [Capability.CONVERSE, Capability.ASSESS]     # a chat tutor: no filesystem
-record, revision, settled = runtime.mark_objectives_met(
+record, revision, settled = delivery.mark_objectives_met(
     store, record, revision, lesson,
     met=["what-npm-is", "install-node"],            # what you believe
     capabilities=caps,                              # what you may claim
@@ -188,7 +193,7 @@ The rule is enforced in `mark_objectives_met`, not left to you, for the same rea
 
 **A quiz settles nothing.** There is no `evidence: quiz` and no code path that produces one. One four-option question is guessed right a quarter of the time, and none can establish that software is installed. Use `about` for remediation and leave the record alone.
 
-If you have `observe` — a coding harness with shell and filesystem access — `runtime.settleable(lesson, caps)` gives you the objectives you may settle, each with the `verify` sentence saying what to look for. Work out *how* yourself; that is what you are good at. A course's `check` command, if it supplies one, is a proposal you may decline and must never run silently.
+If you have `observe` — a coding harness with shell and filesystem access — `delivery.settleable(lesson, caps)` gives you the objectives you may settle, each with the `verify` sentence saying what to look for. Work out *how* yourself; that is what you are good at. A course's `check` command, if it supplies one, is a proposal you may decline and must never run silently.
 
 ## Claiming conformance
 
@@ -201,6 +206,6 @@ An implementation that ignores those isn't a Skilling runtime with extras. It is
 
 ## A worked reference
 
-`skilling deliver` is a complete Conforming Runtime in about three hundred lines with no model in it — see [`cli/walk.py`](../packages/skilling/src/skilling/cli/walk.py). It re-prints rather than re-explains and cannot judge homework, and it conforms anyway. That is the shape of the contract: everything mechanical is required, and nothing about the teaching is.
+`skilling deliver` is a complete Conforming Runtime in about three hundred lines with no model in it — see [`cli/_walk.py`](../packages/skilling/src/skilling/cli/_walk.py). It re-prints rather than re-explains and cannot judge homework, and it conforms anyway. That is the shape of the contract: everything mechanical is required, and nothing about the teaching is.
 
 Read it before building yours. It is the smallest honest answer to "what must I actually do?"

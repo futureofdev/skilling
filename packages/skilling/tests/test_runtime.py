@@ -7,11 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from skilling import runtime
-from skilling.loader import Course, load_course
-from skilling.models import Record
-from skilling.store import Conflict, FileProgressStore
-from skilling.store.file import LOCAL_LEARNER
+from skilling import delivery as runtime
+from skilling.course import Course, Record
+from skilling.store import LOCAL_LEARNER, Conflict, FileProgressStore
 
 NOW = datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC)
 
@@ -301,5 +299,5 @@ def test_spec_version_is_stamped_on_new_records(store: FileProgressStore, clean:
 
 
 def test_loading_a_real_example_course_works() -> None:
-    course = load_course(Path(__file__).resolve().parents[3] / "examples" / "hello-skilling")
+    course = Course.load(Path(__file__).resolve().parents[3] / "examples" / "hello-skilling")
     assert course.lesson_count == 3

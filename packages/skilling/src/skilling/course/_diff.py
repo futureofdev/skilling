@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from .loader import Course, load_course
+from ._loader import Course
 
 Level = Literal["none", "patch", "minor", "major"]
 
@@ -152,4 +152,4 @@ def _sort_key(coordinate: str) -> tuple[int, int]:
 
 
 def compare_paths(old: Path | str, new: Path | str) -> DiffResult:
-    return compare(load_course(old), load_course(new))
+    return compare(Course.load(Path(old)), Course.load(Path(new)))

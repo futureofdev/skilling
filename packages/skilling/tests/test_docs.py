@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from skilling import docs
-from skilling.errors import CATALOGUE, Code
+from skilling.codegen import docs
+from skilling.conformance import CATALOGUE, Code
 
 from .conftest import REPO_ROOT
 
@@ -178,6 +178,36 @@ def test_llms_txt_links_all_resolve() -> None:
         assert resolved.exists(), f"llms.txt: {target} does not exist"
         if fragment:
             assert fragment in anchors_in(resolved), f"llms.txt: {target}"
+
+
+# ------------------------------------------------------------------- the one version claim
+
+
+def _declared_spec_version() -> str:
+    text = (REPO_ROOT / "spec" / "README.md").read_text(encoding="utf-8")
+    match = re.search(r"\*\*Version ([0-9][\w.\-]*)\*\*", text)
+    assert match, "spec/README.md no longer declares a version"
+    return match.group(1)
+
+
+def test_every_version_claim_matches_the_spec() -> None:
+    """The version is declared in spec/README.md; every other statement of it is a repetition,
+    and this repository has already watched two of them drift. This is the fixture for the
+    rule that they move together."""
+    version = _declared_spec_version()
+    claims = {
+        "README.md": f"Specification **{version}**",
+        "llms.txt": f"Specification version {version}",
+    }
+    for name, needle in claims.items():
+        text = (REPO_ROOT / name).read_text(encoding="utf-8")
+        assert needle in text, f"{name} does not state spec version {version}"
+
+
+def test_changelog_leads_with_the_declared_version() -> None:
+    text = (REPO_ROOT / "spec" / "CHANGELOG.md").read_text(encoding="utf-8")
+    first = next(line for line in text.splitlines() if line.startswith("## "))
+    assert first.startswith(f"## {_declared_spec_version()} "), first
 
 
 def test_every_concept_page_names_its_normative_home() -> None:
