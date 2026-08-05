@@ -6,15 +6,17 @@ one you missed, and this is the one you demonstrated. Both claims have to be ear
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pydantic
 import pytest
 
 from skilling import course as md
 from skilling import delivery as runtime
 from skilling.conformance import Code, validate_course
-from skilling.course import Capability, Course
+from skilling.course import Attestation, Capability, Course, ObjectiveMet, Record, ResolvedLesson
+from skilling.delivery import settle_objective
 from skilling.store import LOCAL_LEARNER, FileProgressStore
 
 from . import fixtures as fx
@@ -168,17 +170,35 @@ def test_marking_writes_only_what_the_runtime_could_observe(
 
 
 def test_evidence_follows_from_the_kind_not_the_caller(tmp_path: Path, structured: Course) -> None:
-    """A caller cannot label an observation as an explanation, or vice versa."""
+    """A caller cannot label an observation as an explanation, or vice versa.
+
+    Since 1.3, marking observed evidence also needs an attestation — the record of what was
+    checked, which the caller supplies here — because that claim is the one this suite's new
+    provenance tests exist to enforce.
+    """
     store = FileProgressStore(tmp_path / "state")
     record, revision = runtime.load_or_create(store, structured, LOCAL_LEARNER, now=NOW)
     lesson = structured.lesson_at("0.1")
     assert lesson
 
+    att = Attestation(
+        checked="the learner's machine",
+        verify="The first thing exists where the learner made it",
+        attested_by="claude-code",
+    )
     record, _, fresh = runtime.mark_objectives_met(
-        store, record, revision, lesson, ["do-the-first-thing"], [Capability.OBSERVE], now=NOW
+        store,
+        record,
+        revision,
+        lesson,
+        ["do-the-first-thing"],
+        [Capability.OBSERVE],
+        attestation=att,
+        now=NOW,
     )
     assert fresh == ["do-the-first-thing"]
     assert record.objectives_met[0].evidence == "observed"
+    assert record.objectives_met[0].provenance == att
 
 
 def test_a_claim_beyond_capability_is_not_merely_ignored_but_unwritable(
@@ -238,6 +258,88 @@ def test_a_runtime_that_records_nothing_still_conforms(tmp_path: Path, structure
     outcome = runtime.complete_lesson(store, structured, record, revision, lesson, now=NOW)
     assert outcome.record.completed == ["0.1"]
     assert outcome.record.objectives_met == []
+
+
+# ---------------------------------------------------------------------- provenance (1.3)
+
+PRACTICE_OBJECTIVE = """\
+objectives:
+  - id: obj-id
+    kind: practice
+    text: Do the practiced thing
+    verify: "The practiced thing exists where the learner made it"
+"""
+
+
+def _make_lesson_with_practice(root: Path) -> None:
+    """Convert the clean fixture's first lesson to a single observable practice objective."""
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "skills_unlocked: []\n",
+        f"skills_unlocked: []\n{PRACTICE_OBJECTIVE}",
+    )
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "## Learning Objectives\nBy the end of this lesson, you will:\n- Know the first thing\n\n",
+        "",
+    )
+
+
+@pytest.fixture
+def practice_course(clean_dir: Path) -> Course:
+    _make_lesson_with_practice(clean_dir)
+    return Course.load(clean_dir)
+
+
+@pytest.fixture
+def lesson_with_practice(practice_course: Course) -> ResolvedLesson:
+    lesson = practice_course.lesson_at("0.1")
+    assert lesson
+    return lesson
+
+
+@pytest.fixture
+def store(tmp_path: Path) -> FileProgressStore:
+    return FileProgressStore(tmp_path / "state")
+
+
+@pytest.fixture
+def record(practice_course: Course) -> Record:
+    """A fresh, never-persisted record — paired with the empty ``store`` above, so a
+    ``settle_objective`` call with ``revision=None`` writes cleanly on success."""
+    return Record.new(practice_course, LOCAL_LEARNER, now=NOW)
+
+
+def test_observed_without_provenance_is_rejected() -> None:
+    with pytest.raises(pydantic.ValidationError, match="provenance"):
+        ObjectiveMet(id="x", at=date(2026, 8, 5), evidence="observed")
+
+
+def test_explained_entries_load_unchanged() -> None:  # 1.1/1.2 records keep loading
+    met = ObjectiveMet.model_validate({"id": "x", "at": "2026-08-05", "evidence": "explained"})
+    assert met.provenance is None
+
+
+def test_settle_objective_requires_the_capability(
+    store: FileProgressStore, record: Record, lesson_with_practice: ResolvedLesson
+) -> None:
+    with pytest.raises(ValueError, match="observe"):
+        settle_objective(store, record, None, lesson_with_practice, "obj-id", capabilities=[])
+
+
+def test_settle_objective_records_provenance(
+    store: FileProgressStore, record: Record, lesson_with_practice: ResolvedLesson
+) -> None:
+    att = Attestation(
+        checked="node --version → v22.20.0", verify="Node reports a version", attested_by="codex"
+    )
+    marked = settle_objective(
+        store, record, None, lesson_with_practice, "obj-id", [Capability.OBSERVE], attestation=att
+    )
+    (entry,) = [o for o in marked.record.objectives_met if o.id == "obj-id"]
+    assert entry.evidence == "observed" and entry.provenance == att
 
 
 # ---------------------------------------------------------------------------- the validator
