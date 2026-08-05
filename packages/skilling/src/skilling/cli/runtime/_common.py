@@ -26,7 +26,7 @@ import yaml
 
 from ...course import Course, CourseLoadError, Record, ResolvedLesson
 from ...delivery import load_or_create
-from ...store import FileProgressStore, ProgressStore
+from ...store import FileProgressStore, ProgressStore, open_store
 
 DEFAULT_STATE_ROOT = Path(".skilling")
 """Matches ``deliver``'s own default, so a learner does not get two conventions."""
@@ -112,12 +112,12 @@ def _load_scratch(state_root: Path, course_id: str) -> Scratch:
 def save_scratch(session: Session, scratch: Scratch) -> None:
     """Overwrite the scratch file beside this session's record.
 
-    Coupled to the file backend for now: ``Session.store`` is typed against the store
-    ``Protocol`` (T4's ``open_store``/``default_state_root`` are not on this branch — it is a
-    sibling, not yet merged), but scratch's file layout — beside the record, keyed by course
-    id — is the file backend's own layout, not something the protocol promises. When T4
-    lands, this becomes a one-line swap to whatever seam it exposes for a store's
-    private-file directory.
+    Coupled to the file backend: ``Session.store`` is typed against the store ``Protocol``,
+    but scratch's file layout — beside the record, keyed by course id — is the file
+    backend's own layout, not something the protocol promises. ``open_session`` below
+    selects the backend through ``open_store``, which can in principle return a non-file
+    backend (a third-party ``skilling.stores`` entry point); the ``TypeError`` here is the
+    honest refusal for that case rather than a silent no-op.
     """
     if not isinstance(session.store, FileProgressStore):
         raise TypeError("runtime-private scratch currently needs the file store backend")
@@ -150,7 +150,7 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
         fail(ExitCode.INVALID, "course-invalid", f"{exc.code}: {exc.message}")
 
     state_root = state if state is not None else DEFAULT_STATE_ROOT
-    store = FileProgressStore(state_root, learner_id=learner)
+    store = open_store(str(state_root))
     record, revision = load_or_create(store, course, learner)
 
     if record.course_version != course.version:
