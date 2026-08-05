@@ -147,7 +147,7 @@ def test_no_example_authors_a_structural_count(tmp_path: Path) -> None:
     Checked with the validator's own patterns rather than a hand-rolled regex, so this test
     and the tool it documents cannot disagree.
     """
-    from skilling.conformance._validate import _BODY_COUNTS, _MANIFEST_COUNTS
+    from skilling.conformance._counts import _BODY_COUNTS, _MANIFEST_COUNTS
 
     checked = 0
     for filename, index, block in BLOCKS:
@@ -167,7 +167,7 @@ def test_the_authored_count_counter_example_is_genuinely_caught() -> None:
     The other counter-examples (an undeclared `sections: {}`, for instance) are covered by
     the corruption suite in ``test_validate.py``, which runs the whole validator.
     """
-    from skilling.conformance._validate import _BODY_COUNTS, _MANIFEST_COUNTS
+    from skilling.conformance._counts import _BODY_COUNTS, _MANIFEST_COUNTS
 
     poor = [b for _, _, b in BLOCKS if b.lstrip().startswith("# Poor")]
     assert poor, "the specification should show counter-examples"

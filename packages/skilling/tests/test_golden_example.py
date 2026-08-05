@@ -236,7 +236,7 @@ def test_the_share_template_renders_with_derived_counts(golden: Course) -> None:
 
 def test_no_lesson_authors_a_structural_count() -> None:
     """The source stated a lesson count in its closing section. Nothing may now."""
-    from skilling.conformance._validate import _BODY_COUNTS, _MANIFEST_COUNTS
+    from skilling.conformance._counts import _BODY_COUNTS, _MANIFEST_COUNTS
 
     for path in sorted(GOLDEN.rglob("*.md")):
         for line in md.strip_code(path.read_text(encoding="utf-8")).splitlines():
