@@ -1,6 +1,6 @@
 # Skilling
 
-> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.2.0-draft.
+> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.3.0-draft.
 
 Skilling specifies four things: what course authors write, what a tutor must do to deliver a course, what is durably true about a learner afterwards, and where an adopter attaches its own policy. It is not an LMS, not a UI, not a pedagogy, and not tied to a model vendor. Conformance binds observable state transitions and record writes, never the tutor's prose — which is why a text walker with no language model can be a Conforming Runtime.
 

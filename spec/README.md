@@ -1,11 +1,10 @@
 # The Skilling specification
 
-**Version 1.2.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
+**Version 1.3.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
 
-> 1.2 introduces objective kinds, runtime capabilities, and verification. It is additive except
-> for one deliberate correction: 1.1's `tested_by` becomes `about`, and a quiz no longer settles
-> an objective. Nothing that only uses 1.0 or 1.1's other surfaces is affected, and there is a
-> test that proves `spec_version: "1.0"` courses validate unchanged.
+> 1.3, in development alongside Wave 1, is expected to add mid-lesson position, attestation on
+> recorded evidence, and skill packs — entries land in the CHANGELOG per change, and nothing
+> here binds until an implementation has exercised it.
 
 Skilling is an open format for AI-tutored, skill-based courses. It specifies three things precisely enough that independent implementations interoperate:
 

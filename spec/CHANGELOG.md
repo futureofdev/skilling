@@ -2,6 +2,10 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## 1.3.0-draft — 2026-08-05
+
+In development alongside Wave 1; entries below land with the change they describe.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.

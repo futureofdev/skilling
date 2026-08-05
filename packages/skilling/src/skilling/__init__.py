@@ -26,7 +26,7 @@ from .delivery import Beat, IllegalTransition, Input, LessonShape, LessonState, 
 from .store import Conflict, FileProgressStore, ProgressStore
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 """Bumped whenever the specification version this package implements moves — a build that
 reports the wrong spec version is worse than no version at all, and a cached wheel will
 happily do exactly that."""
