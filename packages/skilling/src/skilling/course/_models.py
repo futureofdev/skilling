@@ -271,6 +271,10 @@ class Position(Strict):
     phase: int = Field(ge=0)
     lesson: int = Field(ge=1)
     beat: str | None = None
+    question_index: int | None = Field(default=None, ge=0)
+    """Since 1.3. The 0-based quiz question awaiting an answer, when ``beat`` is the quiz
+    or remediation. Additive and optional: a record without it resumes at question 0 —
+    the same portability argument that already justifies ``beat``."""
 
     @property
     def coordinate(self) -> str:

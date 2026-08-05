@@ -19,6 +19,18 @@ one level down — phases and lessons already had to number `0`/`1`..`n` with no
 quiz questions within a lesson now face the same requirement, fixed at exactly `1`, `2`, `3`.
 Both example courses already number their quizzes this way, so nothing conforming breaks.
 
+### Mid-lesson position
+
+`position` gains `question_index` (optional, 0-based), meaningful only when `beat` is `quiz` or
+`remediate`. A runtime that records it resumes the learner on the recorded question instead of
+restarting the quiz. Additive, like `beat` itself: a record without it resumes at question 0.
+
+Remediation bookkeeping — wrong-answer counts, an offered revisit — stays runtime-private and
+is never persisted, so it resets on resume. [Resume](runtime.md#resume) writes down the
+resulting residual: a resumed session may re-offer a revisit already offered, or route forward
+from the concept gate when a return to the quiz was pending. Mild, recoverable, and at most
+once per resume.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.
