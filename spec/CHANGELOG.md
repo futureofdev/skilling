@@ -6,6 +6,18 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside Wave 1; entries below land with the change they describe.
 
+### Mid-lesson position
+
+`position` gains `question_index` (optional, 0-based), meaningful only when `beat` is `quiz` or
+`remediate`. A runtime that records it resumes the learner on the recorded question instead of
+restarting the quiz. Additive, like `beat` itself: a record without it resumes at question 0.
+
+Remediation bookkeeping — wrong-answer counts, an offered revisit — stays runtime-private and
+is never persisted, so it resets on resume. [Resume](runtime.md#resume) writes down the
+resulting residual: a resumed session may re-offer a revisit already offered, or route forward
+from the concept gate when a return to the quiz was pending. Mild, recoverable, and at most
+once per resume.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.

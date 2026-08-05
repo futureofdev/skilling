@@ -56,6 +56,19 @@
           "minimum": 0,
           "title": "Phase",
           "type": "integer"
+        },
+        "question_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question Index"
         }
       },
       "required": [
