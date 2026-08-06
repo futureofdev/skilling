@@ -1,9 +1,10 @@
 """The ``skilling`` command line.
 
 Assembly only. Commands live in groups by audience — ``authoring`` for people writing courses,
-``learning`` for delivering one, ``packaging`` for producer-facing fetch/pack/install — so that
-adding a command touches one new module and one line here, rather than a file every other
-change also wants to edit.
+``learning`` for delivering one, ``packaging`` for producer-facing fetch/pack/install,
+``runtime`` for read-only cross-course queries a driving skill needs — so that adding a command
+touches one new module and one line here, rather than a file every other change also wants to
+edit.
 
 Groups re-export their commands; this module decides the order they register in, because
 registration order is the order ``--help`` lists them and that should be a single deliberate
@@ -19,6 +20,7 @@ from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
 from .packaging import fetch
+from .runtime import courses
 
 app = typer.Typer(
     add_completion=False,
@@ -44,7 +46,7 @@ def root(
     pass
 
 
-COMMANDS = (validate, init, show, deliver, diff, today, fetch)
+COMMANDS = (validate, init, show, deliver, diff, today, fetch, courses)
 
 for _command in COMMANDS:
     app.command()(_command)
