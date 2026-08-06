@@ -12,7 +12,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ._clock import today_in
 
@@ -271,6 +271,10 @@ class Position(Strict):
     phase: int = Field(ge=0)
     lesson: int = Field(ge=1)
     beat: str | None = None
+    question_index: int | None = Field(default=None, ge=0)
+    """Since 1.3. The 0-based quiz question awaiting an answer, when ``beat`` is the quiz
+    or remediation. Additive and optional: a record without it resumes at question 0 —
+    the same portability argument that already justifies ``beat``."""
 
     @property
     def coordinate(self) -> str:
@@ -281,12 +285,41 @@ class Position(Strict):
 Evidence = Literal["explained", "observed", "homework"]
 
 
+class Attestation(Strict):
+    """Since 1.3. Provenance for observed evidence: recorded because the attestation
+    cannot be verified — the record says who claimed what was checked, so a later
+    reader can weigh it."""
+
+    checked: str = Field(min_length=1)
+    """What was actually inspected."""
+
+    verify: str = Field(min_length=1)
+    """The verify sentence it satisfied, verbatim."""
+
+    attested_by: str = Field(min_length=1)
+    """Which host attested (e.g. ``"codex"``, ``"claude-code"``)."""
+
+
 class ObjectiveMet(Strict):
-    """A capability claim, with how it was demonstrated. Since 1.1."""
+    """A capability claim, with how it was demonstrated. Since 1.1; ``provenance`` since 1.3."""
 
     id: str = Field(min_length=1)
     at: date
     evidence: Evidence
+    provenance: Attestation | None = None
+    """Since 1.3. Required when ``evidence`` is ``"observed"``: what was checked, which
+    verify sentence it satisfied, and which host attested it. Recorded because the
+    attestation cannot be verified, not as a substitute for verification — ``explained``
+    and ``homework`` entries carry none."""
+
+    @model_validator(mode="after")
+    def _observed_requires_provenance(self) -> ObjectiveMet:
+        if self.evidence == "observed" and self.provenance is None:
+            raise ValueError(
+                "observed evidence requires provenance: what was checked, which verify "
+                "sentence, which host — recorded because the attestation cannot be verified"
+            )
+        return self
 
 
 class Telemetry(Strict):

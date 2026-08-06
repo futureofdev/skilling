@@ -122,7 +122,7 @@ def test_a_full_walk_completes_the_course(tmp_path: Path) -> None:
     assert record["completed"] == ["1.1", "1.2", "1.3"]
     assert record["skills_unlocked"] == ["course-anatomy", "first-course"]
     assert record["streak_days"] == 1
-    assert record["position"] == {"phase": 1, "lesson": 3, "beat": None}
+    assert record["position"] == {"phase": 1, "lesson": 3, "beat": None, "question_index": None}
 
     log = _log(state)
     assert [entry["coordinate"] for entry in log] == ["1.1", "1.2", "1.3"]
@@ -195,7 +195,12 @@ def test_an_abandoned_gate_stays_open(tmp_path: Path) -> None:
     assert "still open" in result.output
 
     record = _record(state)
-    assert record["position"] == {"phase": 1, "lesson": 1, "beat": "gate-concept"}
+    assert record["position"] == {
+        "phase": 1,
+        "lesson": 1,
+        "beat": "gate-concept",
+        "question_index": None,
+    }
     assert record["completed"] == []
 
 

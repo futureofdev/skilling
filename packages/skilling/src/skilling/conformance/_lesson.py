@@ -357,6 +357,17 @@ def _check_quiz(out: _Collector, path: Path, section: Section) -> None:
             line=section.line,
         )
 
+    numbers = [q.number for q in questions]
+    if len(questions) == 3 and numbers != [1, 2, 3]:
+        out.add(
+            Code.QUIZ_QUESTION_NUMBERING,
+            f"Questions are numbered {numbers}; they must be exactly 1, 2, 3. Markdown "
+            "renders any numbering as 1, 2, 3, so this is invisible in a rendered view — "
+            "and objective `about` references index by these numbers.",
+            path=path,
+            line=section.line,
+        )
+
     for question in questions:
         if sorted(question.labels) != ["a", "b", "c", "d"]:
             out.add(

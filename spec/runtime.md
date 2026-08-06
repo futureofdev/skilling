@@ -119,6 +119,8 @@ Hashtags arrive without their `#`; add it. That is the runtime's job precisely s
 
 A runtime resumes a learner at the position in their record: at minimum the recorded lesson's first beat, and when beat-level position is recorded, at that beat. A gate that was open when the session ended resumes as the same open gate.
 
+When quiz-level position is recorded, the quiz resumes at the recorded question. Remediation bookkeeping (wrong-answer counts, an offered revisit) is runtime-private and resets on resume; a resumed session may therefore re-offer a revisit already offered, or route forward from the concept gate when a return to the quiz was pending. This is a deliberate residual: the record holds what is durably true, not a tutor's working memory.
+
 ## Teasers
 
 After completion — and after ceremony, when there was one — the runtime should present the next lesson's teaser: `## Next Up` when present, otherwise one generated from the manifest.
@@ -155,7 +157,7 @@ telemetry:               # since 1.1
 
 | Field group | Requirements |
 |---|---|
-| `position` | Must always name a lesson that exists in the manifest. Beat-level position is optional; when recorded it must be a beat of the [delivery loop](#the-delivery-loop) and must stay consistent with it — a gate that was open is recorded as that gate. |
+| `position` | Must always name a lesson that exists in the manifest. Beat-level position is optional; when recorded it must be a beat of the [delivery loop](#the-delivery-loop) and must stay consistent with it — a gate that was open is recorded as that gate. `question_index` (since 1.3) is optional and meaningful only when `beat` is `quiz` or `remediate`: the 0-based quiz question awaiting an answer. Additive, like `beat` itself — a record without it resumes at question 0. |
 | `completed` | A set of coordinates. Order is not significant. |
 | Derived values | Completed counts, remaining counts, percentages, and phase boundaries must be **derived** from the manifest plus `completed`, never stored as authoritative fields. Cache them only if the cache is disposable and recomputable. |
 
@@ -169,7 +171,14 @@ telemetry:               # since 1.1
 objectives_met:
   - id: read-a-manifest
     at: 2026-08-03
-    evidence: quiz         # quiz | exercise | homework | tutor
+    evidence: explained
+  - id: install-node
+    at: 2026-08-03
+    evidence: observed
+    provenance:                                   # since 1.3; required when evidence is observed
+      checked: "node --version → v22.20.0"
+      verify: "Node reports a version"
+      attested_by: codex
 ```
 
 `evidence` is a closed set naming *how* the objective was demonstrated:
@@ -179,6 +188,8 @@ objectives_met:
 | `explained` | The learner explained it to a tutor's satisfaction |
 | `observed` | A runtime looked at their machine or their work and saw it |
 | `homework` | It follows from a homework requirement's verdict |
+
+**`provenance` is since 1.3, and required whenever `evidence` is `observed`.** `checked` names what was actually inspected, `verify` repeats the objective's `verify` sentence verbatim, and `attested_by` names the host making the claim (`"codex"`, `"claude-code"`, and so on). It is recorded **because the attestation cannot be verified** — a store has no way to confirm that a host actually ran the check it claims to have run — so the honest response is not to refuse the claim but to write down exactly who made it and what they said they checked, so a later reader can weigh it. `provenance` is not a substitute for verification; it is what a record can honestly say once verification has already happened somewhere this specification cannot see. `explained` and `homework` entries carry no `provenance` — only an outside claim about the learner's machine or work needs one.
 
 **Writing this is optional.** A runtime that cannot gather the right evidence writes nothing — the same position as homework checking, and it conforms. What a runtime must not do is guess: an objective recorded as met without evidence is worse than one left absent, because a later tutor will believe it and skip teaching something the learner never learned.
 
@@ -191,7 +202,7 @@ objectives_met:
 | Capability | The runtime can | So it may settle |
 |---|---|---|
 | `converse` | hold a conversation and judge an explanation | `knowledge` objectives, with `evidence: explained` |
-| `observe` | inspect the learner's filesystem, repository, or command output | `practice` objectives, with `evidence: observed` |
+| `observe` | inspect the learner's filesystem, repository, or command output | `practice` objectives, with `evidence: observed` and a [`provenance`](#objectives-and-the-record) record of what it checked |
 | `assess` | judge a submitted work product against requirements | homework verdicts, and objectives that follow from them |
 
 **A runtime must not settle an objective whose kind it lacks the capability for.** A chat tutor with no filesystem access leaves every `practice` objective alone, however confident the learner sounds. A text walker with none of the three settles nothing at all.
@@ -200,7 +211,7 @@ Claims read *"Conforming Runtime (converse, assess), Skilling 1.2"*. A runtime w
 
 ### Verifying a practice objective
 
-A runtime with `observe` and a `verify` clause has everything it needs: the clause says what success looks like, and the runtime works out how to look. It records `evidence: observed` when it finds it and leaves the objective alone when it does not.
+A runtime with `observe` and a `verify` clause has everything it needs: the clause says what success looks like, and the runtime works out how to look. It records `evidence: observed` when it finds it and leaves the objective alone when it does not — and, since 1.3, it records `provenance` alongside that evidence: what it actually checked, the `verify` sentence it satisfied, and which host is making the claim. The record cannot verify that claim independently, so it writes down who made it instead of either refusing it outright or accepting it silently.
 
 A `check` command, where the course supplies one, is a **proposal**. A runtime may decline it, must put it through its host's permission model, and must never run it silently. `verify` stays the authority on what is being established.
 

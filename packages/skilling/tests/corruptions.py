@@ -280,6 +280,15 @@ def _quiz_answer_no_reason(root: Path) -> None:
     fx.edit(root, fx.LESSON_ONE_PATH, _ANSWER_ONE, "   **Answer:** b) The first thing\n")
 
 
+def _quiz_question_numbering(root: Path) -> None:
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        "\n2. When would you reach for it?",
+        "\n1. When would you reach for it?",
+    )
+
+
 def _homework_section_malformed(root: Path) -> None:
     fx.edit(root, fx.LESSON_TWO_PATH, "**Submission:** Tell your tutor when it is ready.\n", "")
 
@@ -449,6 +458,7 @@ CORRUPTIONS: dict[Code, Corruption] = {
     Code.QUIZ_ANSWER_LINE_MISSING: _quiz_answer_line_missing,
     Code.QUIZ_ANSWER_AMBIGUOUS: _quiz_answer_ambiguous,
     Code.QUIZ_ANSWER_NO_REASON: _quiz_answer_no_reason,
+    Code.QUIZ_QUESTION_NUMBERING: _quiz_question_numbering,
     Code.HOMEWORK_SECTION_MALFORMED: _homework_section_malformed,
     Code.NEXT_UP_TOO_LONG: _next_up_too_long,
     Code.ASSET_REFERENCE_DANGLING: _asset_reference_dangling,

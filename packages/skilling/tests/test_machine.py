@@ -163,6 +163,16 @@ def test_resume_accepts_the_recorded_string_form() -> None:
     assert LessonState.resume(WITH_EXERCISE, "gate-concept").beat is Beat.GATE_CONCEPT
 
 
+@pytest.mark.parametrize(
+    "beat,qi", [(Beat.QUIZ, 0), (Beat.QUIZ, 1), (Beat.QUIZ, 2), (Beat.REMEDIATE, 1)]
+)
+def test_resume_lands_on_the_recorded_question(beat: Beat, qi: int) -> None:
+    state = LessonState.resume(LessonShape(), beat, question_index=qi)
+    assert state.beat is beat and state.question_index == qi
+    # wrong_count / returning_to_quiz are runtime-private scratch, reset on resume.
+    assert state.wrong_count == 0 and state.returning_to_quiz is False
+
+
 def test_state_is_immutable() -> None:
     state = LessonState.start(WITH_EXERCISE)
     advance(state, Input.NEXT)

@@ -6,6 +6,46 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside Wave 1; entries below land with the change they describe.
 
+### Quiz questions must be numbered 1, 2, 3
+
+A course with a quiz numbered `1. 1. 1.` validated cleanly and rendered, in any markdown
+viewer, as `1. 2. 3.` — indistinguishable from a correctly numbered quiz to every human who
+ever looked at it. The gap was invisible precisely where it mattered: `about` references
+[index questions by these numbers](course-format.md#quick-quiz), so a duplicate or a skipped
+number silently points remediation at the wrong question.
+
+This is 1.0's [numbering and bijection rule](course-format.md#numbering-and-structure) applied
+one level down — phases and lessons already had to number `0`/`1`..`n` with no gaps or repeats;
+quiz questions within a lesson now face the same requirement, fixed at exactly `1`, `2`, `3`.
+Both example courses already number their quizzes this way, so nothing conforming breaks.
+
+### Mid-lesson position
+
+`position` gains `question_index` (optional, 0-based), meaningful only when `beat` is `quiz` or
+`remediate`. A runtime that records it resumes the learner on the recorded question instead of
+restarting the quiz. Additive, like `beat` itself: a record without it resumes at question 0.
+
+Remediation bookkeeping — wrong-answer counts, an offered revisit — stays runtime-private and
+is never persisted, so it resets on resume. [Resume](runtime.md#resume) writes down the
+resulting residual: a resumed session may re-offer a revisit already offered, or route forward
+from the concept gate when a return to the quiz was pending. Mild, recoverable, and at most
+once per resume.
+
+### Attestation on `objectives_met`
+
+`objectives_met` gains `provenance`, required whenever `evidence` is `observed`: `checked` (what
+was actually inspected), `verify` (the objective's verify sentence, verbatim), and `attested_by`
+(which host is making the claim). [Objectives and the record](runtime.md#objectives-and-the-record)
+states why plainly — it is recorded **because the attestation cannot be verified**, not as a
+substitute for verification. A store has no way to confirm that a host actually ran the check it
+claims to; the honest response is to write down exactly who made the claim and what they said
+they checked, so a later reader can weigh it, rather than either refusing the claim outright or
+accepting it silently.
+
+`explained` and `homework` entries carry no `provenance` — only `observed` is a claim about
+something outside the conversation. Additive: a 1.1/1.2 record with `explained` or `homework`
+evidence keeps loading unchanged, because neither ever needed provenance to begin with.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.
