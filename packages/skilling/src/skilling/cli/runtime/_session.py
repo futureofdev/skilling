@@ -176,10 +176,22 @@ def _envelope(
     content: dict[str, object],
     legal: tuple[Input, ...],
 ) -> dict[str, object]:
+    """Shared by ``next``/``advance``/``complete``/``ceremony``.
+
+    ``course.title`` and the top-level ``tutor`` block are sourced straight from the
+    manifest already loaded to build this response — never a second lookup. ``tutor`` is
+    ``None`` when the manifest declares none; a driving skill falls back to a neutral
+    voice rather than inventing a persona.
+    """
     return {
         "ok": True,
         "verb": verb,
-        "course": {"id": course.id, "version": course.version},
+        "course": {
+            "id": course.id,
+            "title": course.manifest.title,
+            "version": course.version,
+        },
+        "tutor": course.manifest.tutor.model_dump() if course.manifest.tutor else None,
         "position": {
             "phase": record.position.phase,
             "lesson": record.position.lesson,

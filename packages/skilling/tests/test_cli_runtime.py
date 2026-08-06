@@ -103,6 +103,7 @@ def test_json_envelope_is_stable(clean_dir: Path, tmp_path: Path) -> None:
         "ok",
         "verb",
         "course",
+        "tutor",
         "position",
         "beat",
         "legal_inputs",
@@ -112,7 +113,8 @@ def test_json_envelope_is_stable(clean_dir: Path, tmp_path: Path) -> None:
     }
     assert out["ok"] is True
     assert out["verb"] == "next"
-    assert out["course"] == {"id": "clean-course", "version": "1.0.0"}
+    assert out["course"] == {"id": "clean-course", "title": "Clean Course", "version": "1.0.0"}
+    assert out["tutor"] == {"persona": "A calm instructor.", "tone": ["Direct"]}
     assert out["position"] == {"phase": 0, "lesson": 1, "beat": None, "question_index": None}
     assert out["completed_count"] == 0
     assert out["lesson_count"] == 3
