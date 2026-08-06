@@ -2,9 +2,9 @@
 
 **Version 1.3.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
 
-> 1.3, in development alongside Wave 1, is expected to add mid-lesson position, attestation on
-> recorded evidence, and skill packs — entries land in the CHANGELOG per change, and nothing
-> here binds until an implementation has exercised it.
+> 1.3, in development alongside Wave 1, adds mid-lesson position, attestation on recorded
+> evidence, and the [skill pack](skill-pack.md) surface — entries land in the CHANGELOG per
+> change, and nothing here binds until an implementation has exercised it.
 
 Skilling is an open format for AI-tutored, skill-based courses. It specifies three things precisely enough that independent implementations interoperate:
 
@@ -71,8 +71,7 @@ Nothing is bound here that no implementation has run. These arrive as minor vers
 |---|---|
 | **Assessed mode** — answer keys held apart from learner-visible content | Needs a runtime that holds keys and a real cohort to be assessed |
 | **Runtime API** — the embedding surface a product builds an interface on | Needs a second interface to bind against, or it binds one product's accidents |
-| **MCP binding** — delivery into a coding agent for hands-on courses | The surface that would give a runtime the `observe` capability, and the only honest way to settle a `practice` objective. Specified for, not yet built |
-| **Skill packs** — a course compiled to Agent-Skills format | Needs the generator |
+| **MCP binding** — delivery into a coding agent over the Model Context Protocol, as an alternative to shelling out to the `skilling` command line | Not the only way to get `observe`: since 1.3, a runtime attests observed evidence through the CLI (`objective settle --evidence observed`, [provenance required](runtime.md#objectives-and-the-record)) with no MCP server involved. An MCP binding would be a second transport for the same capability, not the sole route to it — still needs an actual implementation |
 | **Concept-level prerequisites** — `requires: can read a YAML mapping` | Additive; waiting on a tutor that can assess a claim like that |
 | **Lesson guidance** — what a tutor should avoid or defer | Additive; the ceremony pattern generalised, and not yet needed by a real course |
 
@@ -102,6 +101,8 @@ Authors: [course format](course-format.md), then [authoring a course](../docs/au
 Runtime implementers: [course format](course-format.md), then [runtime](runtime.md), then [implementing a runtime](../docs/implementing-a-runtime.md).
 
 Store implementers: [the progress record](runtime.md#the-progress-record) through [the file layout](runtime.md#the-file-layout).
+
+Skill pack implementers: [runtime](runtime.md), then [skill pack](skill-pack.md).
 
 For *why* a constraint is shaped the way it is, see [concepts](../docs/concepts/).
 

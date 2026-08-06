@@ -11,6 +11,7 @@ The format is AI-first in a specific sense: wherever it addresses the tutor it s
 - [Specification index](spec/README.md): What Skilling is, the four conformance classes (Course, Runtime, Store, Producer), versioning, what the current version deliberately leaves out, and why each constraint exists.
 - [Course format](spec/course-format.md): Everything a course author needs — directory structure, the `course.yaml` manifest, numbering rules, derived counts, lesson frontmatter, the section registry, declared absence, structured objectives, the Quick Quiz grammar, homework, ceremony facts and templates, assets, and course-version semantics.
 - [Runtime](spec/runtime.md): Everything a tutor implementer needs — the delivery loop and its beats, gates as open waits, quiz delivery, remediation, idempotent completion, phase ceremony and how ceremony copy resolves, resume, the progress record, objectives and evidence, the completion log, the streak algorithm, the homework mailbox, the hook registry, telemetry's three non-negotiables, the store interface, and the single-learner file layout.
+- [Skill pack](spec/skill-pack.md): How a course reaches a learner through a host's own Agent Skills mechanism instead of a bespoke integration — installed once per learner, course identity and persona resolved at invocation time rather than baked in, the Agent Skills frontmatter floor, the two host conventions, and install/uninstall as one atomic receipt-based unit.
 - [Changelog](spec/CHANGELOG.md): Every specification change, including errata.
 
 ## Guides
