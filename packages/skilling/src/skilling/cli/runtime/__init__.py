@@ -3,9 +3,10 @@
 ``_common`` is the shared plumbing every verb in this subpackage is built from — ``Session``,
 ``ExitCode``, and the open/emit/fail/scratch primitives. ``_session`` is the four session verbs
 (``next``, ``advance``, ``complete``, ``ceremony``); ``_quiz`` adds ``quiz next`` and ``answer``
-beside it; ``_objectives`` is the ``objective`` sub-app (``settle``, ``show``); ``_courses`` is
-the read-only cross-course enumeration verb; later waves add ``_homework``, ``_progress``, each
-importing the same ``_common`` rather than reinventing session assembly.
+beside it; ``_objectives`` is the ``objective`` sub-app (``settle``, ``show``); ``_homework`` and
+``_progress`` are the record verbs (``homework``, ``progress``, ``telemetry``); ``_courses`` is
+the read-only cross-course enumeration verb — each importing the same ``_common`` rather than
+reinventing session assembly.
 """
 
 from ._common import (
@@ -19,7 +20,9 @@ from ._common import (
     save_scratch,
 )
 from ._courses import courses
+from ._homework import homework
 from ._objectives import app as objective_app
+from ._progress import progress, telemetry
 from ._quiz import answer
 from ._quiz import app as quiz
 from ._session import advance, ceremony, complete, next
@@ -35,10 +38,13 @@ __all__ = [
     "courses",
     "emit",
     "fail",
+    "homework",
     "next",
     "now_override",
     "objective_app",
     "open_session",
+    "progress",
     "quiz",
     "save_scratch",
+    "telemetry",
 ]

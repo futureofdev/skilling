@@ -20,7 +20,19 @@ from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
 from .packaging import fetch
-from .runtime import advance, answer, ceremony, complete, courses, next, objective_app, quiz
+from .runtime import (
+    advance,
+    answer,
+    ceremony,
+    complete,
+    courses,
+    homework,
+    next,
+    objective_app,
+    progress,
+    quiz,
+    telemetry,
+)
 
 app = typer.Typer(
     add_completion=False,
@@ -59,6 +71,8 @@ COMMANDS = (
     ceremony,
     answer,
     courses,
+    progress,
+    telemetry,
     fetch,
 )
 
@@ -68,9 +82,10 @@ for _command in COMMANDS:
 GROUPS: tuple[tuple[str, typer.Typer], ...] = (
     ("quiz", quiz),
     ("objective", objective_app),
+    ("homework", homework),
 )
-"""Sub-apps registered as ``skilling <name> ...`` — ``homework`` lands here one line at a
-time, rather than each editing this module's imports and registration."""
+"""Sub-apps registered as ``skilling <name> ...`` — one line per entry, rather than each
+editing this module's imports and registration."""
 
 for _group in GROUPS:
     # Indexed rather than unpacked: pyright narrows an empty tuple literal to `tuple[()]`,
