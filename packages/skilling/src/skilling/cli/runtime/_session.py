@@ -17,6 +17,7 @@ import typer
 
 from ...course import (
     Course,
+    Manifest,
     ParsedLesson,
     QuizQuestion,
     Record,
@@ -166,6 +167,19 @@ def _beat_content(
 # --------------------------------------------------------------------------------- the envelope
 
 
+def _tutor(manifest: Manifest) -> dict[str, object]:
+    """The manifest's persona/tone, or nothing when it declares none.
+
+    Same declared-absence idiom as this module's other ``_*_content`` builders (e.g.
+    ``_concept_content``): a key that is not there rather than a key set to ``null``, so a
+    driving pack can tell "no persona declared" from "persona declared as empty" by ``in``
+    rather than by inspecting the value.
+    """
+    if manifest.tutor is None:
+        return {}
+    return {"tutor": {"persona": manifest.tutor.persona, "tone": manifest.tutor.tone}}
+
+
 def _envelope(
     verb: str,
     course: Course,
@@ -176,10 +190,14 @@ def _envelope(
     content: dict[str, object],
     legal: tuple[Input, ...],
 ) -> dict[str, object]:
-    return {
+    envelope: dict[str, object] = {
         "ok": True,
         "verb": verb,
-        "course": {"id": course.id, "version": course.version},
+        "course": {
+            "id": course.id,
+            "version": course.version,
+            "title": course.manifest.title,
+        },
         "position": {
             "phase": record.position.phase,
             "lesson": record.position.lesson,
@@ -192,6 +210,8 @@ def _envelope(
         "completed_count": course.completed_count(record.completed),
         "lesson_count": course.lesson_count,
     }
+    envelope.update(_tutor(course.manifest))
+    return envelope
 
 
 def _resume_envelope(
