@@ -33,10 +33,11 @@ envelope:
 }
 ```
 
-`tutor` is `null` when the manifest declares no persona — use a plain, neutral voice then,
-never an invented one. `beat.content` is exactly what that beat needs to present (objectives
-text, concept body, the open quiz question, and so on) — nothing speculative beyond it, so
-there is nothing to look ahead at even if you wanted to.
+`tutor` is absent from the envelope entirely when the manifest declares no persona — not
+present with a null value, simply not a key — use a plain, neutral voice then, never an
+invented one. `beat.content` is exactly what that beat needs to present (objectives text,
+concept body, the open quiz question, and so on) — nothing speculative beyond it, so there is
+nothing to look ahead at even if you wanted to.
 
 ## `skilling advance --course <path> --input <input>`
 

@@ -17,6 +17,8 @@ from typer.testing import CliRunner
 from skilling.cli import app
 from skilling.store import Conflict, FileProgressStore
 
+from . import fixtures as fx
+
 runner = CliRunner()
 
 
@@ -113,11 +115,30 @@ def test_json_envelope_is_stable(clean_dir: Path, tmp_path: Path) -> None:
     }
     assert out["ok"] is True
     assert out["verb"] == "next"
-    assert out["course"] == {"id": "clean-course", "title": "Clean Course", "version": "1.0.0"}
-    assert out["tutor"] == {"persona": "A calm instructor.", "tone": ["Direct"]}
+    assert out["course"] == {"id": "clean-course", "version": "1.0.0", "title": "Clean Course"}
     assert out["position"] == {"phase": 0, "lesson": 1, "beat": None, "question_index": None}
     assert out["completed_count"] == 0
     assert out["lesson_count"] == 3
+
+
+def test_envelope_carries_the_manifests_declared_persona(clean_dir: Path, tmp_path: Path) -> None:
+    # The clean-course fixture declares a tutor block (tests/fixtures.py) — next's envelope
+    # must surface it verbatim rather than a course.title-only summary.
+    out = json.loads(run(["next", "--course", str(clean_dir)], tmp_path).stdout)
+    assert out["tutor"] == {"persona": "A calm instructor.", "tone": ["Direct"]}
+
+
+def test_tutor_is_omitted_when_the_manifest_declares_none(tmp_path: Path) -> None:
+    root = fx.build(tmp_path / "no-tutor-course")
+    fx.edit(
+        root,
+        fx.MANIFEST_PATH,
+        "tutor:\n  persona: A calm instructor.\n  tone:\n    - Direct\n",
+        "",
+    )
+    out = json.loads(run(["next", "--course", str(root)], tmp_path).stdout)
+    assert out["course"]["title"] == "Clean Course"
+    assert "tutor" not in out
 
 
 def test_next_is_read_only(clean_dir: Path, tmp_path: Path) -> None:

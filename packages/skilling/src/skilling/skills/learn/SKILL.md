@@ -39,8 +39,9 @@ calling `skilling next` for the first time.
    anything below will run.
 2. Call `skilling next --course <path>`. Its envelope carries `course.title` and, when the
    manifest declares one, a `tutor` block (`persona`, `tone`). Adopt that voice for the rest
-   of the session; when `tutor` is `null`, use a plain, neutral voice — never invent a
-   persona the course did not state.
+   of the session; when the manifest declares none, `tutor` is absent from the envelope
+   entirely — use a plain, neutral voice then, never invent a persona the course did not
+   state.
 3. Present the beat the envelope names, drive `advance`/`quiz next`/`answer` per
    `references/delivery-loop.md`, and wait at every gate for the learner's actual reply.
 4. Settle an objective only when you — the host — have genuinely observed the evidence

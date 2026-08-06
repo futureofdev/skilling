@@ -17,6 +17,7 @@ import typer
 
 from ...course import (
     Course,
+    Manifest,
     ParsedLesson,
     QuizQuestion,
     Record,
@@ -166,6 +167,19 @@ def _beat_content(
 # --------------------------------------------------------------------------------- the envelope
 
 
+def _tutor(manifest: Manifest) -> dict[str, object]:
+    """The manifest's persona/tone, or nothing when it declares none.
+
+    Same declared-absence idiom as this module's other ``_*_content`` builders (e.g.
+    ``_concept_content``): a key that is not there rather than a key set to ``null``, so a
+    driving pack can tell "no persona declared" from "persona declared as empty" by ``in``
+    rather than by inspecting the value.
+    """
+    if manifest.tutor is None:
+        return {}
+    return {"tutor": {"persona": manifest.tutor.persona, "tone": manifest.tutor.tone}}
+
+
 def _envelope(
     verb: str,
     course: Course,
@@ -176,22 +190,14 @@ def _envelope(
     content: dict[str, object],
     legal: tuple[Input, ...],
 ) -> dict[str, object]:
-    """Shared by ``next``/``advance``/``complete``/``ceremony``.
-
-    ``course.title`` and the top-level ``tutor`` block are sourced straight from the
-    manifest already loaded to build this response — never a second lookup. ``tutor`` is
-    ``None`` when the manifest declares none; a driving skill falls back to a neutral
-    voice rather than inventing a persona.
-    """
-    return {
+    envelope: dict[str, object] = {
         "ok": True,
         "verb": verb,
         "course": {
             "id": course.id,
-            "title": course.manifest.title,
             "version": course.version,
+            "title": course.manifest.title,
         },
-        "tutor": course.manifest.tutor.model_dump() if course.manifest.tutor else None,
         "position": {
             "phase": record.position.phase,
             "lesson": record.position.lesson,
@@ -204,6 +210,8 @@ def _envelope(
         "completed_count": course.completed_count(record.completed),
         "lesson_count": course.lesson_count,
     }
+    envelope.update(_tutor(course.manifest))
+    return envelope
 
 
 def _resume_envelope(
