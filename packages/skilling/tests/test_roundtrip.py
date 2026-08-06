@@ -17,7 +17,14 @@ import yaml
 from pydantic import BaseModel
 
 from skilling.codegen import schemas
-from skilling.course import CompletionEntry, HomeworkSlot, LessonFrontmatter, Manifest, Record
+from skilling.course import (
+    CompletionEntry,
+    HomeworkSlot,
+    LessonFrontmatter,
+    Manifest,
+    Position,
+    Record,
+)
 
 from .conftest import SCHEMAS_DIR, SPEC_DIR
 
@@ -177,3 +184,14 @@ def test_the_authored_count_counter_example_is_genuinely_caught() -> None:
         for line in block.splitlines()
         for pattern in _MANIFEST_COUNTS + _BODY_COUNTS
     ), "no counter-example demonstrates an authored count"
+
+
+def test_position_roundtrips_question_index() -> None:
+    pos = Position(phase=1, lesson=2, beat="quiz", question_index=2)
+    assert Position.model_validate(pos.model_dump(mode="json")).question_index == 2
+
+
+def test_pre_1_3_records_load_unchanged() -> None:
+    """A 1.0/1.1/1.2 position has no question_index; it must load as None."""
+    pos = Position.model_validate({"phase": 1, "lesson": 2, "beat": "quiz"})
+    assert pos.question_index is None

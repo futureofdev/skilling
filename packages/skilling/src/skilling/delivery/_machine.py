@@ -103,7 +103,14 @@ class LessonState:
     def resume(
         cls, shape: LessonShape, beat: Beat | str, *, question_index: int = 0
     ) -> LessonState:
-        """Rebuild state from a recorded position. A gate resumes as the same open gate."""
+        """Rebuild state from a recorded position. A gate resumes as the same open gate.
+
+        ``wrong_count`` and ``returning_to_quiz`` are runtime-private scratch, not part of
+        the record, so they always reset on resume — this is the residual: a cross-session
+        resume may re-offer a revisit already offered in the prior session, or route
+        forward from the concept gate when a return to the quiz was pending. Mild and
+        recoverable, and at most once per resume.
+        """
         return cls(beat=Beat(beat), shape=shape, question_index=question_index)
 
 

@@ -119,6 +119,8 @@ Hashtags arrive without their `#`; add it. That is the runtime's job precisely s
 
 A runtime resumes a learner at the position in their record: at minimum the recorded lesson's first beat, and when beat-level position is recorded, at that beat. A gate that was open when the session ended resumes as the same open gate.
 
+When quiz-level position is recorded, the quiz resumes at the recorded question. Remediation bookkeeping (wrong-answer counts, an offered revisit) is runtime-private and resets on resume; a resumed session may therefore re-offer a revisit already offered, or route forward from the concept gate when a return to the quiz was pending. This is a deliberate residual: the record holds what is durably true, not a tutor's working memory.
+
 ## Teasers
 
 After completion — and after ceremony, when there was one — the runtime should present the next lesson's teaser: `## Next Up` when present, otherwise one generated from the manifest.
@@ -155,7 +157,7 @@ telemetry:               # since 1.1
 
 | Field group | Requirements |
 |---|---|
-| `position` | Must always name a lesson that exists in the manifest. Beat-level position is optional; when recorded it must be a beat of the [delivery loop](#the-delivery-loop) and must stay consistent with it — a gate that was open is recorded as that gate. |
+| `position` | Must always name a lesson that exists in the manifest. Beat-level position is optional; when recorded it must be a beat of the [delivery loop](#the-delivery-loop) and must stay consistent with it — a gate that was open is recorded as that gate. `question_index` (since 1.3) is optional and meaningful only when `beat` is `quiz` or `remediate`: the 0-based quiz question awaiting an answer. Additive, like `beat` itself — a record without it resumes at question 0. |
 | `completed` | A set of coordinates. Order is not significant. |
 | Derived values | Completed counts, remaining counts, percentages, and phase boundaries must be **derived** from the manifest plus `completed`, never stored as authoritative fields. Cache them only if the cache is disposable and recomputable. |
 

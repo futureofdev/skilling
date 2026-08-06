@@ -1,10 +1,42 @@
-"""Read-only cross-course verbs: today, just ``courses``.
+"""The JSON transition verbs: one process, one transition, one line of stdout.
 
-Named for the eventual home of the JSON transition verbs (``next``, ``advance``, ``progress``,
-...), which are developed on their own in-flight branches and land here later rather than in
-this one — see ``_courses.py`` for what this verb resolves, and what it honestly cannot.
+``_common`` is the shared plumbing every verb in this subpackage is built from — ``Session``,
+``ExitCode``, and the open/emit/fail/scratch primitives. ``_session`` is this task's four
+verbs (``next``, ``advance``, ``complete``, ``ceremony``); ``_quiz`` adds ``quiz next`` and
+``answer`` beside it; ``_courses`` is the read-only cross-course enumeration verb; later waves
+add ``_objectives``, ``_homework``, ``_progress``, each importing the same ``_common`` rather
+than reinventing session assembly.
 """
 
+from ._common import (
+    ExitCode,
+    Scratch,
+    Session,
+    emit,
+    fail,
+    now_override,
+    open_session,
+    save_scratch,
+)
 from ._courses import courses
+from ._quiz import answer
+from ._quiz import app as quiz
+from ._session import advance, ceremony, complete, next
 
-__all__ = ["courses"]
+__all__ = [
+    "ExitCode",
+    "Scratch",
+    "Session",
+    "advance",
+    "answer",
+    "ceremony",
+    "complete",
+    "courses",
+    "emit",
+    "fail",
+    "next",
+    "now_override",
+    "open_session",
+    "quiz",
+    "save_scratch",
+]
