@@ -104,15 +104,19 @@ lesson: 2
 duration_minutes: 10
 prerequisites: ["0.1"]
 skills_unlocked: [alpha]
+objectives:
+  - id: second-thing
+    kind: knowledge
+    text: Know the second thing
+    about: [1]
+  - id: builds-on-first
+    kind: knowledge
+    text: Know what the second thing builds on
 sections:
   key_terms: present
   exercise: present
   next_up: present
 ---
-
-## Learning Objectives
-By the end of this lesson, you will:
-- Know the second thing
 
 ## The Concept
 The second thing builds on the first.
