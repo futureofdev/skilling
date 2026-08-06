@@ -1,8 +1,36 @@
 {
   "$defs": {
+    "Attestation": {
+      "additionalProperties": false,
+      "description": "Since 1.3. Provenance for observed evidence: recorded because the attestation\ncannot be verified \u2014 the record says who claimed what was checked, so a later\nreader can weigh it.",
+      "properties": {
+        "attested_by": {
+          "minLength": 1,
+          "title": "Attested By",
+          "type": "string"
+        },
+        "checked": {
+          "minLength": 1,
+          "title": "Checked",
+          "type": "string"
+        },
+        "verify": {
+          "minLength": 1,
+          "title": "Verify",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checked",
+        "verify",
+        "attested_by"
+      ],
+      "title": "Attestation",
+      "type": "object"
+    },
     "ObjectiveMet": {
       "additionalProperties": false,
-      "description": "A capability claim, with how it was demonstrated. Since 1.1.",
+      "description": "A capability claim, with how it was demonstrated. Since 1.1; ``provenance`` since 1.3.",
       "properties": {
         "at": {
           "format": "date",
@@ -22,6 +50,17 @@
           "minLength": 1,
           "title": "Id",
           "type": "string"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Attestation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

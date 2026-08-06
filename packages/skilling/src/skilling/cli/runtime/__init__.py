@@ -1,11 +1,11 @@
 """The JSON transition verbs: one process, one transition, one line of stdout.
 
 ``_common`` is the shared plumbing every verb in this subpackage is built from — ``Session``,
-``ExitCode``, and the open/emit/fail/scratch primitives. ``_session`` is this task's four
-verbs (``next``, ``advance``, ``complete``, ``ceremony``); ``_quiz`` adds ``quiz next`` and
-``answer`` beside it; ``_courses`` is the read-only cross-course enumeration verb; later waves
-add ``_objectives``, ``_homework``, ``_progress``, each importing the same ``_common`` rather
-than reinventing session assembly.
+``ExitCode``, and the open/emit/fail/scratch primitives. ``_session`` is the four session verbs
+(``next``, ``advance``, ``complete``, ``ceremony``); ``_quiz`` adds ``quiz next`` and ``answer``
+beside it; ``_objectives`` is the ``objective`` sub-app (``settle``, ``show``); ``_courses`` is
+the read-only cross-course enumeration verb; later waves add ``_homework``, ``_progress``, each
+importing the same ``_common`` rather than reinventing session assembly.
 """
 
 from ._common import (
@@ -19,6 +19,7 @@ from ._common import (
     save_scratch,
 )
 from ._courses import courses
+from ._objectives import app as objective_app
 from ._quiz import answer
 from ._quiz import app as quiz
 from ._session import advance, ceremony, complete, next
@@ -36,6 +37,7 @@ __all__ = [
     "fail",
     "next",
     "now_override",
+    "objective_app",
     "open_session",
     "quiz",
     "save_scratch",
