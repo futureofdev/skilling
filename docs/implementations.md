@@ -11,11 +11,14 @@ Known Skilling implementations and their conformance claims. Claims follow [conf
 | [`skilling`](../packages/skilling/) — models, loader, validator | Course tooling | 1.2 | shipped |
 | [`skilling deliver`](../packages/skilling/src/skilling/cli/learning/_walk.py) | Conforming Runtime (no capabilities), Conforming Producer | 1.2 | shipped |
 | [`skilling.store.FileProgressStore`](../packages/skilling/src/skilling/store/_file.py) | Conforming Store | 1.2 | shipped |
+| [The bundled `learn`/`progress`/`homework` triad](../packages/skilling/src/skilling/skills/), delivered by a stock host | Conforming Runtime (converse, observe) | 1.3 | pending the two-host proof |
 | Skilling tutor on Pydantic AI | Conforming Runtime (converse, assess) | 1.2 | planned |
 | Skilling in a coding harness, over MCP | Conforming Runtime (converse, observe, assess) | 1.2 | specified for, not built |
 | *your implementation here* | | | [CONTRIBUTING](../CONTRIBUTING.md) |
 
 A registry where every row is the same author is an honest registry, not an impressive one. Until someone we have never met builds a row, "standard" is a claim under test rather than a fact.
+
+The triad row's capabilities describe what an unmodified Claude Code or Codex session brings on its own — a conversation to judge a `knowledge` objective's explanation (`converse`), and filesystem or command-output access to check a `practice` objective's `verify` sentence (`observe`) — not something the [skill pack](../spec/skill-pack.md) itself adds. Installed and unit-tested is not the same claim as delivered: nothing here has yet driven a real `codex` or Claude Code session through a full lesson against a stock, unmodified host and inspected the resulting record. That live run is [`docs/two-host-proof.md`](two-host-proof.md); this row stays "pending the two-host proof" — not "shipped", not "verified" — until it has actually run.
 
 `skilling deliver` also claims [Conforming Producer](../spec/README.md#conforming-producer), since it is the interface as well as the runtime: it writes learner state only through the runtime, never synthesises input to unlock a gate, never renders an answer before it is earned, and asks about telemetry with the decline as the default. Claiming the class matters because it means the class is exercised rather than merely described.
 

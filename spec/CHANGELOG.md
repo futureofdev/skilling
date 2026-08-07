@@ -46,6 +46,35 @@ accepting it silently.
 something outside the conversation. Additive: a 1.1/1.2 record with `explained` or `homework`
 evidence keeps loading unchanged, because neither ever needed provenance to begin with.
 
+### Skill pack: a fixed triad, installed once per learner
+
+[Skill pack](skill-pack.md) specifies how a course reaches a learner through a host's own
+Agent Skills mechanism — `/name` in Claude Code, `$name` in the generic convention that Codex
+and roughly forty other hosts share — instead of a bespoke integration. The reference
+implementation ships one: a fixed, hand-maintained triad, `learn`/`progress`/`homework`,
+installed once per learner via `skilling install` — no course argument, no per-course
+generation step. Every course-structure fact a skill states — a title, a lesson count, a
+learner's position — is read from the CLI at the moment it is needed; none is ever baked into
+a skill's own files. Course identity and persona are resolved the same way, at invocation time,
+by calling `skilling courses` and `skilling next` rather than by remembering or authoring
+either.
+
+`skilling courses` is new: a read-only enumeration of every course a learner has local progress
+for, most-recently-active first, id and best-effort title and last-activity date only — the
+mechanism a triad installed once per learner needs to ask "which course did you mean" and a
+pack generated for exactly one course never did. `skilling install`/`skilling uninstall` write
+and remove the whole triad as one receipt-based unit across both host conventions, atomically:
+a hand-edit to one skill refuses removal of all three, not just the edited one.
+
+An earlier design, `skilling pack <course>`, generated a skill pack per course, baking that
+course's id and persona into the generated files at packaging time. It did not ship: reviewing
+it against a hand-written precedent that generated per course as well showed the generated
+content never varied by more than a title string across courses, so per-course generation was
+protecting nothing a fixed triad does not already cover, while adding a packaging step per
+course, an install step per course, and no path for a choreography upgrade to reach an
+already-installed course without redoing both. The triad and its once-per-learner install
+replace it.
+
 ## 1.2.0-draft — 2026-08-05
 
 **A correction, and the surface it needs.** 1.1's `tested_by` let a quiz settle an objective.
