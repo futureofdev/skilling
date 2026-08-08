@@ -30,7 +30,7 @@ It is not an LMS, not a UI, not a pedagogy, and not tied to any model vendor.
 | Walk through authoring one | [docs/authoring-a-course.md](docs/authoring-a-course.md) |
 | Build a tutor | [spec/runtime.md](spec/runtime.md), then [docs/implementing-a-runtime.md](docs/implementing-a-runtime.md) |
 | Understand a design decision | [docs/concepts/](docs/concepts/) |
-| See the format at real scale | [examples/coding-bootcamp/](examples/coding-bootcamp/) — 9 phases, 64 lessons, deployed portfolio |
+| See every surface in one sitting | [examples/test-drive/](examples/test-drive/) — files, folders and git, exercising the whole format |
 | Learn the format in ten minutes | [examples/hello-skilling/](examples/hello-skilling/) — learn Skilling by being taught it |
 | Know what conforming means | [spec/README.md#conformance](spec/README.md#conformance) |
 
@@ -48,11 +48,11 @@ uvx skilling diff ./v1 ./v2           # classify a version bump
 
 `skilling deliver` is a real Conforming Runtime with no language model in it. That is deliberate: if a text walker can conform, then [conformance binds machinery rather than vibes](spec/runtime.md#scope-of-conformance). A model-backed tutor is the next implementation, not the first.
 
-## The golden example
+## The exercising example
 
-[`examples/coding-bootcamp`](examples/coding-bootcamp/) is a real 64-lesson course — the one this format was generalised from — carried in the repository and validating with zero findings. It exercises every surface: 235 structured objectives, 43 declared absences each with a stated reason, 12 badges, ceremony facts and a share template.
+[`examples/test-drive`](examples/test-drive/) is a compact practical course — files, folders, and git — that exercises every surface the format has: structured objectives of both kinds with honest `verify` coverage and a literal `check`, declared absences each with a stated reason, badges, ceremony facts and a share template, an asset, and homework at every phase boundary. A test suite asserts that coverage structurally, and the course stays small enough to deliver end to end when testing a runtime or a host.
 
-It is deliberately the thing that argues back. Porting it found a validator too strict about Key Terms, a missing ceremony placeholder, and authoring guidance that produced text reading wrong in the first person. A format with no course at this scale behind it has not been tested; a format that never changes when you point one at it has not been listened to.
+The format was originally generalised from a real 64-lesson course, and that course was deliberately the thing that argued back: porting it found a validator too strict about Key Terms, a missing ceremony placeholder, and authoring guidance that produced text reading wrong in the first person. It has since moved out of this repository; [the changelog](spec/CHANGELOG.md) keeps the record of what it taught the format.
 
 ## Status
 

@@ -32,9 +32,9 @@ is a one-line `uv run` wrapper — read `Taskfile.yml` and run those directly.
   CHANGELOG entry, plus `examples/hello-skilling` if affected.
 - Nothing binds before an implementation has run it. Unexercised surfaces ship as documented
   gaps, never as normative text.
-- `examples/coding-bootcamp` is the golden example and validates with zero findings. When it
-  and the validator disagree, suspect the validator first — the format was generalised from
-  this course, and it is supposed to argue back.
+- `examples/test-drive` exercises every authoring surface in a course small enough to deliver
+  end-to-end when testing; `test_examples.py` asserts that coverage. Every example validates
+  with zero findings. The 64-lesson origin course moved to `../futureofdev/courses/`.
 - `packages/skilling` stays LLM-free: no model, agent-framework, or API-key dependency, ever.
   New runtime deps must earn their place; tooling goes in dependency groups.
 

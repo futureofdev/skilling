@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="150" viewBox="0 0 320 150" role="img" aria-label="A practice directory containing notes.txt and a done folder holding plan.txt">
+  <style>text { font-family: monospace; font-size: 14px; fill: #333; }</style>
+  <text x="12" y="28">practice/</text>
+  <text x="44" y="58">notes.txt</text>
+  <text x="44" y="88">done/</text>
+  <text x="76" y="118">plan.txt</text>
+  <path d="M20 36 v46 M20 53 h16 M20 83 h16 M52 96 v16 h16" stroke="#888" fill="none"/>
+</svg>

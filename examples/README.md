@@ -2,35 +2,34 @@
 
 Two courses, doing different jobs.
 
-## [`coding-bootcamp`](coding-bootcamp/) — the golden example
+## [`test-drive`](test-drive/) — every surface, one sitting
 
-Nine phases, 64 lessons, from "I have never installed anything" to a deployed portfolio site. This is the course the whole format was generalised from, and it is the one to read when you want to know what Skilling looks like at real scale.
-
-It exercises every surface the format has:
+A hands-on course — files, folders, and git — built to exercise every surface the format has while staying quick enough to deliver end to end when testing a runtime or a host. Open a terminal, and it is real practice from the first minute.
 
 | | |
 |---|---|
-| Lessons | 64 across 9 phases, homework at every phase boundary |
-| Structured objectives | 235 — 64 knowledge, 171 practice, 22 with a `verify` clause |
-| Declared absences | 24 exercise, 12 key terms, 7 next-up — every one with a stated reason |
-| Badges | 12 registered, awarded across 11 lessons |
-| Ceremony | brand facts, a per-phase highlight, and a literal share template |
+| Structured objectives | Both kinds; every lesson carries an observable `practice` objective with a `verify` clause, one carries a literal `check`, and some practice honestly stays a judgement |
+| Declared absences | A key-terms absence and a quiet final lesson, each with a stated reason |
+| Badges | Registered in the manifest, every one reachable |
+| Ceremony | Brand facts, per-phase highlights, and a literal share template with derived counts |
+| Homework | At every phase boundary, with per-requirement checkboxes and stretch goals |
+| Assets | A relative-path image reference that must resolve |
 
 ```bash
-uvx skilling validate examples/coding-bootcamp     # zero findings
-uvx skilling show examples/coding-bootcamp         # every count derived
-uvx skilling deliver examples/coding-bootcamp      # ~380 keystrokes end to end
+uvx skilling validate examples/test-drive     # zero findings
+uvx skilling show examples/test-drive         # every count derived
+uvx skilling deliver examples/test-drive      # the whole loop, quickly
 ```
 
-It is also where format problems surface first. Porting it found a validator too strict about Key Terms, a missing `{hashtags}` placeholder, and guidance that told authors to write phase highlights in the third person when the obvious use is first — see [the changelog](../spec/CHANGELOG.md). That is what a golden example is for: it is the thing that argues back.
+`packages/skilling/tests/test_examples.py` asserts all of the above structurally, so the course cannot quietly stop covering a surface it exists to cover.
 
-**The content is not perfect and is meant to be iterated on.** The port already had to fix seven quiz answers that restated the correct option and gave no reason, and a homework section with no submission line. Expect to find more.
+The 64-lesson course the format was generalised from — `coding-bootcamp`, nine phases from nothing installed to a deployed portfolio — has moved out of this repository. [The changelog](../spec/CHANGELOG.md) still records what porting it taught the format; arguing back is what a course at scale is for.
 
 ## [`hello-skilling`](hello-skilling/) — learn the format in ten minutes
 
 Three lessons that teach Skilling by being a Skilling course: what a course is, the anatomy of a lesson, the delivery loop. Its homework is to author a conforming course of your own.
 
-Read this one first, and copy from it when you are starting out. It is small enough to hold in your head, which `coding-bootcamp` is not.
+Read this one first, and copy from it when you are starting out. It is small enough to hold in your head.
 
 ```bash
 uvx skilling validate examples/hello-skilling
@@ -39,4 +38,4 @@ uvx skilling deliver examples/hello-skilling
 
 ## Which one do the docs use?
 
-The [guides](../docs/authoring-a-course.md) quote `hello-skilling` for snippets, because a three-lesson course makes a legible example. They point at `coding-bootcamp` whenever the question is "but does this hold up on something real?"
+The [guides](../docs/authoring-a-course.md) quote `hello-skilling` for snippets, because a three-lesson course makes a legible example. They point at `test-drive` when the question is "what does the whole surface look like in one place?"
