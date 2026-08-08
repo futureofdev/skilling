@@ -233,10 +233,10 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.3/course.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.4/course.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
+  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 the specification in spec/ is normative.",
   "properties": {
     "authors": {
       "items": {

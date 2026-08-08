@@ -330,6 +330,35 @@ class Telemetry(Strict):
     """Sink-assigned, write-once. Never derived from ``learner_id``."""
 
 
+class Artifact(Strict):
+    """A pointer to work the learner built. Since 1.4; meaningful only within a workspace
+    (spec/workspace.md#artifacts).
+
+    Recorded only through the CLI, at the two moments the loop already owns — phase ceremony
+    and confirmed homework submission — and never gating the flow: no beat waits on one, no
+    completion requires one. A pointer and a title, never a judgement.
+    """
+
+    path: str
+    """Workspace-relative, POSIX separators — the record must survive the folder moving."""
+
+    title: str = Field(min_length=1)
+    coordinate: str
+    added_at: datetime
+
+    @field_validator("path")
+    @classmethod
+    def _relative(cls, v: str) -> str:
+        return require_relative_posix(v)
+
+    @field_validator("coordinate")
+    @classmethod
+    def _coordinate(cls, v: str) -> str:
+        if not COORDINATE_RE.match(v):
+            raise ValueError(f"{v!r} is not a '{{phase}}.{{lesson}}' coordinate")
+        return v
+
+
 class Record(Strict):
     learner_id: str = Field(min_length=1)
     course_id: str = Field(min_length=1)
@@ -339,6 +368,10 @@ class Record(Strict):
     completed: list[str] = Field(default_factory=list)
     skills_unlocked: list[str] = Field(default_factory=list)
     objectives_met: list[ObjectiveMet] = Field(default_factory=list)
+    artifacts: list[Artifact] = Field(default_factory=list)
+    """Since 1.4. Written only through the CLI at phase ceremony and homework submission;
+    meaningful only within a workspace, and additive — an older record loads unchanged."""
+
     started_at: date
     last_activity: date
     timezone: str = "UTC"
@@ -435,6 +468,19 @@ class HomeworkArchiveEntry(Strict):
 
 def is_semver(value: str) -> bool:
     return bool(SEMVER_RE.match(value))
+
+
+def require_relative_posix(value: str) -> str:
+    """The one rule every workspace path obeys (spec/workspace.md#the-manifest): relative,
+    POSIX separators, no traversal — because a workspace gets zipped and synced, and a path
+    that only resolves on the machine that wrote it is a path the record loses."""
+    if not value:
+        raise ValueError("path must be non-empty")
+    if value.startswith("/") or "\\" in value:
+        raise ValueError(f"{value!r} must be a relative path with POSIX separators")
+    if any(part in ("", ".", "..") for part in value.split("/")):
+        raise ValueError(f"{value!r} must not traverse or contain empty segments")
+    return value
 
 
 def is_course_id(value: str) -> bool:

@@ -36,6 +36,7 @@ from ._loader import (
 from ._models import (
     OPTIONAL_SECTION_KEYS,
     SETTLES,
+    Artifact,
     Assignment,
     Attestation,
     Brand,
@@ -55,6 +56,7 @@ from ._models import (
     Telemetry,
     is_course_id,
     is_semver,
+    require_relative_posix,
 )
 
 __all__ = [
@@ -65,6 +67,7 @@ __all__ = [
     "REGISTRY_ORDER",
     "SECTION_REGISTRY",
     "SETTLES",
+    "Artifact",
     "Assignment",
     "Attestation",
     "Brand",
@@ -104,6 +107,7 @@ __all__ = [
     "parse_homework",
     "parse_lesson",
     "parse_quiz",
+    "require_relative_posix",
     "resolve",
     "split_frontmatter",
     "strip_code",

@@ -55,9 +55,13 @@ each reporting an id, a display title, and the calendar date it was last touched
 
 The title is resolved on a best-effort basis — from wherever the course's content can still be
 found, falling back to the id itself when it cannot — and is not authoritative; a skill pack
-must not treat a fallen-back title as license to invent a nicer one. The enumeration reports no
-path and no version: it answers *which* course to resume, never *where* its content lives.
-Resolving a location for a chosen id remains the same course resolution described above.
+must not treat a fallen-back title as license to invent a nicer one. Outside a workspace the
+enumeration reports no path and no version: it answers *which* course to resume, never *where*
+its content lives, and resolving a location for a chosen id remains the same course resolution
+described above. **Since 1.4, within a [workspace](workspace.md), the enumeration also reports
+each course's location**, read from the workspace manifest — which records exactly the fact
+state alone never held, so a fresh conversation no longer has to ask the learner where a
+course they already added lives.
 
 Two or more courses tied on the same calendar date is a genuine tie, not a rounding artifact —
 a skill pack must list the candidates and ask rather than picking one for the learner. An empty
@@ -85,10 +89,13 @@ both by default:
 | Claude Code | `.claude/skills/<name>/` | `/<name>` |
 | Generic Agent Skills (Codex and others) | `.agents/skills/<name>/` | `$<name>` |
 
-Installing writes into a learner's home profile by default, or into a project directory instead
-— to be committed alongside a course repository — when asked for a repo-local install. Both are
-legitimate; a repo-local install is how a course maintainer ships the pack alongside the course
-itself rather than asking every learner to install it separately.
+**Since 1.4 installing is folder-scoped by default**: into the enclosing
+[workspace](workspace.md#folder-scoped-skill-installs) when there is one, or into a named
+project directory — to be committed alongside a course repository, which is how a course
+maintainer ships the pack with the course itself. The learner's home profile is the opt-in,
+not the default: a pack in the folder travels with the folder when it is zipped or synced
+into a sandboxed host, where a home-profile install can never follow. Both scopes remain
+legitimate; what 1.4 changed is only which one a bare install means.
 
 ## Installing and removing
 

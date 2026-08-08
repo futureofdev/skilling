@@ -1,6 +1,6 @@
 # Skilling
 
-> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.3.0-draft.
+> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.4.0-draft.
 
 Skilling specifies four things: what course authors write, what a tutor must do to deliver a course, what is durably true about a learner afterwards, and where an adopter attaches its own policy. It is not an LMS, not a UI, not a pedagogy, and not tied to a model vendor. Conformance binds observable state transitions and record writes, never the tutor's prose — which is why a text walker with no language model can be a Conforming Runtime.
 
@@ -12,6 +12,7 @@ The format is AI-first in a specific sense: wherever it addresses the tutor it s
 - [Course format](spec/course-format.md): Everything a course author needs — directory structure, the `course.yaml` manifest, numbering rules, derived counts, lesson frontmatter, the section registry, declared absence, structured objectives, the Quick Quiz grammar, homework, ceremony facts and templates, assets, and course-version semantics.
 - [Runtime](spec/runtime.md): Everything a tutor implementer needs — the delivery loop and its beats, gates as open waits, quiz delivery, remediation, idempotent completion, phase ceremony and how ceremony copy resolves, resume, the progress record, objectives and evidence, the completion log, the streak algorithm, the homework mailbox, the hook registry, telemetry's three non-negotiables, the store interface, and the single-learner file layout.
 - [Skill pack](spec/skill-pack.md): How a course reaches a learner through a host's own Agent Skills mechanism instead of a bespoke integration — installed once per learner, course identity and persona resolved at invocation time rather than baked in, the Agent Skills frontmatter floor, the two host conventions, and install/uninstall as one atomic receipt-based unit.
+- [Workspace](spec/workspace.md): One folder a learner opens in any host — the machinery hidden under `.skilling/` (the workspace manifest, a state root per the runtime file layout, fetched course content), discovery by walking up to the manifest, the visible `showcase/` directory per course, artifacts on the record written only through the CLI, entry files as marked blocks, and folder-scoped skill installs.
 - [Changelog](spec/CHANGELOG.md): Every specification change, including errata.
 
 ## Guides

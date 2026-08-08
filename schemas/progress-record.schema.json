@@ -1,5 +1,37 @@
 {
   "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "description": "A pointer to work the learner built. Since 1.4; meaningful only within a workspace\n(spec/workspace.md#artifacts).\n\nRecorded only through the CLI, at the two moments the loop already owns \u2014 phase ceremony\nand confirmed homework submission \u2014 and never gating the flow: no beat waits on one, no\ncompletion requires one. A pointer and a title, never a judgement.",
+      "properties": {
+        "added_at": {
+          "format": "date-time",
+          "title": "Added At",
+          "type": "string"
+        },
+        "coordinate": {
+          "title": "Coordinate",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "title",
+        "coordinate",
+        "added_at"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
     "Attestation": {
       "additionalProperties": false,
       "description": "Since 1.3. Provenance for observed evidence: recorded because the attestation\ncannot be verified \u2014 the record says who claimed what was checked, so a later\nreader can weigh it.",
@@ -143,11 +175,18 @@
       "type": "object"
     }
   },
-  "$id": "https://startskill.ing/schemas/v1.3/progress-record.schema.json",
+  "$id": "https://startskill.ing/schemas/v1.4/progress-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 spec/course-format.md and spec/runtime.md are normative.",
+  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 the specification in spec/ is normative.",
   "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
     "completed": {
       "items": {
         "type": "string"

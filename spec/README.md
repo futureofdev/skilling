@@ -1,10 +1,11 @@
 # The Skilling specification
 
-**Version 1.3.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
+**Version 1.4.0-draft** · Specification text licensed [CC BY 4.0](LICENSE)
 
-> 1.3, in development alongside Wave 1, adds mid-lesson position, attestation on recorded
-> evidence, and the [skill pack](skill-pack.md) surface — entries land in the CHANGELOG per
-> change, and nothing here binds until an implementation has exercised it.
+> 1.4, in development alongside this wave, adds the learner [workspace](workspace.md) — one
+> folder, opened in any host, carrying state, fetched content, and what the learner builds —
+> and artifacts on the record. Entries land in the CHANGELOG per change, and nothing here
+> binds until an implementation has exercised it.
 
 Skilling is an open format for AI-tutored, skill-based courses. It specifies three things precisely enough that independent implementations interoperate:
 
@@ -103,6 +104,8 @@ Runtime implementers: [course format](course-format.md), then [runtime](runtime.
 Store implementers: [the progress record](runtime.md#the-progress-record) through [the file layout](runtime.md#the-file-layout).
 
 Skill pack implementers: [runtime](runtime.md), then [skill pack](skill-pack.md).
+
+Workspace implementers: [the file layout](runtime.md#the-file-layout), then [workspace](workspace.md).
 
 For *why* a constraint is shaped the way it is, see [concepts](../docs/concepts/).
 
