@@ -38,6 +38,7 @@ from ...delivery import (
 )
 from ...delivery import advance as apply_input
 from ...store import LOCAL_LEARNER, Conflict
+from ...workspace import find_workspace, showcase_dir
 from ._common import ExitCode, Scratch, emit, fail, now_override, open_session, save_scratch
 
 COURSE_HELP = "Path to the course directory."
@@ -178,6 +179,18 @@ def _tutor(manifest: Manifest) -> dict[str, object]:
     if manifest.tutor is None:
         return {}
     return {"tutor": {"persona": manifest.tutor.persona, "tone": manifest.tutor.tone}}
+
+
+def _showcase(course: Course) -> dict[str, object]:
+    """The workspace-relative showcase dir for this course, or nothing outside one.
+
+    Same declared-absence idiom as ``_tutor``: a driving pack tells "no workspace" from "a
+    showcase dir that happens to be empty" by ``in`` rather than by inspecting a null value.
+    """
+    workspace = find_workspace()
+    if workspace is None:
+        return {}
+    return {"showcase": showcase_dir(workspace, course.id).relative_to(workspace).as_posix()}
 
 
 def _envelope(
@@ -443,15 +456,14 @@ def ceremony(
     envelope = _resume_envelope(
         "ceremony", session.course, session.record, session.revision, session.scratch
     )
-    envelope["beat"] = {
-        "name": "ceremony",
-        "content": {
-            "coordinate": coordinate,
-            "phase_number": phase.number if phase else None,
-            "phase_name": phase.name if phase else None,
-            "phase_highlight": phase.highlight if phase else None,
-            "share_text": text,
-            "course_complete": course_complete,
-        },
+    content: dict[str, object] = {
+        "coordinate": coordinate,
+        "phase_number": phase.number if phase else None,
+        "phase_name": phase.name if phase else None,
+        "phase_highlight": phase.highlight if phase else None,
+        "share_text": text,
+        "course_complete": course_complete,
     }
+    content.update(_showcase(session.course))
+    envelope["beat"] = {"name": "ceremony", "content": content}
     emit(envelope)

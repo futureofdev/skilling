@@ -4,11 +4,12 @@
 ``ExitCode``, and the open/emit/fail/scratch primitives. ``_session`` is the four session verbs
 (``next``, ``advance``, ``complete``, ``ceremony``); ``_quiz`` adds ``quiz next`` and ``answer``
 beside it; ``_objectives`` is the ``objective`` sub-app (``settle``, ``show``); ``_homework`` and
-``_progress`` are the record verbs (``homework``, ``progress``, ``telemetry``); ``_courses`` is
-the read-only cross-course enumeration verb — each importing the same ``_common`` rather than
-reinventing session assembly.
+``_progress`` are the record verbs (``homework``, ``progress``, ``telemetry``); ``_artifacts`` is
+the ``artifact`` sub-app (``add``, ``list``); ``_courses`` is the read-only cross-course
+enumeration verb — each importing the same ``_common`` rather than reinventing session assembly.
 """
 
+from ._artifacts import artifact
 from ._common import (
     ExitCode,
     Scratch,
@@ -33,6 +34,7 @@ __all__ = [
     "Session",
     "advance",
     "answer",
+    "artifact",
     "ceremony",
     "complete",
     "courses",
