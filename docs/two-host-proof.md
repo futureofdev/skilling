@@ -10,13 +10,13 @@ session, reading only the bundled `SKILL.md`/`references/*.md` files and driving
 the `skilling` command line, actually delivers a lesson the way the choreography says it will.
 This document is the script for that run, and the place its result gets recorded.
 
-**Status: NOT YET RUN — pending maintainer execution.** Every section below the falsifiability
-criteria is instructions for a human to carry out with a real terminal, a real `codex`
-installation, a real Claude Code installation, and a real private repository — none of which
-this task had access to. Nothing in this file is a transcript, a completed record, or a
-pass/fail claim. Sections that will eventually hold those are marked as placeholders, not
-filled in with invented content, because a fabricated proof is a worse outcome than an honest
-gap: it is exactly the failure mode this specification's provenance rules
+**Status: partially run.** Steps 1, 2, and 4 (install, Codex delivery, Claude Code delivery)
+have been exercised directly by the maintainer; Steps 3, 5, and 6 (the practice-objective
+settle, the private-repo credential check, the offline rerun) have not, and are recorded below
+as deferred rather than silently skipped. What has run is recorded as the maintainer's direct
+attestation, not a committed transcript or record artifact — no fabricated specifics stand in
+for what wasn't kept, because a fabricated proof is a worse outcome than an honest gap: it is
+exactly the failure mode this specification's provenance rules
 ([`objectives_met.provenance`](../spec/runtime.md#objectives-and-the-record)) exist to prevent
 everywhere else, and this document would be a poor advertisement for that principle if it broke
 the same rule about itself.
@@ -210,19 +210,28 @@ root — these are records of a specific proof run, not a learner's live progres
 
 ## Outcome
 
-**NOT YET RUN — pending maintainer execution.**
+**Partially run — Steps 1, 2, and 4 done; Steps 3, 5, and 6 deliberately deferred.**
+
+The maintainer (lhennerley) installed the triad and delivered lessons interactively in both a
+real Codex session and a real Claude Code session on 2026-08-06, confirmed the delivery loop
+behaved correctly in both — including `coding-bootcamp`'s phase-boundary homework surfacing
+only after the phase's last lesson completed, per its design — and reported being satisfied
+with the result. No `record.yaml` artifacts or a detailed transcript were kept from these
+sessions, so this entry is the maintainer's direct attestation of what was observed rather than
+a committed artifact — recorded as such, not dressed up as more than it is. The practice-objective
+settle (Step 3), the private-repo credential check (Step 5), and the offline rerun (Step 6) were
+not exercised in this pass; the maintainer's stated plan is to run the full checklist, with
+artifacts, against a second, simpler course once the format reaches a stable "v1."
 
 | Falsifiability criterion | Result |
 |---|---|
-| Every gate opened only on real learner input | *pending* |
-| No answer visible before the learner answered | *pending* |
-| Every record mutation paired with a visible CLI call | *pending* |
-| Private-repo fetch failed closed with no credentials present | *pending* |
-| Offline rerun needed no network access | *pending* |
+| Every gate opened only on real learner input | Confirmed by direct interactive use in both hosts (Codex, Claude Code); not independently re-verified line-by-line against a saved transcript |
+| No answer visible before the learner answered | Confirmed by direct interactive use in both hosts, same caveat as above |
+| Every record mutation paired with a visible CLI call | Consistent with what was observed (homework appeared exactly at the phase boundary the design predicts); no record.yaml was diffed against a transcript to independently prove it |
+| Private-repo fetch failed closed with no credentials present | *deferred — not yet run* |
+| Offline rerun needed no network access | *deferred — not yet run* |
 
-Once this run has actually happened, replace this table and the placeholders above with what
-was actually observed, and update [`docs/implementations.md`](implementations.md)'s triad row
-from "pending the two-host proof" to "shipped" — or, if something in the choreography did not
-survive contact with a real host, record that honestly here and in
-[`spec/CHANGELOG.md`](../spec/CHANGELOG.md) as an errata entry, exactly as every other gap this
-specification has found in itself was recorded rather than quietly patched over.
+Nothing in the choreography failed to survive contact with a real host in what was run. This
+row does not move `docs/implementations.md`'s triad status to a bare "shipped" — only three of
+five criteria have any attestation at all, and none has a committed artifact — but it does move
+past "pending, nothing run." See `docs/implementations.md` for the exact wording this maps to.
