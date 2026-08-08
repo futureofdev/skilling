@@ -27,9 +27,7 @@ import yaml
 from ...course import Course, CourseLoadError, Record, ResolvedLesson
 from ...delivery import load_or_create
 from ...store import FileProgressStore, ProgressStore, open_store
-
-DEFAULT_STATE_ROOT = Path(".skilling")
-"""Matches ``deliver``'s own default, so a learner does not get two conventions."""
+from ...workspace import resolve_course_location, resolve_state_root
 
 SCRATCH_NAME = "scratch.yaml"
 
@@ -141,15 +139,32 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
     """Load everything one verb needs: the course, the record (created fresh if absent), the
     lesson the record currently points at, and the scratch beside it.
 
+    ``course_ref`` is a directory first — today's behaviour, unchanged — and only when that
+    is not a directory is it tried as a course id inside the enclosing workspace
+    (``resolve_course_location``); neither resolving is a refusal in its own right, so a
+    genuinely unresolvable ref, not merely an invalid course, is what earns ``course-not-found``.
+
     Never writes beyond the record's own creation-on-first-use (``load_or_create``) — each
     verb decides for itself whether *it* makes a write, and through what CAS.
     """
+    course_path = Path(course_ref)
+    if not course_path.is_dir():
+        located = resolve_course_location(course_ref)
+        if located is None:
+            fail(
+                ExitCode.INVALID,
+                "course-not-found",
+                f"{course_ref!r} is not a course directory, and no enclosing workspace has "
+                "a course by that id.",
+            )
+        course_path = located
+
     try:
-        course = Course.load(Path(course_ref))
+        course = Course.load(course_path)
     except CourseLoadError as exc:
         fail(ExitCode.INVALID, "course-invalid", f"{exc.code}: {exc.message}")
 
-    state_root = state if state is not None else DEFAULT_STATE_ROOT
+    state_root = resolve_state_root(state)
     store = open_store(str(state_root))
     record, revision = load_or_create(store, course, learner)
 

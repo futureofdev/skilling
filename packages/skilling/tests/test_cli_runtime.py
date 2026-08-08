@@ -9,13 +9,20 @@ exit, which the interactive walker never had to think about.
 from __future__ import annotations
 
 import json
+import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from skilling.cli import app
 from skilling.store import Conflict, FileProgressStore
+from skilling.workspace import WorkspaceCourse, WorkspaceManifest
+from skilling.workspace import courses_dir as workspace_courses_dir
+from skilling.workspace import save_manifest as save_workspace_manifest
+from skilling.workspace import state_root as workspace_state_root
 
 from . import fixtures as fx
 
@@ -24,6 +31,39 @@ runner = CliRunner()
 
 def run(args: list[str], tmp: Path):
     return runner.invoke(app, [*args, "--state", str(tmp)], catch_exceptions=False)
+
+
+def _isolate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """State-root and course-id resolution both walk up from the cwd and consult the
+    environment — clearing both is what keeps a precedence test honest about which source
+    it is actually exercising, rather than inheriting whatever the test runner's own
+    environment happens to hold."""
+    monkeypatch.delenv("SKILLING_STATE_ROOT", raising=False)
+    monkeypatch.delenv("SKILLING_WORKSPACE", raising=False)
+
+
+def _add_to_workspace(workspace: Path, course_dir: Path, course_id: str, version: str = "1.0.0"):
+    """Add ``course_dir``'s content to ``workspace`` under the manifest's own
+    ``<id>@<version>`` naming, and return the destination directory."""
+    dest = workspace_courses_dir(workspace) / f"{course_id}@{version}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(course_dir, dest)
+    save_workspace_manifest(
+        workspace,
+        WorkspaceManifest(
+            courses=[
+                WorkspaceCourse(
+                    id=course_id,
+                    version=version,
+                    ref="local",
+                    path=f"courses/{course_id}@{version}",
+                    showcase=f"showcase/{course_id}",
+                    added_at=datetime.now(UTC),
+                )
+            ]
+        ),
+    )
+    return dest
 
 
 def _advance(course: Path, tmp: Path, given: str, *, key: str | None = None):
@@ -345,3 +385,173 @@ def test_a_course_version_mismatch_is_refused(clean_dir: Path, tmp_path: Path) -
     result = run(["next", "--course", str(clean_dir)], tmp_path)
     assert result.exit_code == 5
     assert json.loads(result.stdout)["error"]["code"] == "version-mismatch"
+
+
+# ------------------------------------------------------------------- state-root resolution
+#
+# The defect this closes: every verb here used a bare cwd-relative ".skilling" default while
+# ``courses`` (_courses.py) resolved to ~/.skilling/state — two conventions for the same
+# thing. ``resolve_state_root`` (workspace/_resolve.py) is the one precedence every verb now
+# shares: explicit --state, then $SKILLING_STATE_ROOT, then the enclosing workspace's own
+# state, then the learner's home default.
+
+
+def test_explicit_state_beats_env_and_workspace(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())
+    monkeypatch.chdir(workspace)
+    monkeypatch.setenv("SKILLING_STATE_ROOT", str(tmp_path / "env-state"))
+    explicit = tmp_path / "explicit-state"
+
+    result = runner.invoke(
+        app, ["next", "--course", str(clean_dir), "--state", str(explicit)], catch_exceptions=False
+    )
+
+    assert result.exit_code == 0
+    assert (explicit / "clean-course" / "record.yaml").is_file()
+    assert not (tmp_path / "env-state").exists()
+    assert not workspace_state_root(workspace).exists()
+
+
+def test_env_beats_the_enclosing_workspace(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())
+    monkeypatch.chdir(workspace)
+    env_state = tmp_path / "env-state"
+    monkeypatch.setenv("SKILLING_STATE_ROOT", str(env_state))
+
+    result = runner.invoke(app, ["next", "--course", str(clean_dir)], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert (env_state / "clean-course" / "record.yaml").is_file()
+    assert not workspace_state_root(workspace).exists()
+
+
+def test_the_enclosing_workspace_beats_home(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())
+    nested = workspace / "showcase" / "deep"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)  # discovery walks up, so a verb run from anywhere inside works
+    fake_home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+    result = runner.invoke(app, ["next", "--course", str(clean_dir)], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert (workspace_state_root(workspace) / "clean-course" / "record.yaml").is_file()
+    assert not (fake_home / ".skilling").exists()
+
+
+def test_home_is_the_last_resort_outside_any_workspace(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression this issue closes: with nothing else set and no enclosing workspace, a
+    verb must land on exactly ~/.skilling/state — the same default ``courses`` already used,
+    now shared instead of split-brained."""
+    _isolate(monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+    fake_home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+    result = runner.invoke(app, ["next", "--course", str(clean_dir)], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert (fake_home / ".skilling" / "state" / "clean-course" / "record.yaml").is_file()
+
+
+# --------------------------------------------------------------- --course by id, in a workspace
+
+
+def test_course_ref_accepts_a_workspace_course_id(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    _add_to_workspace(workspace, clean_dir, "clean-course")
+    monkeypatch.chdir(workspace)
+
+    result = runner.invoke(app, ["next", "--course", "clean-course"], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    out = json.loads(result.stdout)
+    assert out["course"] == {"id": "clean-course", "version": "1.0.0", "title": "Clean Course"}
+    # No --state either: this also proves the workspace's own state was used.
+    assert (workspace_state_root(workspace) / "clean-course" / "record.yaml").is_file()
+
+
+def test_course_ref_an_id_the_workspace_never_added_is_not_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())  # a workspace, but empty
+    monkeypatch.chdir(workspace)
+
+    result = run(["next", "--course", "never-added"], tmp_path / "state")
+
+    assert result.exit_code == 2
+    body = json.loads(result.stdout)
+    assert body["ok"] is False
+    assert body["error"]["code"] == "course-not-found"
+
+
+def test_course_ref_an_id_outside_any_workspace_is_not_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+
+    result = run(["next", "--course", "no-such-course"], tmp_path / "state")
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "course-not-found"
+
+
+def test_course_ref_an_existing_directory_is_still_tried_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ref that is *both* a real directory relative to cwd *and* a course id the enclosing
+    workspace's manifest happens to know must resolve as the directory, exactly as it always
+    has — id resolution is only the fallback for a ref that is not a directory."""
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    fx.build(workspace / "clean-course")  # a real course directory, named like an id
+    save_workspace_manifest(
+        workspace,
+        WorkspaceManifest(
+            courses=[
+                WorkspaceCourse(
+                    id="clean-course",
+                    version="9.9.9",
+                    ref="local",
+                    path="courses/does-not-exist@9.9.9",  # would fail to load if consulted
+                    showcase="showcase/clean-course",
+                    added_at=datetime.now(UTC),
+                )
+            ]
+        ),
+    )
+    monkeypatch.chdir(workspace)
+
+    result = runner.invoke(
+        app,
+        ["next", "--course", "clean-course", "--state", str(tmp_path / "state")],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["course"]["id"] == "clean-course"

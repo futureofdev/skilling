@@ -19,6 +19,9 @@ from skilling import course as md
 from skilling.cli import app
 from skilling.conformance import Code
 from skilling.course import Course
+from skilling.workspace import WorkspaceManifest
+from skilling.workspace import save_manifest as save_workspace_manifest
+from skilling.workspace import state_root as workspace_state_root
 
 from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE
@@ -500,3 +503,82 @@ def test_structured_objectives_are_rendered_in_place_of_the_section(tmp_path: Pa
     assert "Learning Objectives" in result.output
     assert "By the end of this lesson, you will be able to:" in result.output
     assert "Name the required sections" in result.output
+
+
+# ------------------------------------------------------------------- state-root resolution
+#
+# ``deliver``'s own default used to be a bare cwd-relative ".skilling" — the other half of the
+# split-brain this issue closes (the JSON transition verbs shared that same default in
+# cli/runtime/_common.py, while ``courses`` used ``open_store(None)`` — ~/.skilling/state).
+# ``deliver`` now shares the identical precedence via ``workspace.resolve_state_root``:
+# explicit --state, then $SKILLING_STATE_ROOT, then the enclosing workspace's own state, then
+# the learner's home default.
+
+
+def test_state_precedence_explicit_beats_env_and_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())
+    monkeypatch.chdir(workspace)
+    monkeypatch.setenv("SKILLING_STATE_ROOT", str(tmp_path / "env-state"))
+    explicit = tmp_path / "explicit-state"
+
+    result = runner.invoke(
+        app, ["deliver", str(EXAMPLE_COURSE), "--state", str(explicit)], input=FULL_WALK
+    )
+
+    assert result.exit_code == 0
+    assert (explicit / "hello-skilling" / "record.yaml").is_file()
+    assert not (tmp_path / "env-state").exists()
+    assert not workspace_state_root(workspace).exists()
+
+
+def test_state_precedence_env_beats_the_enclosing_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())
+    monkeypatch.chdir(workspace)
+    env_state = tmp_path / "env-state"
+    monkeypatch.setenv("SKILLING_STATE_ROOT", str(env_state))
+
+    result = runner.invoke(app, ["deliver", str(EXAMPLE_COURSE)], input=FULL_WALK)
+
+    assert result.exit_code == 0
+    assert (env_state / "hello-skilling" / "record.yaml").is_file()
+    assert not workspace_state_root(workspace).exists()
+
+
+def test_state_defaults_to_the_enclosing_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    save_workspace_manifest(workspace, WorkspaceManifest())
+    monkeypatch.chdir(workspace)
+    monkeypatch.delenv("SKILLING_STATE_ROOT", raising=False)
+
+    result = runner.invoke(app, ["deliver", str(EXAMPLE_COURSE)], input=FULL_WALK)
+
+    assert result.exit_code == 0
+    assert (workspace_state_root(workspace) / "hello-skilling" / "record.yaml").is_file()
+
+
+def test_state_falls_back_to_home_outside_a_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression this issue closes, for ``deliver``: outside a workspace with nothing
+    else set, it lands on exactly ~/.skilling/state — the same default the JSON transition
+    verbs and ``courses`` now share instead of each inventing their own."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+    monkeypatch.delenv("SKILLING_STATE_ROOT", raising=False)
+    monkeypatch.delenv("SKILLING_WORKSPACE", raising=False)
+    fake_home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+    result = runner.invoke(app, ["deliver", str(EXAMPLE_COURSE)], input=FULL_WALK)
+
+    assert result.exit_code == 0
+    assert (fake_home / ".skilling" / "state" / "hello-skilling" / "record.yaml").is_file()
