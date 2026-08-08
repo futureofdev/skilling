@@ -1,6 +1,6 @@
 spec_version: "1.3"
-id: test-drive
-title: Test Drive
+id: workbench
+title: The Workbench
 version: "1.0.0"
 description: Files, folders, and git — hands-on from the first minute, and quick to finish.
 language: en
@@ -21,7 +21,7 @@ ceremony:
     mention: "@claudeacademy"
     handles:
       github: "@claudeacademy"
-    hashtags: [Skilling, TestDrive]
+    hashtags: [Skilling, TheWorkbench]
   phase_completed_template: |
     Just finished {phase_name} in {course_title} 🔧
 

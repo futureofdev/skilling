@@ -2,7 +2,7 @@
 
 Two courses, doing different jobs.
 
-## [`test-drive`](test-drive/) — every surface, one sitting
+## [`workbench`](workbench/) — every surface, one sitting
 
 A hands-on course — files, folders, and git — built to exercise every surface the format has while staying quick enough to deliver end to end when testing a runtime or a host. Open a terminal, and it is real practice from the first minute.
 
@@ -16,9 +16,9 @@ A hands-on course — files, folders, and git — built to exercise every surfac
 | Assets | A relative-path image reference that must resolve |
 
 ```bash
-uvx skilling validate examples/test-drive     # zero findings
-uvx skilling show examples/test-drive         # every count derived
-uvx skilling deliver examples/test-drive      # the whole loop, quickly
+uvx skilling validate examples/workbench     # zero findings
+uvx skilling show examples/workbench         # every count derived
+uvx skilling deliver examples/workbench      # the whole loop, quickly
 ```
 
 `packages/skilling/tests/test_examples.py` asserts all of the above structurally, so the course cannot quietly stop covering a surface it exists to cover.
@@ -38,4 +38,4 @@ uvx skilling deliver examples/hello-skilling
 
 ## Which one do the docs use?
 
-The [guides](../docs/authoring-a-course.md) quote `hello-skilling` for snippets, because a three-lesson course makes a legible example. They point at `test-drive` when the question is "what does the whole surface look like in one place?"
+The [guides](../docs/authoring-a-course.md) quote `hello-skilling` for snippets, because a three-lesson course makes a legible example. They point at `workbench` when the question is "what does the whole surface look like in one place?"

@@ -109,15 +109,15 @@ cat ~/.skilling/state/hello-skilling/record.yaml
 
 and confirm `completed` matches what the transcript actually delivered, no more and no less.
 
-## Step 3 — `test-drive`'s first practice objective, in Codex
+## Step 3 — `workbench`'s first practice objective, in Codex
 
-The earliest structured objective in `examples/test-drive` that carries a `verify`
+The earliest structured objective in `examples/workbench` that carries a `verify`
 sentence is `create-and-remove-files` in phase 1, lesson 1
 (`phases/phase-1-shell-basics/lesson-01-make-and-move.md`): *"A practice directory exists
 containing files the learner created and renamed with shell commands, and a file they
 removed is gone."*
 
-Deliver `test-drive`'s first lesson (naming it the same way as Step 2), then actually do
+Deliver `workbench`'s first lesson (naming it the same way as Step 2), then actually do
 what the objective asks — build the practice directory, rename a file into it, remove one
 — before telling the host you have. A good prompt once you have:
 
@@ -130,7 +130,7 @@ objective — see [objectives.md](../packages/skilling/src/skilling/skills/learn
 and, only after looking, call:
 
 ```bash
-skilling objective settle create-and-remove-files --course /path/to/skilling/examples/test-drive \
+skilling objective settle create-and-remove-files --course /path/to/skilling/examples/workbench \
   --evidence observed --attested-by codex \
   --checked "watched practice/ built with mkdir and touch, ideas.txt renamed to done/plan.txt, backup.txt removed; ls -la practice/ confirms" \
   --capability observe
@@ -143,7 +143,7 @@ Then the negative half, run directly (this half does not need the host's judgeme
 checking that the CLI's own enforcement holds, live, against the same course and objective):
 
 ```bash
-skilling objective settle create-and-remove-files --course /path/to/skilling/examples/test-drive \
+skilling objective settle create-and-remove-files --course /path/to/skilling/examples/workbench \
   --evidence observed --attested-by codex --checked "looked" --capability converse
 ```
 
@@ -188,7 +188,7 @@ under the real `$HOME`, which this invocation does not have.
 
 ## Step 6 — offline rerun
 
-With `test-drive` and `hello-skilling` already resolved once (so nothing below needs a
+With `workbench` and `hello-skilling` already resolved once (so nothing below needs a
 fresh fetch), disable networking, then:
 
 ```bash
@@ -205,7 +205,7 @@ root — these are records of a specific proof run, not a learner's live progres
 
 - `docs/two-host-proof/hello-skilling.codex.record.yaml`
 - `docs/two-host-proof/hello-skilling.claude-code.record.yaml`
-- `docs/two-host-proof/test-drive.objective.record.yaml`
+- `docs/two-host-proof/workbench.objective.record.yaml`
 - A transcript summary (not a full raw transcript, unless the maintainer wants to commit one)
   covering what each host actually said and did at every gate, quiz answer, and completion.
 

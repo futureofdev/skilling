@@ -190,7 +190,7 @@ The full list is in [error codes](error-codes.md).
 
 ## When you want to see every surface in one place
 
-[`examples/test-drive`](../examples/test-drive/) is a compact practical course that exercises the whole authoring surface. Worth opening when a rule feels abstract:
+[`examples/workbench`](../examples/workbench/) is a compact practical course that exercises the whole authoring surface. Worth opening when a rule feels abstract:
 
 - **How to word a declared absence** — a skipped glossary and a deliberately quiet final lesson, each with a reason written for the learner's ears.
 - **How to split knowledge from practice** — every lesson carries an observable `practice` objective with a `verify` clause and one carries a literal `check`, while some practice honestly stays a judgement with no `verify` at all. That mix is the point: most real practice cannot be checked from outside, and pretending otherwise is the false confidence the `kind` split removes.
