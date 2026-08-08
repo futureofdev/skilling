@@ -188,12 +188,12 @@ Put that in CI. It is what lets a runtime roll a learner forward automatically w
 
 The full list is in [error codes](error-codes.md).
 
-## When you want to see it done at scale
+## When you want to see every surface in one place
 
-[`examples/coding-bootcamp`](../examples/coding-bootcamp/) is a real 64-lesson course carried in this repository. Worth opening when a rule feels abstract:
+[`examples/workbench`](../examples/workbench/) is a compact practical course that exercises the whole authoring surface. Worth opening when a rule feels abstract:
 
-- **How to word a declared absence** — it has 43 of them, and the ones for phases 4, 5 and 6 show what a per-phase reason looks like rather than 22 copies of the same sentence.
-- **How to split knowledge from practice** — 64 of its objectives are knowledge, 171 are practice, and only 22 of those carry a `verify` clause. That ratio is the point rather than a gap: most practice cannot honestly be checked from outside.
-- **A ceremony block with a real brand in it**, and a share template that says "6 of 64 lessons done" without any author having written a number.
+- **How to word a declared absence** — a skipped glossary and a deliberately quiet final lesson, each with a reason written for the learner's ears.
+- **How to split knowledge from practice** — every lesson carries an observable `practice` objective with a `verify` clause and one carries a literal `check`, while some practice honestly stays a judgement with no `verify` at all. That mix is the point: most real practice cannot be checked from outside, and pretending otherwise is the false confidence the `kind` split removes.
+- **A ceremony block with a real brand in it**, and a share template whose lesson counts are filled by the runtime without any author having written a number.
 
-It was ported from a course that existed before the format did, so it is also the honest record of what that costs: seven quiz answers had to gain a reason, one homework section had no submission line, and a whole phase had to be renumbered.
+The format itself was generalised from a real 64-lesson course that has since moved out of this repository. Porting it is what taught the format its sharpest lessons — a validator too strict about Key Terms, a missing `{hashtags}` placeholder, highlight guidance that read wrong in the first person — and [the changelog](../spec/CHANGELOG.md) keeps that record.

@@ -159,7 +159,7 @@ outcome and better than a check that pretends.
 ## Errata against 1.1.0-draft
 
 Found by porting a real 64-lesson course — the one this format was generalised from — into the
-repository as [`examples/coding-bootcamp`](../examples/coding-bootcamp/). All three are the
+repository as `examples/coding-bootcamp` (which has since moved out of the repository). All three are the
 kind of thing only real content finds.
 
 - **Key Terms was over-specified by its validator, not by its text.** The specification asks

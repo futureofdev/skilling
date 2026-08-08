@@ -53,8 +53,8 @@ tasks:
   validate:examples:
     desc: Validate every example course — each expects zero findings
     cmds:
-      - uv run skilling validate examples/coding-bootcamp
       - uv run skilling validate examples/hello-skilling
+      - uv run skilling validate examples/workbench
 
   check:
     desc: Everything CI runs

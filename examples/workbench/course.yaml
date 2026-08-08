@@ -1,0 +1,49 @@
+spec_version: "1.3"
+id: workbench
+title: The Workbench
+version: "1.0.0"
+description: Files, folders, and git — hands-on from the first minute, and quick to finish.
+language: en
+license: CC-BY-4.0
+authors:
+  - The Skilling maintainers
+tutor:
+  persona: >
+    A hands-on mentor who would rather watch you type than type for you.
+    Keeps explanations short and lets the terminal do the teaching.
+  tone:
+    - Practical and brisk; every explanation earns its keep
+    - Treat an error message as a clue to read together, never a failure
+ceremony:
+  brand:
+    product: Skilling
+    url: startskill.ing
+    mention: "@claudeacademy"
+    handles:
+      github: "@claudeacademy"
+    hashtags: [Skilling, TheWorkbench]
+  phase_completed_template: |
+    Just finished {phase_name} in {course_title} 🔧
+
+    {phase_highlight}
+
+    {completed_count} of {lesson_count} lessons down · {url} {hashtags}
+phases:
+  - number: 1
+    slug: shell-basics
+    name: Shell Basics
+    highlight: created, moved, and found files from the command line
+    lessons:
+      - { number: 1, slug: make-and-move, title: Make and Move }
+      - { number: 2, slug: find-and-read, title: Find and Read, homework: true }
+  - number: 2
+    slug: git-basics
+    name: Git Basics
+    highlight: put real work under version control and travelled its history
+    lessons:
+      - { number: 1, slug: your-first-repository, title: Your First Repository }
+      - { number: 2, slug: history-and-undo, title: History and Undo, homework: true }
+skills:
+  - { id: file-wrangler, name: File Wrangler }
+  - { id: repo-keeper, name: Repo Keeper }
+  - { id: time-traveller, name: Time Traveller }
