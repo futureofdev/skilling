@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from ..conformance import SPEC_MAJOR, SPEC_MINOR
 from ..course import HomeworkSlot, LessonFrontmatter, Manifest, Record
+from ..workspace import WorkspaceManifest
 
 BASE_URI = f"https://startskill.ing/schemas/v{SPEC_MAJOR}.{SPEC_MINOR}"
 
@@ -25,11 +26,12 @@ TARGETS: dict[str, tuple[type[BaseModel], str]] = {
     "lesson-frontmatter.schema.json": (LessonFrontmatter, "The YAML frontmatter of a lesson"),
     "progress-record.schema.json": (Record, "A learner's progress record (record.yaml)"),
     "homework-slot.schema.json": (HomeworkSlot, "The homework mailbox slot (active.yaml)"),
+    "workspace.schema.json": (WorkspaceManifest, "A workspace manifest (workspace.yaml)"),
 }
 
 _BANNER = (
     "Generated from the Pydantic models by `task schemas`. Informative only — "
-    "spec/course-format.md and spec/runtime.md are normative."
+    "the specification in spec/ is normative."
 )
 
 

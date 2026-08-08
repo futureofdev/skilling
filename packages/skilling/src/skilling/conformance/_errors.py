@@ -16,7 +16,7 @@ from enum import StrEnum
 SPEC_MAJOR = 1
 """The specification major version this implementation supports."""
 
-SPEC_MINOR = 3
+SPEC_MINOR = 4
 """The specification minor version this implementation supports."""
 
 

@@ -56,7 +56,7 @@ The format was originally generalised from a real 64-lesson course, and that cou
 
 ## Status
 
-Specification **1.3.0-draft**. See [what 1.0 deliberately leaves out](spec/README.md#what-10-deliberately-leaves-out) — assessed mode, the runtime API, the MCP binding, skill packs, concept-level prerequisites, and lesson guidance each wait for an implementation to exercise them first. Hooks and telemetry cleared that bar at 1.1.
+Specification **1.4.0-draft**. See [what 1.0 deliberately leaves out](spec/README.md#what-10-deliberately-leaves-out) — assessed mode, the runtime API, the MCP binding, skill packs, concept-level prerequisites, and lesson guidance each wait for an implementation to exercise them first. Hooks and telemetry cleared that bar at 1.1.
 
 Known implementations are listed in [docs/implementations.md](docs/implementations.md). A one-row registry is an honest registry; until someone we have never met builds the second row, "standard" is a claim under test.
 

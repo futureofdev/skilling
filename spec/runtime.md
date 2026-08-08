@@ -146,6 +146,11 @@ objectives_met:          # since 1.1; optional
   - id: read-a-manifest
     at: 2026-08-03
     evidence: explained
+artifacts:               # since 1.4; optional, meaningful only within a workspace
+  - path: showcase/hello-skilling/first-page/index.html
+    title: My first page
+    coordinate: "1.3"
+    added_at: 2026-08-03T14:31:07Z
 started_at: 2026-08-03
 last_activity: 2026-08-03
 timezone: Europe/London  # IANA name; defaults to UTC
@@ -159,6 +164,7 @@ telemetry:               # since 1.1
 |---|---|
 | `position` | Must always name a lesson that exists in the manifest. Beat-level position is optional; when recorded it must be a beat of the [delivery loop](#the-delivery-loop) and must stay consistent with it — a gate that was open is recorded as that gate. `question_index` (since 1.3) is optional and meaningful only when `beat` is `quiz` or `remediate`: the 0-based quiz question awaiting an answer. Additive, like `beat` itself — a record without it resumes at question 0. |
 | `completed` | A set of coordinates. Order is not significant. |
+| `artifacts` | Since 1.4; optional, and meaningful only within a [workspace](workspace.md#artifacts). Pointers to work the learner built: a workspace-relative POSIX `path`, a `title`, the `coordinate` it was recorded at, and `added_at`. Written only through the CLI, at phase ceremony and confirmed homework submission; artifacts never gate the delivery loop, and a record without the field loads unchanged. |
 | Derived values | Completed counts, remaining counts, percentages, and phase boundaries must be **derived** from the manifest plus `completed`, never stored as authoritative fields. Cache them only if the cache is disposable and recomputable. |
 
 **No conversation transcript is ever required.** The record and log must be fully reconstructible without any message history. Transcripts are a runtime's convenience; they are not part of the learner's record, and nothing on this page may depend on one. This is what lets a learner change tutor, model, or product and keep their history.

@@ -2,6 +2,56 @@
 
 All changes to the Skilling specification, including errata. See [CONTRIBUTING](../CONTRIBUTING.md) for the change process and semver rules.
 
+## 1.4.0-draft — 2026-08-08
+
+In development alongside this wave; entries below land with the change they describe.
+
+### The learner workspace
+
+[Workspace](workspace.md) specifies one folder a learner opens in any Agent-Skills host —
+Claude Code, Codex, Claude Cowork, ChatGPT Work — with everything the machinery needs hidden
+under `.skilling/` and a visible root that grows with what the learner builds. `.skilling/state`
+is a `<state-root>` exactly as [the file layout](runtime.md#the-file-layout) already binds it —
+re-pointed, not forked — and `.skilling/courses` holds fetched content in `<id>@<version>`
+directories, a subtree structurally disjoint from state, so a course's progress and its content
+never collide.
+
+The manifest, `.skilling/workspace.yaml`, is what makes a folder a workspace: per course an
+`id`, `version`, the `ref` exactly as the learner gave it, a `path` relative to `.skilling/`, a
+`showcase` directory relative to the workspace root, and `added_at`. Every path in it is
+relative, so zipping or syncing the folder into a sandboxed host carries everything the
+manifest points at. Discovery is git's model — walk up from the current directory to the
+nearest directory holding the manifest, with `SKILLING_WORKSPACE` overriding the start point —
+and keys on the manifest existing, so a stray legacy state directory is never mistaken for a
+workspace. Host entry files (`CLAUDE.md`, `AGENTS.md`) are maintained inside marked blocks,
+create-or-grow, with foreign content outside the markers never touched.
+
+### Artifacts on the record
+
+The [progress record](runtime.md#the-progress-record) gains an optional `artifacts` list —
+`path` (workspace-relative, POSIX separators), `title`, `coordinate`, `added_at` — pointers to
+work the learner built, recorded only through the CLI at the two moments the loop already owns:
+phase ceremony and confirmed homework submission. Artifacts never gate the flow, and they are
+not a fourth kind of evidence — the record holds a pointer and a title, never a judgement.
+Additive: a record without the field loads unchanged.
+
+### Enumeration reports location within a workspace
+
+1.3's [course enumeration](skill-pack.md#course-enumeration) deliberately reported no path and
+no version — honest at the time, because state genuinely never recorded where a course's
+content lives, and documented as the gap it was. The workspace manifest now records exactly
+that fact, so within a workspace the enumeration reports each course's location, and a fresh
+conversation no longer has to ask the learner where a course they already added lives. Outside
+a workspace nothing changes.
+
+### Folder-scoped installs by default
+
+[Skill pack installs](skill-pack.md#installing-and-removing) become folder-scoped by default —
+into the enclosing workspace's own `.claude/skills/` and `.agents/skills/`, receipted exactly
+as before — with the learner's home profile as the opt-in rather than the default. A pack in
+the folder travels with the folder, which is what a sandboxed host that mounts the workspace
+needs and a home-profile install can never give it.
+
 ## 1.3.0-draft — 2026-08-05
 
 In development alongside Wave 1; entries below land with the change they describe.

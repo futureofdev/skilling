@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "WorkspaceCourse": {
+      "additionalProperties": false,
+      "description": "One course a learner added to the workspace.",
+      "properties": {
+        "added_at": {
+          "format": "date-time",
+          "title": "Added At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref": {
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        },
+        "showcase": {
+          "title": "Showcase",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "ref",
+        "path",
+        "showcase",
+        "added_at"
+      ],
+      "title": "WorkspaceCourse",
+      "type": "object"
+    }
+  },
+  "$id": "https://startskill.ing/schemas/v1.4/workspace.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Generated from the Pydantic models by `task schemas`. Informative only \u2014 the specification in spec/ is normative.\n\nThe document at ``.skilling/workspace.yaml``. An empty ``courses`` list is a normal\nstate \u2014 a workspace that exists but has had nothing added yet.",
+  "properties": {
+    "courses": {
+      "items": {
+        "$ref": "#/$defs/WorkspaceCourse"
+      },
+      "title": "Courses",
+      "type": "array"
+    }
+  },
+  "title": "A workspace manifest (workspace.yaml)",
+  "type": "object"
+}
