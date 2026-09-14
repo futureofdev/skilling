@@ -141,8 +141,8 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
 
     ``course_ref`` is a directory first — today's behaviour, unchanged — and only when that
     is not a directory is it tried as a course id inside the enclosing workspace
-    (``resolve_course_location``); neither resolving is a refusal in its own right, so a
-    genuinely unresolvable ref, not merely an invalid course, is what earns ``course-not-found``.
+    (``resolve_course_location``). An unusable workspace entry earns ``course-not-found``;
+    an explicit directory with an invalid manifest still earns ``course-invalid``.
 
     Never writes beyond the record's own creation-on-first-use (``load_or_create``) — each
     verb decides for itself whether *it* makes a write, and through what CAS.
@@ -155,7 +155,8 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
                 ExitCode.INVALID,
                 "course-not-found",
                 f"{course_ref!r} is not a course directory, and no enclosing workspace has "
-                "a course by that id.",
+                "a usable course by that id. Restore or re-add its workspace content, or pass "
+                "an explicit course directory.",
             )
         course_path = located
 

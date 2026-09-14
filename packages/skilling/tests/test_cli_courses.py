@@ -10,6 +10,7 @@ holds.
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -295,3 +296,98 @@ def test_courses_agrees_with_every_other_verb_on_home_state_outside_a_workspace(
 
     assert [c["id"] for c in out["courses"]] == [course.id]
     assert (fake_home / ".skilling" / "state" / course.id / "record.yaml").is_file()
+
+
+@pytest.mark.parametrize("damage", ["missing", "corrupt", "wrong-id", "wrong-version"])
+@pytest.mark.parametrize("cached", [True, False])
+def test_stale_workspace_content_preserves_fallback_without_a_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, damage: str, cached: bool
+) -> None:
+    workspace = tmp_path / "workspace"
+    entry = _add_clean_course_to_workspace(workspace)
+    content = workspace / ".skilling" / entry.path
+    if damage == "missing":
+        shutil.rmtree(content)
+    elif damage == "corrupt":
+        (content / "course.yaml").write_text("[broken", encoding="utf-8")
+    elif damage == "wrong-id":
+        fx.edit(content, fx.MANIFEST_PATH, "id: clean-course", "id: other-course")
+    else:
+        fx.edit(content, fx.MANIFEST_PATH, 'version: "1.0.0"', 'version: "2.0.0"')
+    cache = tmp_path / "cache"
+    if cached:
+        fx.build(cache / "clean-course@1.0.0")
+    _write_record(tmp_path / "state", "clean-course", last_activity=date(2026, 8, 1))
+    monkeypatch.chdir(workspace)
+
+    result = run(["courses"], tmp_path / "state", cache=cache)
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["courses"] == [
+        {
+            "id": "clean-course",
+            "title": "Clean Course" if cached else "clean-course",
+            "last_activity": "2026-08-01",
+        }
+    ]
+
+
+def test_workspace_title_uses_manifest_path_after_relocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    entry = _add_clean_course_to_workspace(workspace)
+    original = workspace / ".skilling" / entry.path
+    actual = workspace / ".skilling" / "imported" / original.name
+    actual.parent.mkdir()
+    original.rename(actual)
+    fx.build(original)
+    fx.edit(original, fx.MANIFEST_PATH, "title: Clean Course", "title: Decoy Title")
+    entry.path = f"imported/{original.name}"
+    save_workspace_manifest(workspace, WorkspaceManifest(courses=[entry]))
+    _write_record(workspace_state_root(workspace), "clean-course", last_activity=date(2026, 8, 1))
+    relocated = tmp_path / "relocated"
+    workspace.rename(relocated)
+    nested = relocated / "showcase"
+    nested.mkdir()
+    monkeypatch.chdir(nested)
+
+    result = run(["courses"], workspace_state_root(relocated), cache=tmp_path / "cache")
+
+    assert result.exit_code == 0
+    row = json.loads(result.stdout)["courses"][0]
+    assert row["title"] == "Clean Course"
+    assert row["path"] == str(relocated / ".skilling" / entry.path)
+
+
+def test_workspace_version_different_from_record_does_not_offer_resume_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    _add_clean_course_to_workspace(workspace)
+    _write_record(
+        tmp_path / "state", "clean-course", version="0.9.0", last_activity=date(2026, 8, 1)
+    )
+    monkeypatch.chdir(workspace)
+
+    result = run(["courses"], tmp_path / "state", cache=tmp_path / "cache")
+
+    assert "path" not in json.loads(result.stdout)["courses"][0]
+
+
+@pytest.mark.parametrize("text", ["[broken", "courses: [{id: invalid}]", "courses: nope"])
+def test_invalid_workspace_manifest_does_not_hide_cached_display(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    workspace = tmp_path / "workspace"
+    _add_clean_course_to_workspace(workspace)
+    (workspace / ".skilling" / "workspace.yaml").write_text(text, encoding="utf-8")
+    fx.build(tmp_path / "cache" / "clean-course@1.0.0")
+    _write_record(tmp_path / "state", "clean-course", last_activity=date(2026, 8, 1))
+    monkeypatch.chdir(workspace)
+
+    result = run(["courses"], tmp_path / "state", cache=tmp_path / "cache")
+
+    row = json.loads(result.stdout)["courses"][0]
+    assert row["title"] == "Clean Course"
+    assert "path" not in row

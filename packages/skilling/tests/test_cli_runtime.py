@@ -555,3 +555,59 @@ def test_course_ref_an_existing_directory_is_still_tried_first(
 
     assert result.exit_code == 0
     assert json.loads(result.stdout)["course"]["id"] == "clean-course"
+
+
+@pytest.mark.parametrize("damage", ["missing", "corrupt", "wrong-id", "wrong-version"])
+def test_unusable_workspace_course_is_not_found_and_never_uses_cache(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, damage: str
+) -> None:
+    _isolate(monkeypatch)
+    workspace = tmp_path / "workspace"
+    content = _add_to_workspace(workspace, clean_dir, "clean-course")
+    if damage == "missing":
+        shutil.rmtree(content)
+    elif damage == "corrupt":
+        (content / "course.yaml").write_text("[broken", encoding="utf-8")
+    elif damage == "wrong-id":
+        fx.edit(content, fx.MANIFEST_PATH, "id: clean-course", "id: other-course")
+    else:
+        fx.edit(content, fx.MANIFEST_PATH, 'version: "1.0.0"', 'version: "2.0.0"')
+    cache = tmp_path / "cache"
+    fx.build(cache / "clean-course@1.0.0")
+    monkeypatch.setenv("SKILLING_CACHE_DIR", str(cache))
+    monkeypatch.chdir(workspace)
+
+    result = runner.invoke(app, ["next", "--course", "clean-course"], catch_exceptions=False)
+
+    assert result.exit_code == 2
+    body = json.loads(result.stdout)
+    assert body["error"]["code"] == "course-not-found"
+    assert "usable" in body["error"]["message"]
+    assert not workspace_state_root(workspace).exists()
+
+
+@pytest.mark.parametrize("recovery", ["flag", "environment"])
+def test_legacy_state_requires_explicit_recovery_and_is_not_migrated(
+    clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recovery: str
+) -> None:
+    _isolate(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    fake_home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+    legacy = tmp_path / ".skilling"
+    result = run(["next", "--course", str(clean_dir)], legacy)
+    assert result.exit_code == 0
+    record_path = legacy / "clean-course" / "record.yaml"
+    before = record_path.read_bytes()
+
+    default = runner.invoke(app, ["courses"], catch_exceptions=False)
+    assert json.loads(default.stdout)["courses"] == []
+    if recovery == "flag":
+        args = ["courses", "--state", str(legacy)]
+    else:
+        monkeypatch.setenv("SKILLING_STATE_ROOT", str(legacy))
+        args = ["courses"]
+    restored = runner.invoke(app, args, catch_exceptions=False)
+    assert [row["id"] for row in json.loads(restored.stdout)["courses"]] == ["clean-course"]
+    assert record_path.read_bytes() == before
+    assert not fake_home.exists()

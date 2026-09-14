@@ -10,8 +10,10 @@ Title resolution. A state root (``store/_file.py``) only ever records a course *
 record it wrote for that id — never where that course's content lives. When the current
 directory is inside a workspace (spec/workspace.md) and that workspace's manifest has added
 the course, its content sits at ``.skilling/<path>`` and both the title and a ``path`` field
-are resolved from there first. Otherwise, if the course was ever resolved through
-``skilling fetch``, its manifest sits in the fetch cache at
+are resolved from there first, only when its manifest loads and its id and version match
+both the workspace entry and the progress record. Missing, corrupt, or mismatched content
+omits the path and preserves the display fallback. Otherwise, if the course was ever resolved
+through ``skilling fetch``, its manifest sits in the fetch cache at
 ``<cache>/<id>@<record.course_version>/`` (``sources/_cache.py``'s own layout), and the title is
 read from there instead — with no ``path`` in the row, since a fetch-cache hit says nothing
 about where a workspace keeps that course. A course the learner pointed ``--course`` at
@@ -40,9 +42,7 @@ import typer
 from ...course import CourseLoadError, is_course_id, is_semver, load_manifest
 from ...sources import CACHE_ENV
 from ...store import FileProgressStore, open_store
-from ...workspace import SKILLING_DIR, find_workspace, resolve_state_root
-from ...workspace import courses_dir as workspace_courses_dir
-from ...workspace import load_manifest as load_workspace_manifest
+from ...workspace import resolve_course_location, resolve_state_root
 from ._common import ExitCode, emit, fail
 
 
@@ -50,7 +50,7 @@ class _CourseSummary(NamedTuple):
     """One row of the enumeration: exactly what ``courses`` promises, typed rather than a
     raw dict, so sorting has an actual comparable key instead of ``object``.
 
-    ``path`` is ``None`` whenever no discovered workspace has this course — the row-building
+    ``path`` is ``None`` whenever no usable workspace entry matches the record — the row-building
     function below turns that into the key's *absence*, not a JSON ``null``, matching
     ``cli/runtime/_session.py``'s ``_tutor`` idiom for the same kind of optional field.
     """
@@ -93,12 +93,17 @@ def _title(cache_root: Path, course_id: str, course_version: str) -> str:
     if not (is_course_id(course_id) and is_semver(course_version)):
         return course_id
     candidate = cache_root / f"{course_id}@{course_version}"
-    if not candidate.is_dir():
-        return course_id
+    return _title_at(candidate, course_id, course_version) or course_id
+
+
+def _title_at(candidate: Path, course_id: str, course_version: str) -> str | None:
     try:
-        return load_manifest(candidate).title
-    except CourseLoadError:
-        return course_id
+        manifest = load_manifest(candidate)
+    except (CourseLoadError, OSError, UnicodeError):
+        return None
+    if manifest.id != course_id or manifest.version != course_version:
+        return None
+    return manifest.title
 
 
 def courses(
@@ -121,14 +126,6 @@ def courses(
         )
 
     cache_root = cache if cache is not None else _default_cache_root()
-    workspace = find_workspace()
-    manifest = None
-    if workspace is not None:
-        try:
-            manifest = load_workspace_manifest(workspace)
-        except FileNotFoundError:
-            manifest = None
-
     found: list[_CourseSummary] = []
     root = store.state_root
     if root.is_dir():
@@ -142,11 +139,12 @@ def courses(
 
             title = _title(cache_root, record.course_id, record.course_version)
             path: str | None = None
-            if workspace is not None and manifest is not None:
-                added = manifest.course(record.course_id)
-                if added is not None:
-                    title = _title(workspace_courses_dir(workspace), added.id, added.version)
-                    path = str(workspace / SKILLING_DIR / added.path)
+            located = resolve_course_location(record.course_id, version=record.course_version)
+            if located is not None:
+                workspace_title = _title_at(located, record.course_id, record.course_version)
+                if workspace_title is not None:
+                    title = workspace_title
+                    path = str(located)
 
             found.append(
                 _CourseSummary(
