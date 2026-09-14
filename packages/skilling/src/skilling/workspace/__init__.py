@@ -4,7 +4,9 @@ with what the learner builds. Layout, manifest, discovery, growth (``_setup``), 
 files (``_entry``) per spec/workspace.md.
 
 Nothing here reads or writes learner progress itself: the workspace re-points where the store
-and the fetch cache already operate, it does not fork either.
+and the fetch cache already operate, it does not fork either. ``resolve_state_root`` and
+``resolve_course_location`` are the one precedence every runtime verb uses to find that
+state and content without the learner re-stating paths.
 """
 
 from ._discover import WORKSPACE_ENV, find_workspace
@@ -23,6 +25,7 @@ from ._layout import (
     state_root,
 )
 from ._manifest import WorkspaceCourse, WorkspaceManifest
+from ._resolve import resolve_course_location, resolve_state_root
 from ._setup import ImportedCourse, add_course, ensure_workspace, import_local_course
 
 __all__ = [
@@ -46,6 +49,8 @@ __all__ = [
     "load_manifest",
     "manifest_path",
     "refresh_entry_files",
+    "resolve_course_location",
+    "resolve_state_root",
     "save_manifest",
     "showcase_dir",
     "state_root",

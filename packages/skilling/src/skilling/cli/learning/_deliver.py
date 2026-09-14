@@ -10,16 +10,19 @@ from ...conformance import validate_course
 from ...course import Course, CourseLoadError
 from ...delivery import Dispatcher, parse_sink, set_telemetry_consent
 from ...store import LOCAL_LEARNER, FileProgressStore
+from ...workspace import resolve_state_root
 from .. import _render as render
 from ._walk import Walker
-
-DEFAULT_STATE = Path(".skilling")
 
 
 def deliver(
     course: Path = typer.Argument(..., help="Path to the course directory."),
-    state: Path = typer.Option(
-        DEFAULT_STATE, "--state", help="Where to keep the learner's progress record."
+    state: Path | None = typer.Option(
+        None,
+        "--state",
+        envvar="SKILLING_STATE_ROOT",
+        help="Where to keep the learner's progress record. Defaults to the enclosing "
+        "workspace's state, or ~/.skilling/state outside one.",
     ),
     learner: str = typer.Option(LOCAL_LEARNER, "--learner", help="Learner id for the record."),
     zone: str = typer.Option("UTC", "--timezone", help="IANA timezone for streak dates."),
@@ -60,7 +63,7 @@ def deliver(
         raise typer.Exit(1) from exc
 
     dispatcher = Dispatcher(first_party=first_party, telemetry=telemetry)
-    store = FileProgressStore(state, learner_id=learner)
+    store = FileProgressStore(resolve_state_root(state), learner_id=learner)
     walker = Walker(
         resolved,
         store,

@@ -48,6 +48,31 @@ uvx skilling diff ./v1 ./v2           # classify a version bump
 
 `skilling deliver` is a real Conforming Runtime with no language model in it. That is deliberate: if a text walker can conform, then [conformance binds machinery rather than vibes](spec/runtime.md#scope-of-conformance). A model-backed tutor is the next implementation, not the first.
 
+The runtime commands (`deliver`, `next`, `advance`, `progress`, `homework`, and `courses`)
+choose progress state in this order: `--state`, `SKILLING_STATE_ROOT`, the nearest enclosing
+workspace's `.skilling/state/`, then `~/.skilling/state/`. Workspace discovery requires
+`.skilling/workspace.yaml`; `SKILLING_WORKSPACE` overrides where the upward search starts.
+
+**Recovering older local state:** a bare `.skilling/` directory from an earlier `deliver`
+or runtime session is not a workspace and is no longer selected automatically. Existing
+records stay untouched; no migration or merging occurs. From the original directory, resume
+with explicit state, or set an absolute path to use that same state from other directories:
+
+```bash
+skilling courses --state ./.skilling
+skilling next --course ./my-course --state ./.skilling
+export SKILLING_STATE_ROOT="/absolute/path/to/original/.skilling"
+skilling deliver /absolute/path/to/my-course
+```
+
+Inside a workspace, JSON runtime commands also accept an added course id in `--course`;
+an existing directory still takes precedence. `courses` offers a path only when the
+workspace content's manifest loads and matches the entry and recorded version. Stale entries
+keep a cached display title when available, otherwise the id, and omit the unusable path.
+Resolving an unusable workspace course id returns `course-not-found`; restore or re-add the
+workspace content, or supply an explicit directory. Cached content is never selected as an
+automatic replacement.
+
 ## The exercising example
 
 [`examples/workbench`](examples/workbench/) is a compact practical course — files, folders, and git — that exercises every surface the format has: structured objectives of both kinds with honest `verify` coverage and a literal `check`, declared absences each with a stated reason, badges, ceremony facts and a share template, an asset, and homework at every phase boundary. A test suite asserts that coverage structurally, and the course stays small enough to deliver end to end when testing a runtime or a host.

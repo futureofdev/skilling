@@ -430,3 +430,43 @@ def test_entry_refresh_preserves_foreign_newline_bytes(
     updated = entry.read_bytes()
     assert updated.startswith(prefix)
     assert updated.endswith(suffix)
+
+
+def test_started_workspace_resumes_by_id_after_relocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    monkeypatch.delenv("SKILLING_STATE_ROOT", raising=False)
+    monkeypatch.delenv("SKILLING_WORKSPACE", raising=False)
+    source = tmp_path / "source"
+    shutil.copytree(EXAMPLE_COURSE, source)
+    ws = tmp_path / "ws"
+    home = tmp_path / "home"
+    started = run(["start", str(source), str(ws), "--json"], home)
+    assert started.exit_code == 0, started.output
+    shutil.rmtree(source)
+    monkeypatch.chdir(ws / "showcase/hello-skilling")
+    advanced = run(["advance", "--course", "hello-skilling", "--input", "next"], home)
+    assert advanced.exit_code == 0, advanced.output
+    before = json.loads(advanced.stdout)
+    record_before = (state_root(ws) / "hello-skilling/record.yaml").read_bytes()
+
+    monkeypatch.chdir(tmp_path)
+    relocated = tmp_path / "relocated"
+    ws.rename(relocated)
+    monkeypatch.chdir(relocated / "showcase/hello-skilling")
+    resumed = run(["next", "--course", "hello-skilling"], home)
+    assert resumed.exit_code == 0, resumed.output
+    after = json.loads(resumed.stdout)
+    assert after["position"] == before["position"]
+    assert after["revision"] == before["revision"]
+    assert after["beat"] == before["beat"]
+    assert (state_root(relocated) / "hello-skilling/record.yaml").read_bytes() == record_before
+    listed = run(["courses", "--json"], home)
+    assert listed.exit_code == 0, listed.output
+    courses = json.loads(listed.stdout)["courses"]
+    assert [(course["id"], course["title"]) for course in courses] == [
+        ("hello-skilling", "Hello, Skilling")
+    ]
+    assert not (home / ".skilling/state").exists()
