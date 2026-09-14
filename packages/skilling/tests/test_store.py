@@ -374,3 +374,93 @@ def test_windows_directory_fsync_does_not_open_a_descriptor(
     # Absence of open/fsync attributes makes accidental calls fail on every test platform.
     monkeypatch.setattr(_file, "os", SimpleNamespace(name="nt"))
     _file._fsync_dir(tmp_path)
+
+
+@pytest.mark.parametrize("kind", ["record", "homework"])
+@pytest.mark.parametrize("windows_newlines", [False, True], ids=["native", "simulated-crlf"])
+def test_file_put_revision_matches_bytes_and_can_be_reused(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    windows_newlines: bool,
+) -> None:
+    import hashlib
+    import os
+
+    from skilling.store import _file
+
+    if windows_newlines:
+        original_fdopen = os.fdopen
+
+        def fdopen(fd: int, mode: str, *, encoding: str | None = None, newline: str | None = None):
+            # Exercise Windows text translation on every host; binary writes bypass it.
+            if "b" in mode:
+                return original_fdopen(fd, mode)
+            return original_fdopen(
+                fd, mode, encoding=encoding, newline="\r\n" if newline is None else newline
+            )
+
+        monkeypatch.setattr(os, "fdopen", fdopen)
+    store = FileProgressStore(tmp_path)
+    if kind == "record":
+        first = a_record(skills_unlocked=["café"])
+        revision = store.put_record(first, None)
+        path = store.checked_path(COURSE, "record.yaml")
+        assert store.get_record(LEARNER, COURSE) == (first, revision)
+        second = a_record(skills_unlocked=["café", "retry"])
+        new_revision = store.put_record(second, revision)
+        assert store.get_record(LEARNER, COURSE) == (second, new_revision)
+    else:
+        first = a_slot()
+        revision = store.put_homework(LEARNER, COURSE, first, None)
+        path = store.checked_path(COURSE, "homework", "active.yaml")
+        assert store.get_homework(LEARNER, COURSE) == (first, revision)
+        second = a_slot("1.1")
+        new_revision = store.put_homework(LEARNER, COURSE, second, revision)
+        assert store.get_homework(LEARNER, COURSE) == (second, new_revision)
+    raw = path.read_bytes()
+    assert raw == _file._dump(second).encode("utf-8")
+    assert new_revision == hashlib.sha256(raw).hexdigest()[:16]
+    if kind == "homework":
+        assert store.put_homework(LEARNER, COURSE, None, new_revision) is None
+        assert not path.exists()
+
+
+@pytest.mark.parametrize("kind", ["record", "homework"])
+def test_file_legacy_crlf_is_read_without_rewrite_and_uses_raw_revision(
+    tmp_path: Path, kind: str
+) -> None:
+    import hashlib
+
+    from skilling.store import _file
+
+    store = FileProgressStore(tmp_path)
+    model = a_record() if kind == "record" else a_slot()
+    path = (
+        store.checked_path(COURSE, "record.yaml")
+        if kind == "record"
+        else store.checked_path(COURSE, "homework", "active.yaml")
+    )
+    lf = _file._dump(model).encode("utf-8")
+    crlf = lf.replace(b"\n", b"\r\n")
+    path.parent.mkdir(parents=True)
+    path.write_bytes(crlf)
+    revision = hashlib.sha256(crlf).hexdigest()[:16]
+    normalized_revision = hashlib.sha256(lf).hexdigest()[:16]
+    if kind == "record":
+        assert store.get_record(LEARNER, COURSE) == (model, revision)
+        assert path.read_bytes() == crlf
+        with pytest.raises(Conflict):
+            store.put_record(a_record(skills_unlocked=["refused"]), normalized_revision)
+        assert path.read_bytes() == crlf
+        updated = a_record(skills_unlocked=["accepted"])
+        new_revision = store.put_record(updated, revision)
+        assert store.get_record(LEARNER, COURSE) == (updated, new_revision)
+    else:
+        assert store.get_homework(LEARNER, COURSE) == (model, revision)
+        assert path.read_bytes() == crlf
+        with pytest.raises(Conflict):
+            store.put_homework(LEARNER, COURSE, None, normalized_revision)
+        assert path.read_bytes() == crlf
+        assert store.put_homework(LEARNER, COURSE, None, revision) is None
+        assert not path.exists()

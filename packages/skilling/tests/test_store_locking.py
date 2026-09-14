@@ -63,8 +63,9 @@ def test_killed_owner_releases_kernel_lock_without_removing_file(tmp_path: Path)
     store.put_record(a_record(), None)
     store.append_completion(LEARNER, COURSE, an_entry("0.1"))
     store.put_homework(LEARNER, COURSE, a_slot(), None)
-    before = {p: p.read_bytes() for p in store.state_root.rglob("*") if p.is_file()}
     lock = store.checked_path(COURSE, ".skilling.lock")
+    # Windows byte locks also deny reads of the coordination file while its owner lives.
+    before = {p: p.read_bytes() for p in store.state_root.rglob("*") if p.is_file() and p != lock}
     identity = lock.stat()
     ctx = mp.get_context("spawn")
     ready, release = ctx.Event(), ctx.Event()
@@ -73,12 +74,21 @@ def test_killed_owner_releases_kernel_lock_without_removing_file(tmp_path: Path)
         holder.start()
         assert ready.wait(15)
         _run_contender(ctx, store.state_root, "busy")
-        assert all(path.read_bytes() == raw for path, raw in before.items())
+        assert {
+            p: p.read_bytes() for p in store.state_root.rglob("*") if p.is_file() and p != lock
+        } == before
+        current = lock.stat()
+        assert (current.st_dev, current.st_ino, current.st_size) == (
+            identity.st_dev,
+            identity.st_ino,
+            0,
+        )
         holder.kill()
         holder.join(15)
         assert holder.exitcode is not None and holder.exitcode != 0
         _run_contender(ctx, store.state_root, "ok", mutate=True)
         assert (lock.stat().st_dev, lock.stat().st_ino) == (identity.st_dev, identity.st_ino)
+        assert lock.read_bytes() == b""
         found = store.get_record(LEARNER, COURSE)
         assert found is not None and found[0].skills_unlocked == ["fresh"]
     finally:
