@@ -484,4 +484,4 @@ def require_relative_posix(value: str) -> str:
 
 
 def is_course_id(value: str) -> bool:
-    return 1 <= len(value) <= 64 and bool(SLUG_RE.match(value))
+    return 1 <= len(value) <= 64 and bool(SLUG_RE.fullmatch(value))

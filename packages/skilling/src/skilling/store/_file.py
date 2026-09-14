@@ -12,8 +12,10 @@ survives a crash of the runtime, the store, or both.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
+import re
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -22,7 +24,8 @@ import yaml
 from pydantic import BaseModel
 
 from ..course import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
-from ._protocol import Conflict, Revision
+from ._paths import canonical_root, checked_path
+from ._protocol import Conflict, Revision, StatePathError
 
 RECORD_NAME = "record.yaml"
 LOG_NAME = "completed.yaml"
@@ -70,38 +73,65 @@ def _write_atomic(path: Path, text: str) -> None:
 
 
 def _fsync_dir(directory: Path) -> None:
-    fd = os.open(directory, os.O_RDONLY)
+    # Windows has no usable directory descriptor through this standard-library path.
+    # File flush/fsync and atomic replacement still run; this is not a power-loss promise.
+    if os.name == "nt":
+        return
+    fd: int | None = None
     try:
+        fd = os.open(directory, os.O_RDONLY)
         os.fsync(fd)
-    except OSError:  # pragma: no cover - not every platform allows directory fsync
-        pass
+    except OSError as exc:
+        if exc.errno not in {errno.EINVAL, errno.ENOTSUP, errno.EOPNOTSUPP}:
+            raise
     finally:
-        os.close(fd)
+        if fd is not None:
+            os.close(fd)
 
 
 class FileProgressStore:
     """A conforming store over a directory tree. One learner per ``state_root``."""
 
     def __init__(self, state_root: Path | str, learner_id: str = LOCAL_LEARNER) -> None:
-        self.state_root = Path(state_root)
+        self.state_root = canonical_root(state_root)
         self.learner_id = learner_id
 
     # ------------------------------------------------------------------------- paths
 
+    def checked_path(self, course_id: str, *parts: str) -> Path:
+        """Check every descendant before access, without creating the state root."""
+        return checked_path(self.state_root, course_id, *parts)
+
     def course_dir(self, course_id: str) -> Path:
-        return self.state_root / course_id
+        return self.checked_path(course_id)
+
+    def ensure_course_paths(self, course_id: str) -> None:
+        """Read-only preflight before a session can initialize learner state."""
+        directory = self.course_dir(course_id)
+        self._record_path(course_id)
+        self._log_path(course_id)
+        self._homework_path(course_id)
+        self.checked_path(course_id, "scratch.yaml")
+        archive = self._archive_dir(course_id)
+        if archive.is_dir():
+            for child in archive.iterdir():
+                self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE, child.name)
+        if directory.is_dir():
+            for child in directory.iterdir():
+                if child.name.startswith("."):
+                    self.checked_path(course_id, child.name)
 
     def _record_path(self, course_id: str) -> Path:
-        return self.course_dir(course_id) / RECORD_NAME
+        return self.checked_path(course_id, RECORD_NAME)
 
     def _log_path(self, course_id: str) -> Path:
-        return self.course_dir(course_id) / LOG_NAME
+        return self.checked_path(course_id, LOG_NAME)
 
     def _homework_path(self, course_id: str) -> Path:
-        return self.course_dir(course_id) / HOMEWORK_DIR / HOMEWORK_ACTIVE
+        return self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ACTIVE)
 
     def _archive_dir(self, course_id: str) -> Path:
-        return self.course_dir(course_id) / HOMEWORK_DIR / HOMEWORK_ARCHIVE
+        return self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE)
 
     # ------------------------------------------------------------------------ record
 
@@ -111,6 +141,10 @@ class FileProgressStore:
             return None
         raw = path.read_bytes()
         record = Record.model_validate(yaml.safe_load(raw.decode("utf-8")))
+        if record.course_id != course_id:
+            raise StatePathError(
+                f"Record course id {record.course_id!r} does not match directory {course_id!r}"
+            )
         return record, _revision(raw)
 
     def put_record(self, record: Record, expected_revision: Revision | None) -> Revision:
@@ -119,7 +153,7 @@ class FileProgressStore:
         if actual != expected_revision:
             raise Conflict(RECORD_NAME, expected_revision, actual)
         text = _dump(record)
-        _write_atomic(path, text)
+        _write_atomic(self._record_path(record.course_id), text)
         return _revision(text.encode("utf-8"))
 
     # --------------------------------------------------------------------------- log
@@ -161,36 +195,45 @@ class FileProgressStore:
             raise Conflict(HOMEWORK_ACTIVE, expected_revision, actual)
         if slot is None:
             if path.is_file():
-                path.unlink()
+                self._homework_path(course_id).unlink()
                 _fsync_dir(path.parent)
             return None
         text = _dump(slot)
-        _write_atomic(path, text)
+        _write_atomic(self._homework_path(course_id), text)
         return _revision(text.encode("utf-8"))
 
     def append_homework_archive(
         self, learner_id: str, course_id: str, entry: HomeworkArchiveEntry
     ) -> None:
-        directory = self._archive_dir(course_id)
+        self._archive_dir(course_id)
+        if re.fullmatch(r"[0-9]+\.[0-9]+", entry.coordinate) is None:
+            raise StatePathError(f"Invalid archive coordinate: {entry.coordinate!r}")
         stamp = entry.submitted_at.date().isoformat()
         name = f"{entry.coordinate}-{stamp}.yaml"
-        path = directory / name
+        path = self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE, name)
         # Archives are immutable, so a same-day resubmission of a different instance gets a
         # suffix rather than overwriting what is already there.
         suffix = 2
         while path.exists():
-            path = directory / f"{entry.coordinate}-{stamp}-{suffix}.yaml"
+            name = f"{entry.coordinate}-{stamp}-{suffix}.yaml"
+            path = self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE, name)
             suffix += 1
-        _write_atomic(path, _dump(entry))
+        _write_atomic(
+            self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE, name), _dump(entry)
+        )
 
     def get_homework_archive(self, learner_id: str, course_id: str) -> list[HomeworkArchiveEntry]:
         directory = self._archive_dir(course_id)
         if not directory.is_dir():
             return []
-        entries = [
-            HomeworkArchiveEntry.model_validate(yaml.safe_load(p.read_text(encoding="utf-8")))
-            for p in sorted(directory.glob("*.yaml"))
-        ]
+        entries = []
+        for child in sorted(directory.glob("*.yaml")):
+            path = self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE, child.name)
+            entries.append(
+                HomeworkArchiveEntry.model_validate(
+                    yaml.safe_load(path.read_text(encoding="utf-8"))
+                )
+            )
         return sorted(entries, key=lambda e: e.submitted_at)
 
     # ------------------------------------------------------------------ enumeration

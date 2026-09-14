@@ -96,3 +96,14 @@ def test_quiz_numbering_must_be_1_2_3(clean_dir: Path, numbers: tuple[str, str, 
     lesson.write_text(text, encoding="utf-8")
     report = validate_course(clean_dir)
     assert Code.QUIZ_QUESTION_NUMBERING in {f.code for f in report.errors}
+
+
+def test_course_id_terminal_newline_is_invalid(clean_dir: Path) -> None:
+    import yaml
+
+    path = clean_dir / "course.yaml"
+    data = yaml.safe_load(path.read_text())
+    data["id"] = "valid\n"
+    path.write_text(yaml.safe_dump(data))
+    report = validate_course(clean_dir)
+    assert Code.COURSE_ID_INVALID in {finding.code for finding in report.errors}

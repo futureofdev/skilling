@@ -16,6 +16,7 @@ from __future__ import annotations
 import typer
 
 from .. import __version__
+from ..store import StatePathError
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
@@ -101,7 +102,13 @@ for _group in GROUPS:
 
 
 def main() -> None:
-    app()
+    from .runtime._common import ExitCode, emit
+
+    try:
+        app()
+    except StatePathError as exc:
+        emit({"ok": False, "error": {"code": "state-invalid", "message": str(exc)}})
+        raise SystemExit(ExitCode.INVALID) from exc
 
 
 if __name__ == "__main__":

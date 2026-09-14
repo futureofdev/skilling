@@ -391,3 +391,43 @@ def test_invalid_workspace_manifest_does_not_hide_cached_display(
     row = json.loads(result.stdout)["courses"][0]
     assert row["title"] == "Clean Course"
     assert "path" not in row
+
+
+@pytest.mark.parametrize("kind", ["alias", "mismatch"])
+def test_courses_refuses_unsafe_state(tmp_path: Path, kind: str) -> None:
+    from skilling.cli import app
+
+    from .test_state_paths import directory_alias, snapshot
+    from .test_store import a_record
+
+    state = tmp_path / "state"
+    state.mkdir()
+    if kind == "alias":
+        target = tmp_path / "outside"
+        target.mkdir()
+        directory_alias(state / "clean-course", target)
+    else:
+        store = FileProgressStore(state)
+        store.put_record(a_record("other-course"), None)
+        (state / "other-course").rename(state / "clean-course")
+    before = snapshot(tmp_path)
+    result = runner.invoke(app, ["courses", "--state", str(state)])
+    assert result.exit_code == 2, result.output
+    assert json.loads(result.stdout)["error"]["code"] == "state-invalid"
+    assert snapshot(tmp_path) == before
+
+
+def test_courses_skips_unrelated_invalid_entry_names(tmp_path: Path) -> None:
+    from skilling.cli import app
+
+    from .test_state_paths import directory_alias
+    from .test_store import a_record
+
+    state = tmp_path / "state"
+    FileProgressStore(state).put_record(a_record(), None)
+    target = tmp_path / "outside"
+    target.mkdir()
+    directory_alias(state / ".unrelated", target)
+    result = runner.invoke(app, ["courses", "--state", str(state)])
+    assert result.exit_code == 0, result.output
+    assert [row["id"] for row in json.loads(result.stdout)["courses"]] == ["clean-course"]
