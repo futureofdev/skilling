@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+import yaml
 
 from ...conformance import validate_course
 from ...course import Course, CourseLoadError
 from ...delivery import Dispatcher, parse_sink, set_telemetry_consent
-from ...store import LOCAL_LEARNER, FileProgressStore
+from ...store import LOCAL_LEARNER, FileProgressStore, StatePathError
 from ...workspace import resolve_state_root
 from .. import _render as render
 from ._walk import Walker
@@ -42,12 +43,15 @@ def deliver(
 ) -> None:
     """Walk the delivery loop. A Conforming Runtime — no language model involved."""
     try:
+        report = validate_course(course)
         resolved = Course.load(course)
     except CourseLoadError as exc:
         render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
         raise typer.Exit(1) from exc
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        render.err_console.print(f"[red]course-invalid[/] Cannot read course: {type(exc).__name__}")
+        raise typer.Exit(1) from exc
 
-    report = validate_course(course)
     if not report.ok:
         render.err_console.print(
             f"[red]This course does not conform ({len(report.errors)} error(s)).[/] "
@@ -62,21 +66,30 @@ def deliver(
         render.err_console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
 
-    dispatcher = Dispatcher(first_party=first_party, telemetry=telemetry)
-    store = FileProgressStore(resolve_state_root(state), learner_id=learner)
-    walker = Walker(
-        resolved,
-        store,
-        learner_id=learner,
-        console=render.console,
-        zone=zone,
-        hooks=dispatcher,
-        ask_consent=not no_telemetry,
-    )
     try:
+        store = FileProgressStore(resolve_state_root(state), learner_id=learner)
+        store.ensure_course_paths(resolved.id)
+    except StatePathError as exc:
+        render.err_console.print(f"[red]state-invalid[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    dispatcher = Dispatcher(first_party=first_party, telemetry=telemetry)
+    try:
+        walker = Walker(
+            resolved,
+            store,
+            learner_id=learner,
+            console=render.console,
+            zone=zone,
+            hooks=dispatcher,
+            ask_consent=not no_telemetry,
+        )
         code = walker.run()
         if no_telemetry and walker.record.telemetry.opt_in is None:
             set_telemetry_consent(store, walker.record, walker.revision, False)
+    except StatePathError as exc:
+        render.err_console.print(f"[red]state-invalid[/] {exc}")
+        raise typer.Exit(1) from exc
     finally:
         dispatcher.close()
     raise typer.Exit(code)

@@ -24,9 +24,10 @@ from typing import NamedTuple, NoReturn
 import typer
 import yaml
 
+from ...conformance import validate_course
 from ...course import Course, CourseLoadError, Record, ResolvedLesson
 from ...delivery import load_or_create
-from ...store import FileProgressStore, ProgressStore, open_store
+from ...store import FileProgressStore, ProgressStore, StatePathError, open_store
 from ...workspace import resolve_course_location, resolve_state_root
 
 SCRATCH_NAME = "scratch.yaml"
@@ -90,12 +91,13 @@ def fail(code: ExitCode, error: str, message: str) -> NoReturn:
     raise typer.Exit(code)
 
 
-def _scratch_path(state_root: Path, course_id: str) -> Path:
-    return state_root / course_id / SCRATCH_NAME
+def _scratch_path(store: ProgressStore, course_id: str) -> Path:
+    if not isinstance(store, FileProgressStore):
+        raise TypeError("runtime-private scratch currently needs the file store backend")
+    return store.checked_path(course_id, SCRATCH_NAME)
 
 
-def _load_scratch(state_root: Path, course_id: str) -> Scratch:
-    path = _scratch_path(state_root, course_id)
+def _load_scratch(path: Path) -> Scratch:
     if not path.is_file():
         return Scratch()
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -119,7 +121,7 @@ def save_scratch(session: Session, scratch: Scratch) -> None:
     """
     if not isinstance(session.store, FileProgressStore):
         raise TypeError("runtime-private scratch currently needs the file store backend")
-    path = session.store.course_dir(session.course.id) / SCRATCH_NAME
+    path = _scratch_path(session.store, session.course.id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         yaml.safe_dump(
@@ -161,13 +163,29 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
         course_path = located
 
     try:
+        report = validate_course(course_path)
+        if not report.ok:
+            first = report.errors[0]
+            fail(
+                ExitCode.INVALID,
+                "course-invalid",
+                f"{first.code}: {first.message} ({len(report.errors)} error(s))",
+            )
         course = Course.load(course_path)
     except CourseLoadError as exc:
         fail(ExitCode.INVALID, "course-invalid", f"{exc.code}: {exc.message}")
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        fail(ExitCode.INVALID, "course-invalid", f"Cannot read course: {type(exc).__name__}")
 
-    state_root = resolve_state_root(state)
-    store = open_store(str(state_root))
-    record, revision = load_or_create(store, course, learner)
+    try:
+        state_root = resolve_state_root(state)
+        store = open_store(str(state_root))
+        if isinstance(store, FileProgressStore):
+            store.ensure_course_paths(course.id)
+        record, revision = load_or_create(store, course, learner)
+        scratch = _load_scratch(_scratch_path(store, course.id))
+    except StatePathError as exc:
+        fail(ExitCode.INVALID, "state-invalid", str(exc))
 
     if record.course_version != course.version:
         fail(
@@ -185,5 +203,4 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
             f"{record.position.coordinate} is not a lesson in {course.id}",
         )
 
-    scratch = _load_scratch(state_root, course.id)
     return Session(course, lesson, store, record, revision, scratch)

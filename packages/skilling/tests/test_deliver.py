@@ -582,3 +582,33 @@ def test_state_falls_back_to_home_outside_a_workspace(
 
     assert result.exit_code == 0
     assert (fake_home / ".skilling" / "state" / "hello-skilling" / "record.yaml").is_file()
+
+
+def test_deliver_preflights_state_before_walker(clean_dir: Path, tmp_path: Path) -> None:
+    from .test_state_paths import directory_alias, snapshot
+
+    state = tmp_path / "state"
+    (state / "clean-course").mkdir(parents=True)
+    target = tmp_path / "outside"
+    target.mkdir()
+    directory_alias(state / "clean-course" / "homework", target)
+    before = snapshot(tmp_path)
+    result = runner.invoke(app, ["deliver", str(clean_dir), "--state", str(state)], input="")
+    assert result.exit_code == 1, result.output
+    assert "state-invalid" in result.output
+    assert snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize("invalid", ["yaml", "unicode"])
+def test_deliver_unreadable_manifest_has_controlled_refusal(
+    clean_dir: Path,
+    tmp_path: Path,
+    invalid: str,
+) -> None:
+    path = clean_dir / "course.yaml"
+    path.write_bytes(b"id: [unfinished" if invalid == "yaml" else b"\xff")
+    state = tmp_path / "state"
+    result = runner.invoke(app, ["deliver", str(clean_dir), "--state", str(state)], input="")
+    assert result.exit_code == 1, result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert not state.exists()

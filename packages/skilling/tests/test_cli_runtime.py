@@ -611,3 +611,171 @@ def test_legacy_state_requires_explicit_recovery_and_is_not_migrated(
     assert [row["id"] for row in json.loads(restored.stdout)["courses"]] == ["clean-course"]
     assert record_path.read_bytes() == before
     assert not fake_home.exists()
+
+
+@pytest.mark.parametrize("existing", [False, True])
+@pytest.mark.parametrize("corruption", ["traversal", "lesson", "yaml", "unicode"])
+def test_invalid_course_cannot_create_state(
+    clean_dir: Path, tmp_path: Path, corruption: str, existing: bool
+) -> None:
+    from skilling.conformance import Code
+
+    from .corruptions import CORRUPTIONS
+
+    manifest_path = clean_dir / "course.yaml"
+    if corruption == "traversal":
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        manifest["id"] = "../escaped"
+        manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+    elif corruption == "lesson":
+        CORRUPTIONS[Code.QUIZ_WRONG_QUESTION_COUNT](clean_dir)
+    elif corruption == "yaml":
+        manifest_path.write_text("id: [unfinished", encoding="utf-8")
+    else:
+        manifest_path.write_bytes(b"\xff")
+    from .test_state_paths import snapshot
+    from .test_store import a_record
+
+    state = tmp_path / "state"
+    if existing:
+        FileProgressStore(state).put_record(a_record(), None)
+    (tmp_path / "sentinel").write_bytes(b"preserve outside state")
+    before = snapshot(tmp_path)
+    result = runner.invoke(app, ["next", "--course", str(clean_dir), "--state", str(state)])
+    assert result.exit_code == 2, result.output
+    assert json.loads(result.stdout)["error"]["code"] == "course-invalid"
+    assert snapshot(tmp_path) == before
+    assert state.exists() == existing
+    assert not (tmp_path / "escaped").exists()
+
+
+def test_warning_only_course_can_open_a_session(clean_dir: Path, tmp_path: Path) -> None:
+    from skilling.conformance import Code
+
+    from .corruptions import CORRUPTIONS
+
+    CORRUPTIONS[Code.NEXT_UP_TOO_LONG](clean_dir)
+    result = run(["next", "--course", str(clean_dir)], tmp_path / "state")
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize("leaf", ["record.yaml", "scratch.yaml", "homework"])
+def test_session_preflight_prevents_first_use_writes(
+    clean_dir: Path,
+    tmp_path: Path,
+    leaf: str,
+) -> None:
+    from .test_state_paths import directory_alias, file_alias, snapshot
+
+    state = tmp_path / "state"
+    course_state = state / "clean-course"
+    course_state.mkdir(parents=True)
+    target = tmp_path / "target"
+    if leaf == "homework":
+        target.mkdir()
+        directory_alias(course_state / leaf, target)
+    else:
+        target.write_bytes(b"outside sentinel")
+        file_alias(course_state / leaf, target)
+    before = snapshot(tmp_path)
+    result = runner.invoke(app, ["next", "--course", str(clean_dir), "--state", str(state)])
+    assert result.exit_code == 2, result.output
+    assert json.loads(result.stdout)["error"]["code"] == "state-invalid"
+    assert snapshot(tmp_path) == before
+
+
+def test_console_entrypoint_controls_late_state_errors(clean_dir: Path, tmp_path: Path) -> None:
+    import os
+    import subprocess
+    import sys
+
+    injection = tmp_path / "injection"
+    injection.mkdir()
+    (injection / "sitecustomize.py").write_text(
+        "from skilling.cli.runtime import _session\n"
+        "from skilling.store import StatePathError\n"
+        "def refuse(*args, **kwargs):\n"
+        "    raise StatePathError('test late scratch refusal')\n"
+        "_session.save_scratch = refuse\n",
+        encoding="utf-8",
+    )
+    executable = Path(sys.executable).parent / ("skilling.exe" if os.name == "nt" else "skilling")
+    result = subprocess.run(
+        [
+            str(executable),
+            "advance",
+            "--course",
+            str(clean_dir),
+            "--state",
+            str(tmp_path / "state"),
+            "--input",
+            "next",
+        ],
+        env={**os.environ, "PYTHONPATH": str(injection)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert json.loads(result.stdout)["error"]["code"] == "state-invalid"
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("stage", ["validate", "load"])
+def test_session_source_io_failures_are_controlled(
+    clean_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stage: str,
+) -> None:
+    from skilling.cli.runtime import _common
+    from skilling.course import Course
+
+    def unreadable(*args):
+        raise PermissionError("source unreadable")
+
+    if stage == "validate":
+        monkeypatch.setattr(_common, "validate_course", unreadable)
+    else:
+        monkeypatch.setattr(Course, "load", unreadable)
+    result = runner.invoke(
+        app, ["next", "--course", str(clean_dir), "--state", str(tmp_path / "state")]
+    )
+    assert result.exit_code == 2, result.output
+    assert json.loads(result.stdout)["error"]["code"] == "course-invalid"
+    assert not (tmp_path / "state").exists()
+
+
+def test_scratch_save_rechecks_its_path(clean_dir: Path, tmp_path: Path) -> None:
+    from skilling.cli.runtime._common import Scratch, open_session, save_scratch
+    from skilling.store import StatePathError
+
+    from .test_state_paths import file_alias, snapshot
+
+    state = tmp_path / "state"
+    session = open_session(str(clean_dir), state, "local")
+    target = tmp_path / "outside"
+    target.write_bytes(b"untouched")
+    file_alias(state / "clean-course" / "scratch.yaml", target)
+    before = snapshot(tmp_path)
+    with pytest.raises(StatePathError):
+        save_scratch(session, Scratch(wrong_count=1))
+    assert snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize("command", ["next", "courses"])
+def test_state_root_construction_refusal_is_controlled(
+    clean_dir: Path,
+    tmp_path: Path,
+    command: str,
+) -> None:
+    from .test_state_paths import file_alias
+
+    root = tmp_path / "root"
+    file_alias(root, root)
+    args = [command, "--state", str(root)]
+    if command == "next":
+        args += ["--course", str(clean_dir)]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 2, result.output
+    assert json.loads(result.stdout)["error"]["code"] == "state-invalid"

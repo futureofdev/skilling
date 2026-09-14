@@ -22,6 +22,10 @@ class StoreError(Exception):
     pass
 
 
+class StatePathError(StoreError):
+    """Invalid state identifier, unsafe descendant path, or state identity mismatch."""
+
+
 class Conflict(StoreError):
     """A write whose ``expected_revision`` did not match the store's current revision.
 

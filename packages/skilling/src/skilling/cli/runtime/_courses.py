@@ -41,7 +41,7 @@ import typer
 
 from ...course import CourseLoadError, is_course_id, is_semver, load_manifest
 from ...sources import CACHE_ENV
-from ...store import FileProgressStore, open_store
+from ...store import FileProgressStore, StatePathError, open_store
 from ...workspace import resolve_course_location, resolve_state_root
 from ._common import ExitCode, emit, fail
 
@@ -117,43 +117,49 @@ def courses(
     latest ``last_activity``, and only ask the learner when two or more genuinely tie.
     """
     del as_json  # No alternate rendering exists yet; see JSON_HELP.
-    store = open_store(str(resolve_state_root(state)))
-    if not isinstance(store, FileProgressStore):
-        fail(
-            ExitCode.ERROR,
-            "enumeration-not-supported",
-            "skilling courses can only enumerate the file store backend today",
-        )
-
-    cache_root = cache if cache is not None else _default_cache_root()
-    found: list[_CourseSummary] = []
-    root = store.state_root
-    if root.is_dir():
-        for entry in sorted(root.iterdir()):
-            if not entry.is_dir():
-                continue
-            got = store.get_record(store.learner_id, entry.name)
-            if got is None:
-                continue
-            record, _revision = got
-
-            title = _title(cache_root, record.course_id, record.course_version)
-            path: str | None = None
-            located = resolve_course_location(record.course_id, version=record.course_version)
-            if located is not None:
-                workspace_title = _title_at(located, record.course_id, record.course_version)
-                if workspace_title is not None:
-                    title = workspace_title
-                    path = str(located)
-
-            found.append(
-                _CourseSummary(
-                    id=record.course_id,
-                    title=title,
-                    last_activity=record.last_activity.isoformat(),
-                    path=path,
-                )
+    try:
+        store = open_store(str(resolve_state_root(state)))
+        if not isinstance(store, FileProgressStore):
+            fail(
+                ExitCode.ERROR,
+                "enumeration-not-supported",
+                "skilling courses can only enumerate the file store backend today",
             )
+
+        cache_root = cache if cache is not None else _default_cache_root()
+        found: list[_CourseSummary] = []
+        root = store.state_root
+        if root.is_dir():
+            for entry in sorted(root.iterdir()):
+                if not is_course_id(entry.name):
+                    continue
+                if not store.checked_path(entry.name).is_dir():
+                    continue
+                got = store.get_record(store.learner_id, entry.name)
+                if got is None:
+                    continue
+                record, _revision = got
+
+                title = _title(cache_root, record.course_id, record.course_version)
+                path: str | None = None
+                located = resolve_course_location(record.course_id, version=record.course_version)
+                if located is not None:
+                    workspace_title = _title_at(located, record.course_id, record.course_version)
+                    if workspace_title is not None:
+                        title = workspace_title
+                        path = str(located)
+
+                found.append(
+                    _CourseSummary(
+                        id=record.course_id,
+                        title=title,
+                        last_activity=record.last_activity.isoformat(),
+                        path=path,
+                    )
+                )
+
+    except StatePathError as exc:
+        fail(ExitCode.INVALID, "state-invalid", str(exc))
 
     # Stable two-pass sort: id ascending first, then last_activity descending — ties (same
     # last_activity) come out in id order without needing a tuple key with mixed directions.

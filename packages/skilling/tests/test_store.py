@@ -315,3 +315,61 @@ def test_file_backend_state_is_human_readable(tmp_path: Path) -> None:
 def _iter_backends() -> Iterator[str]:  # pragma: no cover - documentation helper
     """Add a backend name here and every assertion above runs against it."""
     yield from BACKENDS
+
+
+@pytest.mark.parametrize("stage", ["open", "fsync"])
+@pytest.mark.parametrize("failure", ["EINVAL", "ENOTSUP", "EOPNOTSUPP", "EACCES", "EIO"])
+def test_directory_fsync_tolerates_only_unsupported_operations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stage: str,
+    failure: str,
+) -> None:
+    import errno
+    from types import SimpleNamespace
+
+    from skilling.store import _file
+
+    error = OSError(getattr(errno, failure), failure)
+    closed: list[int] = []
+
+    def open_directory(*args) -> int:
+        if stage == "open":
+            raise error
+        return 42
+
+    def fsync(fd: int) -> None:
+        assert fd == 42
+        raise error
+
+    monkeypatch.setattr(
+        _file,
+        "os",
+        SimpleNamespace(
+            name="posix",
+            O_RDONLY=0,
+            open=open_directory,
+            fsync=fsync,
+            close=closed.append,
+        ),
+    )
+    if failure in {"EACCES", "EIO"}:
+        with pytest.raises(OSError) as caught:
+            _file._fsync_dir(tmp_path)
+        assert caught.value is error
+    else:
+        _file._fsync_dir(tmp_path)
+    assert closed == ([42] if stage == "fsync" else [])
+
+
+def test_windows_directory_fsync_does_not_open_a_descriptor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from skilling.store import _file
+
+    # Absence of open/fsync attributes makes accidental calls fail on every test platform.
+    monkeypatch.setattr(_file, "os", SimpleNamespace(name="nt"))
+    _file._fsync_dir(tmp_path)
