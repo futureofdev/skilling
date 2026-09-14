@@ -408,3 +408,25 @@ def test_workspace_content_symlink_is_refused(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "symlink" in result.output
     assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("existing_block", [False, True])
+def test_entry_refresh_preserves_foreign_newline_bytes(
+    tmp_path: Path, existing_block: bool
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    prefix = b"# Learner notes\r\n\r\nKeep CRLF and trailing spaces.  \r\n"
+    suffix = b"\r\nForeign suffix\nMixed newlines stay intact.\r\n" if existing_block else b""
+    block = (
+        f"{ENTRY_BLOCK_START}\r\nOld generated content\r\n{ENTRY_BLOCK_END}".encode()
+        if existing_block
+        else b""
+    )
+    entry = ws / "AGENTS.md"
+    entry.write_bytes(prefix + block + suffix)
+    result = start_hello_skilling(ws, tmp_path / "home")
+    assert result.exit_code == 0, result.output
+    updated = entry.read_bytes()
+    assert updated.startswith(prefix)
+    assert updated.endswith(suffix)

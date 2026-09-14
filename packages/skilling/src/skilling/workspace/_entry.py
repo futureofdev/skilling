@@ -45,8 +45,8 @@ def upsert_block(text: str, content: str = _BLOCK_CONTENT) -> str:
 
 
 def write_entry_file(path: Path) -> None:
-    existing = path.read_text(encoding="utf-8") if path.is_file() else ""
-    path.write_text(upsert_block(existing), encoding="utf-8")
+    existing = path.read_bytes().decode("utf-8") if path.is_file() else ""
+    path.write_bytes(upsert_block(existing).encode("utf-8"))
 
 
 def refresh_entry_files(workspace: Path) -> tuple[Path, ...]:
