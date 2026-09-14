@@ -19,7 +19,7 @@ from .. import __version__
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
-from .packaging import fetch, install, uninstall
+from .packaging import fetch, install, start, uninstall
 from .runtime import (
     advance,
     answer,
@@ -76,6 +76,7 @@ COMMANDS = (
     telemetry,
     fetch,
     install,
+    start,
     uninstall,
 )
 

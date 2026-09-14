@@ -12,6 +12,7 @@ it directly.
 from __future__ import annotations
 
 import json
+import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -319,9 +320,7 @@ def test_omitted_course_with_several_workspace_courses_is_refused(workspace: Pat
 def test_add_defaults_state_to_the_workspaces_state_root_when_omitted(
     workspace: Path, course_dir: Path
 ) -> None:
-    """No ``--state`` at all: the interim local resolution (documented on ``_artifacts.py``)
-    must find the workspace's own ``<state-root>``, not the plain ``.skilling`` every other
-    verb defaults to outside a workspace."""
+    """Shared resolution finds workspace state when no explicit override is supplied."""
     _write_record(state_root(workspace))
     artifact_file = _write_artifact_file(workspace)
 
@@ -504,3 +503,70 @@ def test_list_requires_a_course_for_ambiguous_workspace(workspace: Path) -> None
     assert result.exit_code == 2
     assert json.loads(result.stdout)["error"]["code"] == "course-required"
     assert not state_root(workspace).exists()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "root",
+        "empty-title",
+        pytest.param(
+            "backslash",
+            marks=pytest.mark.skipif(
+                sys.platform == "win32", reason="Backslash is a filename character only on POSIX"
+            ),
+        ),
+    ],
+)
+def test_invalid_artifact_returns_json_refusal(
+    workspace: Path, course_dir: Path, invalid: str
+) -> None:
+    _write_record(state_root(workspace))
+    before = (state_root(workspace) / "clean-course" / "record.yaml").read_bytes()
+    path = _write_artifact_file(workspace)
+    title = "Artifact"
+    if invalid == "root":
+        path = workspace
+    elif invalid == "empty-title":
+        title = ""
+    else:
+        path = _write_artifact_file(workspace, "bad\\name.txt")
+    result = run(["artifact", "add", str(path), "--title", title, "--course", str(course_dir)])
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "artifact-invalid"
+    assert (state_root(workspace) / "clean-course" / "record.yaml").read_bytes() == before
+
+
+@pytest.mark.parametrize("verb", ["add", "list"])
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("stale", [False, True])
+def test_omitted_course_uses_manifest_even_with_cwd_decoy(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch, verb: str, nested: bool, stale: bool
+) -> None:
+    real_dir = fx.build(workspace / SKILLING_DIR / "courses" / "clean-course@1.0.0")
+    save_manifest(
+        workspace,
+        WorkspaceManifest(courses=[_manifest_course(real_dir, workspace, "clean-course")]),
+    )
+    if stale:
+        (real_dir / "course.yaml").unlink()
+    cwd = workspace / "nested" if nested else workspace
+    cwd.mkdir(exist_ok=True)
+    decoy = fx.build(cwd / "clean-course")
+    manifest = decoy / "course.yaml"
+    manifest.write_text(manifest.read_text().replace("id: clean-course", "id: other-course"))
+    monkeypatch.chdir(cwd)
+    path = _write_artifact_file(workspace)
+    args = ["artifact", verb]
+    if verb == "add":
+        args += [str(path), "--title", "Actual course", "--coordinate", "0.1"]
+    result = run(args)
+    payload = json.loads(result.stdout)
+    if stale:
+        assert result.exit_code == 2
+        assert payload["error"]["code"] == "course-not-found"
+        assert not state_root(workspace).exists()
+    else:
+        assert result.exit_code == 0, result.output
+        assert payload["course"]["id"] == "clean-course"
+    assert not (state_root(workspace) / "other-course").exists()

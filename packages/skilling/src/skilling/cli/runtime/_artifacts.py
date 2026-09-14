@@ -7,8 +7,8 @@ Artifacts never gate the flow — this module imports neither ``complete_lesson`
 ``submit_homework``, so it could not accidentally make either wait on a write it does. ``add``
 is the one verb here with anything to decide: resolving ``<path>`` against the workspace root,
 defaulting the coordinate the same way ``ceremony`` already does, and upserting by path through
-the store's own CAS. ``list`` is a plain read of ``record.artifacts``, no different from
-``homework check``.
+the store's own CAS. ``list`` enumerates ``record.artifacts`` using shared session loading,
+which initializes a record on first use, like ``homework check``.
 
 """
 
@@ -18,10 +18,11 @@ from pathlib import Path
 
 import typer
 import yaml
+from pydantic import ValidationError
 
 from ...course import Artifact, utc_now
 from ...store import LOCAL_LEARNER, Conflict
-from ...workspace import find_workspace, load_manifest
+from ...workspace import find_workspace, load_manifest, resolve_course_location
 from ._common import ExitCode, emit, fail, now_override, open_session
 
 COURSE_REF_HELP = (
@@ -49,7 +50,11 @@ def _course_ref(course: str | None, workspace: Path | None) -> str:
     except (OSError, ValueError, yaml.YAMLError) as exc:
         fail(ExitCode.INVALID, "course-not-found", f"cannot read the workspace manifest: {exc}")
     if len(manifest.courses) == 1:
-        return manifest.courses[0].id
+        course_id = manifest.courses[0].id
+        location = resolve_course_location(course_id)
+        if location is None:
+            fail(ExitCode.INVALID, "course-not-found", f"no usable workspace course {course_id!r}")
+        return str(location.resolve())
     fail(
         ExitCode.INVALID,
         "course-required",
@@ -127,12 +132,16 @@ def add(
             f"{resolved_coordinate!r} is not a lesson in {session.course.id}",
         )
 
-    new_artifact = Artifact(
-        path=relative,
-        title=title,
-        coordinate=resolved_coordinate,
-        added_at=now_override() or utc_now(),
-    )
+    try:
+        new_artifact = Artifact(
+            path=relative,
+            title=title,
+            coordinate=resolved_coordinate,
+            added_at=now_override() or utc_now(),
+        )
+    except ValidationError as exc:
+        fail(ExitCode.INVALID, "artifact-invalid", str(exc))
+
     kept = [a for a in session.record.artifacts if a.path != new_artifact.path]
     updated_record = session.record.model_copy(update={"artifacts": [*kept, new_artifact]})
 
