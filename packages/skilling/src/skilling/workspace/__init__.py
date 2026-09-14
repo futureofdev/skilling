@@ -3,7 +3,9 @@ tutored course needs — the machinery hidden under ``.skilling/``, a visible ro
 with what the learner builds. Layout, manifest, and discovery per spec/workspace.md.
 
 Nothing here reads or writes learner state itself: the workspace re-points where the store
-and the fetch cache already operate, it does not fork either.
+and the fetch cache already operate, it does not fork either. ``resolve_state_root`` and
+``resolve_course_location`` are the one precedence every runtime verb uses to find that
+state and content without the learner re-stating paths.
 """
 
 from ._discover import WORKSPACE_ENV, find_workspace
@@ -21,6 +23,7 @@ from ._layout import (
     state_root,
 )
 from ._manifest import WorkspaceCourse, WorkspaceManifest
+from ._resolve import resolve_course_location, resolve_state_root
 
 __all__ = [
     "COURSES_DIR",
@@ -35,6 +38,8 @@ __all__ = [
     "find_workspace",
     "load_manifest",
     "manifest_path",
+    "resolve_course_location",
+    "resolve_state_root",
     "save_manifest",
     "showcase_dir",
     "state_root",

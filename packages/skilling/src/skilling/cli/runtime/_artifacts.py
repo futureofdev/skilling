@@ -10,11 +10,6 @@ defaulting the coordinate the same way ``ceremony`` already does, and upserting 
 the store's own CAS. ``list`` is a plain read of ``record.artifacts``, no different from
 ``homework check``.
 
-Interim note: ``open_session`` (``_common.py``) does not yet resolve a workspace course id or
-default its state root to the workspace's own ``<state-root>`` — that is tracked separately
-(state-root resolution). ``_resolve_course_ref`` and the explicit ``state_root(workspace)``
-fallback below are this module's own, local stand-in, so ``add`` does not have to wait on it;
-reconcile the two when that lands.
 """
 
 from __future__ import annotations
@@ -22,13 +17,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+import yaml
 
-from ...course import Artifact, is_course_id, utc_now
+from ...course import Artifact, utc_now
 from ...store import LOCAL_LEARNER, Conflict
-from ...workspace import SKILLING_DIR, find_workspace, load_manifest, state_root
+from ...workspace import find_workspace, load_manifest
 from ._common import ExitCode, emit, fail, now_override, open_session
 
-COURSE_HELP = "Path to the course directory."
 COURSE_REF_HELP = (
     "Course id (resolved through the workspace manifest) or a path. Defaults to the "
     "workspace's sole course when it holds exactly one."
@@ -36,7 +31,6 @@ COURSE_REF_HELP = (
 STATE_HELP = "Where to keep the learner's progress record."
 LEARNER_HELP = "Learner id for the record."
 
-_CourseOption = typer.Option(..., "--course", help=COURSE_HELP)
 _CourseRefOption = typer.Option(None, "--course", help=COURSE_REF_HELP)
 _StateOption = typer.Option(None, "--state", envvar="SKILLING_STATE_ROOT", help=STATE_HELP)
 _LearnerOption = typer.Option(LOCAL_LEARNER, "--learner", help=LEARNER_HELP)
@@ -44,23 +38,18 @@ _LearnerOption = typer.Option(LOCAL_LEARNER, "--learner", help=LEARNER_HELP)
 artifact = typer.Typer(no_args_is_help=True, help="Record and list pointers to workspace work.")
 
 
-def _resolve_course_ref(course: str | None, workspace: Path) -> str:
-    """A workspace course id resolves through the manifest to its real content directory
-    (``<workspace>/.skilling/<entry.path>``); anything else — including an unrecognised id —
-    is treated as a literal path, exactly like every other verb's ``--course``.
-
-    Omitted entirely, the workspace's sole course stands in, since naming one is pointless
-    when there is only one to mean.
-    """
-    manifest = load_manifest(workspace)
+def _course_ref(course: str | None, workspace: Path | None) -> str:
+    """Select a sole-course default; shared session plumbing resolves every id and path."""
     if course is not None:
-        if is_course_id(course):
-            entry = manifest.course(course)
-            if entry is not None:
-                return str(workspace / SKILLING_DIR / entry.path)
         return course
+    if workspace is None:
+        fail(ExitCode.INVALID, "course-required", "pass --course or run inside a workspace")
+    try:
+        manifest = load_manifest(workspace)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        fail(ExitCode.INVALID, "course-not-found", f"cannot read the workspace manifest: {exc}")
     if len(manifest.courses) == 1:
-        return str(workspace / SKILLING_DIR / manifest.courses[0].path)
+        return manifest.courses[0].id
     fail(
         ExitCode.INVALID,
         "course-required",
@@ -101,9 +90,7 @@ def add(
             "directory or any parent",
         )
 
-    course_ref = _resolve_course_ref(course, workspace)
-    resolved_state = state if state is not None else state_root(workspace)
-    session = open_session(course_ref, resolved_state, learner)
+    session = open_session(_course_ref(course, workspace), state, learner)
 
     given = Path(path)
     absolute = (given if given.is_absolute() else Path.cwd() / given).resolve()
@@ -170,14 +157,16 @@ def add(
 
 @artifact.command("list")
 def list_artifacts(
-    course: str = _CourseOption,
+    course: str | None = _CourseRefOption,
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
 ) -> None:
-    """Every artifact on the record, read-only — same session-loading as every other read
-    verb, no workspace requirement beyond what ``open_session`` already needs (though an
-    artifact is only ever meaningful once one exists)."""
-    session = open_session(course, state, learner)
+    """List artifacts using the same course and state selection as ``add``.
+
+    Like other session verbs, initializes a progress record on first use. Explicit course
+    references work outside a workspace; omission selects the workspace's sole course.
+    """
+    session = open_session(_course_ref(course, find_workspace()), state, learner)
     emit(
         {
             "ok": True,

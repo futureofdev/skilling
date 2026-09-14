@@ -7,9 +7,17 @@ There is no course argument any more (docs/superpowers/specs/
 learner, not once per course. ``uninstall`` treats the triad as one atomic unit: a hand-edit
 to any one of the three skills refuses the whole removal, not just that skill's.
 
+``install``/``uninstall`` are folder-scoped by default (spec/workspace.md#folder-scoped-skill-
+installs): the target is the enclosing workspace's root, or the current directory when no
+workspace encloses it. ``--home`` is the explicit opt-in for what every install used to do
+unconditionally; ``--project`` no longer exists.
+
 Every test passes an explicit ``home`` — a ``tmp_path`` straight to the pure functions, or a
 monkeypatched ``$HOME`` for the CLI — never the developer's real ``~/.claude`` or
-``~/.agents`` (global constraint: those directories are shared across worktrees).
+``~/.agents`` (global constraint: those directories are shared across worktrees). CLI tests
+that exercise the folder-scoped default also ``monkeypatch.chdir`` into an isolated directory
+and clear ``SKILLING_WORKSPACE``, for the same reason: the default now reads the current
+directory, and the real one is a shared worktree.
 """
 
 from __future__ import annotations
@@ -18,6 +26,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from rich.text import Text
 from typer.testing import CliRunner
 
 from skilling.cli import app
@@ -31,6 +40,7 @@ from skilling.skills import (
     uninstall,
 )
 from skilling.skills import skill_dir as bundled_skill_dir
+from skilling.workspace import WORKSPACE_ENV, WorkspaceManifest, save_manifest
 
 runner = CliRunner()
 
@@ -169,43 +179,116 @@ def test_uninstall_refuses_atomically_when_any_one_skill_was_hand_edited(
 # ---------------------------------------------------------------------------------------- CLI
 
 
-def test_cli_install_writes_both_conventions_by_default(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["install"], env={"HOME": str(tmp_path)})
-    assert result.exit_code == 0, result.output
-    for name in SKILL_NAMES:
-        assert (tmp_path / ".claude" / "skills" / name / "SKILL.md").is_file()
-        assert (tmp_path / ".agents" / "skills" / name / "SKILL.md").is_file()
-    assert "/learn" in result.stdout
-    assert "$learn" in result.stdout
+def _isolate(monkeypatch: pytest.MonkeyPatch, cwd: Path) -> None:
+    """Every CLI test below exercises a target directory that now depends on the current
+    directory. Isolate both halves of that: clear ``SKILLING_WORKSPACE`` so no ambient override
+    reaches ``find_workspace``, and ``chdir`` into a throwaway directory so the folder-scoped
+    default can never resolve to this worktree."""
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    cwd.mkdir(parents=True, exist_ok=True)
+    monkeypatch.chdir(cwd)
 
 
-def test_cli_install_platform_flag_narrows_to_one_convention(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["install", "--platform", "claude"], env={"HOME": str(tmp_path)})
-    assert result.exit_code == 0, result.output
-    assert (tmp_path / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
-    assert not (tmp_path / ".agents").exists()
-
-
-def test_cli_install_project_writes_into_the_repo_with_a_git_add_hint(
+def test_cli_install_in_a_bare_directory_defaults_to_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.chdir(tmp_path)
-    result = runner.invoke(
-        app,
-        ["install", "--project"],
-        env={"HOME": str(tmp_path / "unused-home")},
-    )
+    """No workspace encloses a bare directory, so `install` with no flags lands skills at the
+    current directory — exactly where `--project` used to put them before it was removed."""
+    bare = tmp_path / "bare-repo"
+    _isolate(monkeypatch, bare)
+
+    result = runner.invoke(app, ["install"], env={"HOME": str(tmp_path / "unused-home")})
+
     assert result.exit_code == 0, result.output
-    assert (tmp_path / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
+    for name in SKILL_NAMES:
+        assert (bare / ".claude" / "skills" / name / "SKILL.md").is_file()
+        assert (bare / ".agents" / "skills" / name / "SKILL.md").is_file()
+    assert "/learn" in result.stdout
+    assert "$learn" in result.stdout
     assert "git add" in result.stdout
 
 
-def test_cli_reinstall_is_idempotent_and_upgrades_in_place(tmp_path: Path) -> None:
-    env = {"HOME": str(tmp_path)}
+def test_cli_install_platform_flag_narrows_to_one_convention(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch, tmp_path / "bare-repo")
+    result = runner.invoke(
+        app, ["install", "--platform", "claude"], env={"HOME": str(tmp_path / "unused-home")}
+    )
+    assert result.exit_code == 0, result.output
+    assert (Path.cwd() / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
+    assert not (Path.cwd() / ".agents").exists()
+
+
+def test_cli_install_inside_a_workspace_lands_at_the_root_even_from_a_subdirectory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Proves the walk-up is used, not just the bare current directory: running from deep
+    inside a workspace still lands the triad at its root."""
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    workspace_root = tmp_path / "myworkspace"
+    save_manifest(workspace_root, WorkspaceManifest())
+    subdir = workspace_root / "showcase" / "hello-skilling" / "deep"
+    subdir.mkdir(parents=True)
+    monkeypatch.chdir(subdir)
+
+    result = runner.invoke(
+        app, ["install", "--platform", "claude"], env={"HOME": str(tmp_path / "unused-home")}
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (workspace_root / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
+    assert not (subdir / ".claude").exists()
+    assert "git add" in result.stdout
+
+
+def test_cli_install_home_flag_reproduces_todays_home_profile_behavior(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--home`` is byte-for-byte what every install used to do before this default flipped:
+    same receipts, same paths, landed under ``$HOME`` — even with a workspace right here that
+    the folder-scoped default would otherwise prefer."""
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    workspace_root = tmp_path / "myworkspace"
+    save_manifest(workspace_root, WorkspaceManifest())
+    monkeypatch.chdir(workspace_root)
+    home = tmp_path / "home"
+
+    result = runner.invoke(app, ["install", "--home"], env={"HOME": str(home)})
+
+    assert result.exit_code == 0, result.output
+    for name in SKILL_NAMES:
+        for convention in (".claude", ".agents"):
+            skill_md = home / convention / "skills" / name / "SKILL.md"
+            assert skill_md.is_file()
+            assert skill_md.read_text(encoding="utf-8") == skill_md_path(name).read_text(
+                encoding="utf-8"
+            )
+    assert not (workspace_root / ".claude").exists()
+    assert "/learn" in result.stdout
+    assert "$learn" in result.stdout
+    assert "git add" not in result.stdout
+
+
+def test_cli_install_project_flag_no_longer_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch, tmp_path / "bare-repo")
+    result = runner.invoke(app, ["install", "--project"], env={"HOME": str(tmp_path)})
+    assert result.exit_code == 2  # a clean usage error, not a crash or a silent no-op
+    assert "No such option: --project" in Text.from_ansi(result.output).plain
+    assert not (Path.cwd() / ".claude").exists()
+
+
+def test_cli_reinstall_is_idempotent_and_upgrades_in_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch, tmp_path / "bare-repo")
+    env = {"HOME": str(tmp_path / "unused-home")}
     first = runner.invoke(app, ["install", "--platform", "claude"], env=env)
     assert first.exit_code == 0, first.output
 
-    skill_md = tmp_path / ".claude" / "skills" / "learn" / "SKILL.md"
+    skill_md = Path.cwd() / ".claude" / "skills" / "learn" / "SKILL.md"
     skill_md.write_text("stale content from a previous version\n", encoding="utf-8")
 
     second = runner.invoke(app, ["install", "--platform", "claude"], env=env)
@@ -217,13 +300,14 @@ def test_cli_reinstall_is_idempotent_and_upgrades_in_place(tmp_path: Path) -> No
 
 
 def test_cli_uninstall_removes_exactly_what_was_written_and_keeps_foreign_files(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    env = {"HOME": str(tmp_path)}
+    _isolate(monkeypatch, tmp_path / "bare-repo")
+    env = {"HOME": str(tmp_path / "unused-home")}
     installed = runner.invoke(app, ["install"], env=env)
     assert installed.exit_code == 0, installed.output
 
-    claude_dir = tmp_path / ".claude" / "skills" / "learn"
+    claude_dir = Path.cwd() / ".claude" / "skills" / "learn"
     foreign = claude_dir / "notes.txt"
     foreign.write_text("do not touch\n", encoding="utf-8")
 
@@ -235,11 +319,62 @@ def test_cli_uninstall_removes_exactly_what_was_written_and_keeps_foreign_files(
     assert not (claude_dir / "SKILL.md").is_file()
     assert not (claude_dir / RECEIPT_NAME).is_file()
     for name in SKILL_NAMES:
-        assert not (tmp_path / ".agents" / "skills" / name).exists()
-    assert not (tmp_path / ".claude" / "skills" / "progress").exists()
-    assert not (tmp_path / ".claude" / "skills" / "homework").exists()
+        assert not (Path.cwd() / ".agents" / "skills" / name).exists()
+    assert not (Path.cwd() / ".claude" / "skills" / "progress").exists()
+    assert not (Path.cwd() / ".claude" / "skills" / "homework").exists()
 
 
-def test_cli_uninstall_of_nothing_installed_exits_nonzero(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["uninstall"], env={"HOME": str(tmp_path)})
+def test_cli_uninstall_inside_a_workspace_removes_from_the_root_even_from_a_subdirectory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    workspace_root = tmp_path / "myworkspace"
+    save_manifest(workspace_root, WorkspaceManifest())
+    subdir = workspace_root / "showcase"
+    subdir.mkdir()
+    env = {"HOME": str(tmp_path / "unused-home")}
+
+    monkeypatch.chdir(workspace_root)
+    installed = runner.invoke(app, ["install", "--platform", "claude"], env=env)
+    assert installed.exit_code == 0, installed.output
+
+    monkeypatch.chdir(subdir)
+    result = runner.invoke(app, ["uninstall", "--platform", "claude"], env=env)
+
+    assert result.exit_code == 0, result.output
+    assert not (workspace_root / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
+
+
+def test_cli_uninstall_home_flag_matches_install_home_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    workspace_root = tmp_path / "myworkspace"
+    save_manifest(workspace_root, WorkspaceManifest())
+    monkeypatch.chdir(workspace_root)
+    env = {"HOME": str(tmp_path / "home")}
+
+    installed = runner.invoke(app, ["install", "--home"], env=env)
+    assert installed.exit_code == 0, installed.output
+
+    result = runner.invoke(app, ["uninstall", "--home"], env=env)
+    assert result.exit_code == 0, result.output
+    for name in SKILL_NAMES:
+        assert not (tmp_path / "home" / ".claude" / "skills" / name).exists()
+
+
+def test_cli_uninstall_project_flag_no_longer_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch, tmp_path / "bare-repo")
+    result = runner.invoke(app, ["uninstall", "--project"], env={"HOME": str(tmp_path)})
+    assert result.exit_code == 2
+    assert "No such option: --project" in Text.from_ansi(result.output).plain
+
+
+def test_cli_uninstall_of_nothing_installed_exits_nonzero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(monkeypatch, tmp_path / "bare-repo")
+    result = runner.invoke(app, ["uninstall"], env={"HOME": str(tmp_path / "unused-home")})
     assert result.exit_code == 1

@@ -396,3 +396,111 @@ def test_ceremony_omits_showcase_outside_a_workspace(
     assert result.exit_code == 0, result.output
     body = json.loads(result.stdout)
     assert "showcase" not in body["beat"]["content"]
+
+
+@pytest.mark.parametrize("selection", ["default", "id", "path"])
+@pytest.mark.parametrize("location", ["root", "nested"])
+@pytest.mark.parametrize("state_choice", ["workspace", "environment", "explicit"])
+def test_add_list_and_session_share_course_and_state(
+    workspace: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    selection: str,
+    location: str,
+    state_choice: str,
+) -> None:
+    real_dir = fx.build(workspace / SKILLING_DIR / "courses" / "clean-course@1.0.0")
+    entry = _manifest_course(real_dir, workspace, "clean-course")
+    save_manifest(workspace, WorkspaceManifest(courses=[entry]))
+    monkeypatch.delenv("SKILLING_STATE_ROOT", raising=False)
+    selected_state = state_root(workspace)
+    state_args: list[str] = []
+    if state_choice == "environment":
+        selected_state = tmp_path / "environment-state"
+        monkeypatch.setenv("SKILLING_STATE_ROOT", str(selected_state))
+    elif state_choice == "explicit":
+        selected_state = tmp_path / "explicit-state"
+        monkeypatch.setenv("SKILLING_STATE_ROOT", str(tmp_path / "unused-environment"))
+        state_args = ["--state", str(selected_state)]
+    _write_record(selected_state)
+    artifact_file = _write_artifact_file(workspace)
+    if location == "nested":
+        nested = workspace / "working" / "nested"
+        nested.mkdir(parents=True)
+        monkeypatch.chdir(nested)
+    course_args = (
+        []
+        if selection == "default"
+        else ["--course", "clean-course" if selection == "id" else str(real_dir)]
+    )
+    added = run(
+        [
+            "artifact",
+            "add",
+            str(artifact_file),
+            "--title",
+            "Shared record",
+            *course_args,
+            *state_args,
+        ]
+    )
+    assert added.exit_code == 0, added.output
+    listed = run(["artifact", "list", *course_args, *state_args])
+    assert listed.exit_code == 0, listed.output
+    body = json.loads(listed.stdout)
+    assert [a["title"] for a in body["artifacts"]] == ["Shared record"]
+    session = run(["next", "--course", "clean-course", *state_args])
+    assert session.exit_code == 0, session.output
+    assert json.loads(session.stdout)["completed_count"] == 2
+    assert not (tmp_path / "unused-environment").exists()
+    if state_choice != "workspace":
+        assert not state_root(workspace).exists()
+
+
+def test_default_artifacts_survive_workspace_relocation(
+    workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_dir = fx.build(workspace / SKILLING_DIR / "courses" / "clean-course@1.0.0")
+    save_manifest(
+        workspace,
+        WorkspaceManifest(courses=[_manifest_course(real_dir, workspace, "clean-course")]),
+    )
+    _write_record(state_root(workspace))
+    artifact_file = _write_artifact_file(workspace)
+    added = run(["artifact", "add", str(artifact_file), "--title", "Portable"])
+    assert added.exit_code == 0, added.output
+    monkeypatch.chdir(tmp_path)
+    moved = workspace.rename(tmp_path / "relocated")
+    monkeypatch.chdir(moved / "showcase" / "clean-course")
+    listed = run(["artifact", "list"])
+    assert listed.exit_code == 0, listed.output
+    artifact_record = json.loads(listed.stdout)["artifacts"][0]
+    assert artifact_record["path"] == "showcase/clean-course/index.html"
+    assert (moved / artifact_record["path"]).read_text() == "<html></html>"
+    resumed = run(["next", "--course", "clean-course"])
+    assert resumed.exit_code == 0, resumed.output
+    assert json.loads(resumed.stdout)["completed_count"] == 2
+
+
+@pytest.mark.parametrize("verb", ["add", "list"])
+def test_unknown_artifact_course_uses_shared_refusal(workspace: Path, verb: str) -> None:
+    args = ["artifact", verb]
+    if verb == "add":
+        args += [str(_write_artifact_file(workspace)), "--title", "Unknown"]
+    result = run([*args, "--course", "not-in-the-workspace"])
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "course-not-found"
+    assert not state_root(workspace).exists()
+
+
+def test_list_requires_a_course_for_ambiguous_workspace(workspace: Path) -> None:
+    real_dir = fx.build(workspace / SKILLING_DIR / "courses" / "clean-course@1.0.0")
+    first = _manifest_course(real_dir, workspace, "clean-course")
+    second = first.model_copy(
+        update={"id": "another-course", "showcase": "showcase/another-course"}
+    )
+    save_manifest(workspace, WorkspaceManifest(courses=[first, second]))
+    result = run(["artifact", "list"])
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "course-required"
+    assert not state_root(workspace).exists()
