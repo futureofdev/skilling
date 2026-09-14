@@ -84,7 +84,7 @@ jobs:
           python-version: "3.13"
       - run: uv sync
       # Fixed-date storage models avoid the full delivery ZoneInfo gap tracked in #2.
-      - run: uv run pytest packages/skilling/tests/test_store.py packages/skilling/tests/test_state_paths.py -q
+      - run: uv run pytest packages/skilling/tests/test_store.py packages/skilling/tests/test_state_paths.py packages/skilling/tests/test_store_concurrency.py packages/skilling/tests/test_store_locking.py -q
 
   package:
     name: build · inspect package

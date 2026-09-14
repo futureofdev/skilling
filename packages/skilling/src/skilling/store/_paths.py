@@ -46,7 +46,17 @@ def checked_path(root: Path, course_id: str, *parts: str) -> Path:
                 resolved = candidate.resolve(strict=False)
             else:
                 # Existing junctions must resolve strictly: cycles and broken targets refuse.
-                resolved = candidate.resolve(strict=True)
+                try:
+                    resolved = candidate.resolve(strict=True)
+                except FileNotFoundError:
+                    # A cooperating store may have deleted this file since lstat.
+                    # An entry still present (e.g. a broken junction) must still refuse.
+                    try:
+                        candidate.lstat()
+                    except FileNotFoundError:
+                        resolved = candidate.resolve(strict=False)
+                    else:
+                        raise
             if not resolved.is_relative_to(root) or resolved != candidate:
                 raise StatePathError(f"State descendant must not be an alias: {candidate}")
         except (OSError, RuntimeError, ValueError) as exc:

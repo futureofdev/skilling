@@ -26,6 +26,10 @@ class StatePathError(StoreError):
     """Invalid state identifier, unsafe descendant path, or state identity mismatch."""
 
 
+class StoreBusy(StoreError):
+    """The course lock could not be acquired within the bounded wait."""
+
+
 class Conflict(StoreError):
     """A write whose ``expected_revision`` did not match the store's current revision.
 
