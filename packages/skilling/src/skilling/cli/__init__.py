@@ -16,7 +16,7 @@ from __future__ import annotations
 import typer
 
 from .. import __version__
-from ..store import StatePathError
+from ..store import StatePathError, StoreBusy
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
@@ -102,10 +102,13 @@ for _group in GROUPS:
 
 
 def main() -> None:
-    from .runtime._common import ExitCode, emit
+    from .runtime import ExitCode, emit
 
     try:
         app()
+    except StoreBusy as exc:
+        emit({"ok": False, "error": {"code": "store-busy", "message": str(exc)}})
+        raise SystemExit(ExitCode.ERROR) from exc
     except StatePathError as exc:
         emit({"ok": False, "error": {"code": "state-invalid", "message": str(exc)}})
         raise SystemExit(ExitCode.INVALID) from exc

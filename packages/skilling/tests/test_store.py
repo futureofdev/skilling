@@ -299,7 +299,8 @@ def test_file_backend_leaves_no_temporary_files(tmp_path: Path) -> None:
     store = FileProgressStore(tmp_path / "state")
     store.put_record(a_record(), None)
     leftovers = [p.name for p in (tmp_path / "state" / COURSE).iterdir() if p.name.startswith(".")]
-    assert leftovers == []
+    assert leftovers == [".skilling.lock"]
+    assert list((tmp_path / "state").rglob(".*.tmp")) == []
 
 
 def test_file_backend_state_is_human_readable(tmp_path: Path) -> None:
