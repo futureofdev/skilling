@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from rich.text import Text
 from typer.testing import CliRunner
 
 from skilling.cli import app
@@ -275,7 +276,7 @@ def test_cli_install_project_flag_no_longer_exists(
     _isolate(monkeypatch, tmp_path / "bare-repo")
     result = runner.invoke(app, ["install", "--project"], env={"HOME": str(tmp_path)})
     assert result.exit_code == 2  # a clean usage error, not a crash or a silent no-op
-    assert "--project" in result.output
+    assert "No such option: --project" in Text.from_ansi(result.output).plain
     assert not (Path.cwd() / ".claude").exists()
 
 
@@ -368,7 +369,7 @@ def test_cli_uninstall_project_flag_no_longer_exists(
     _isolate(monkeypatch, tmp_path / "bare-repo")
     result = runner.invoke(app, ["uninstall", "--project"], env={"HOME": str(tmp_path)})
     assert result.exit_code == 2
-    assert "--project" in result.output
+    assert "No such option: --project" in Text.from_ansi(result.output).plain
 
 
 def test_cli_uninstall_of_nothing_installed_exits_nonzero(
