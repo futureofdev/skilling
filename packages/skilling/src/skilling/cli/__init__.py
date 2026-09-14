@@ -23,6 +23,7 @@ from .packaging import fetch, install, start, uninstall
 from .runtime import (
     advance,
     answer,
+    artifact,
     ceremony,
     complete,
     courses,
@@ -86,6 +87,7 @@ GROUPS: tuple[tuple[str, typer.Typer], ...] = (
     ("quiz", quiz),
     ("objective", objective_app),
     ("homework", homework),
+    ("artifact", artifact),
 )
 """Sub-apps registered as ``skilling <name> ...`` — one line per entry, rather than each
 editing this module's imports and registration."""
