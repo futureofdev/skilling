@@ -15,12 +15,13 @@ caller, resolving a local ref and resolving a remote one should fail the same wa
 from __future__ import annotations
 
 import shutil
+import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
 from ..conformance import validate_course
 from ..course import Course, utc_now
-from ..sources import CourseInvalid, UnknownRef
+from ..sources import CourseInvalid, ResolveError, UnknownRef
 from ._layout import (
     SKILLING_DIR,
     courses_dir,
@@ -50,25 +51,67 @@ def ensure_workspace(dir: Path) -> Path:
     return dir
 
 
-def import_local_course(ws: Path, path: Path) -> ImportedCourse:
-    """Validate a local course directory — any finding refuses, the same bar
-    ``sources.resolve`` holds remote refs to — and copy it into
-    ``.skilling/courses/<id>@<version>/``. Nothing is written until validation passes, so a
-    refusal here leaves the workspace exactly as it was."""
-    if not path.is_dir():
-        raise UnknownRef(f"not a recognised ref, and no local directory at {path}")
+def _validated_course(path: Path) -> Course:
     report = validate_course(path)
     if not report.clean:
         raise CourseInvalid(
             f"{path} does not conform to the format ({len(report.findings)} finding(s))",
             findings=report.findings,
         )
-    course = Course.load(path)
-    destination = courses_dir(ws) / f"{course.id}@{course.version}"
-    if destination.is_dir():
-        shutil.rmtree(destination)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(path, destination)
+    return Course.load(path)
+
+
+def import_local_course(ws: Path, path: Path) -> ImportedCourse:
+    """Import a validated, independent copy without deleting the last working course.
+
+    Resolve source aliases before comparing trees. Importing our own content is a no-op;
+    overlapping trees and interior symlinks are refused rather than followed recursively.
+    A replacement is copied and validated in a sibling staging directory first. Caught
+    publication failures restore the previous directory; an unrecoverable restore leaves
+    its backup on disk and reports the location instead of deleting the learner's content.
+    """
+    if not path.is_dir():
+        raise UnknownRef(f"not a recognised ref, and no local directory at {path}")
+    path = path.resolve()
+    ws = ws.resolve()
+    course = _validated_course(path)
+    content_root = courses_dir(ws)
+    destination = content_root / f"{course.id}@{course.version}"
+    if any(p.is_symlink() for p in (ws / SKILLING_DIR, content_root, destination)):
+        raise ResolveError("workspace course destination must not be a symlink")
+    if path == destination.resolve():
+        return ImportedCourse(course=course, path=destination)
+    if destination.is_relative_to(path) or path.is_relative_to(destination):
+        raise ResolveError("course source and workspace content destination overlap")
+    if any(p.is_symlink() for p in path.rglob("*")):
+        raise ResolveError("course content contains a symlink; import a standalone course tree")
+    if destination.exists() and not destination.is_dir():
+        raise ResolveError(f"course destination is not a directory: {destination}")
+
+    content_root.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".skilling-import-", dir=content_root))
+    candidate = staging / "course"
+    previous = staging.with_name(staging.name + "-previous")
+    try:
+        shutil.copytree(path, candidate)
+        copied = _validated_course(candidate)
+        if (copied.id, copied.version) != (course.id, course.version):
+            raise ResolveError("course identity changed during import; retry with a stable source")
+        if destination.exists():
+            destination.rename(previous)
+        try:
+            candidate.rename(destination)
+        except BaseException:
+            if previous.exists():
+                try:
+                    previous.rename(destination)
+                except OSError as exc:
+                    raise ResolveError(f"previous course preserved at {previous}: {exc}") from exc
+            raise
+        if previous.exists():
+            shutil.rmtree(previous)
+    finally:
+        shutil.rmtree(staging)
     return ImportedCourse(course=Course.load(destination), path=destination)
 
 

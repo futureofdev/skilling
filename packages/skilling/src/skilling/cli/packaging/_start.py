@@ -1,7 +1,7 @@
 """``skilling start`` — one command from a course ref to an openable learner workspace: the
 onboarding acid test's engine (spec/workspace.md). Fully non-interactive — the ref and an
 optional target directory are the whole input — so the friendly route of pasting one prompt
-into any of the four hosts can have the agent run this command itself, no prompts to answer.
+into Codex or Claude Code can have the agent run this command itself, no prompts to answer.
 
 ``skilling init`` stays authoring-only; this never scaffolds a new course, only ever starts a
 learner into an existing one.
@@ -15,6 +15,7 @@ from pathlib import Path
 import typer
 
 from ...conformance import Report
+from ...course import Course
 from ...delivery import load_or_create
 from ...skills import SKILL_NAMES, HostTarget, Platform
 from ...skills import install as install_triad
@@ -55,7 +56,7 @@ def start(
     try:
         if GhResolver.claims(ref) or UrlResolver.claims(ref):
             resolved = resolve_remote(ref, cache=courses_dir(workspace))
-            course, content_path = resolved.course, resolved.path
+            course, content_path = Course.load(resolved.path), resolved.path
         else:
             imported = import_local_course(workspace, Path(ref))
             course, content_path = imported.course, imported.path
@@ -66,13 +67,12 @@ def start(
         else:
             render.findings(report, root=ref)
         raise typer.Exit(1) from exc
-    except ResolveError as exc:
+    except (ResolveError, OSError) as exc:
         render.err_console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
 
-    # Nothing above ever touches `workspace` on disk unless resolution succeeded (a remote
-    # cache write only happens after validation passes; a local import validates before
-    # copying) — a refusal above leaves no half-created workspace behind.
+    # Register only fully copied and validated content. A failed local copy can leave empty
+    # cache directories, but never publishes a workspace manifest or replaces working content.
     ensure_workspace(workspace)
     entry = add_course(workspace, course, ref, content_path)
 
@@ -129,7 +129,6 @@ def start(
     )
     console.print()
     console.print(
-        f"Next: open {workspace} in Claude Code, Codex, Claude Cowork, or ChatGPT Work "
-        'and say "learn".',
+        f'Next: open {workspace} in Claude Code or Codex and say "learn".',
         soft_wrap=True,
     )

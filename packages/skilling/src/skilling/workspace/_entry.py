@@ -17,17 +17,16 @@ ENTRY_BLOCK_END = "<!-- /skilling:workspace -->"
 ENTRY_FILENAMES: tuple[str, ...] = ("CLAUDE.md", "AGENTS.md")
 
 _BLOCK_CONTENT = """\
-This folder is a Skilling workspace: an AI-tutored course, ready to open in any \
-Agent-Skills host. Say "learn" to start or resume it — `/learn` in Claude Code or a \
-Claude Cowork-style host, `$learn` in Codex or another generic Agent-Skills host.
+This folder is a Skilling workspace: an AI-tutored course for Claude Code or Codex.
+Say "learn" to start or resume it — `/learn` in Claude Code, `$learn` in Codex.
 
-Machinery — state, cached course content, the ref index — lives under `.skilling/`. \
-Never edit it directly; every command that needs it reads and writes it through \
-`skilling`. Work you produce for a course goes in `showcase/<course-id>/`, the one \
+Machinery — state, cached course content, the ref index — lives under `.skilling/`.
+Never edit it directly; every command that needs it reads and writes it through
+`skilling`. Work you produce for a course goes in `showcase/<course-id>/`, the one
 folder here meant to be seen.
 
-If `skilling` is not on PATH (for example inside a Claude Cowork or ChatGPT Work \
-sandbox), `uvx skilling` runs the same commands with nothing installed."""
+The `skilling` command must be installed and on PATH in the host's environment.
+Opening or copying this folder does not install the CLI or its dependencies."""
 
 
 def upsert_block(text: str, content: str = _BLOCK_CONTENT) -> str:
@@ -39,10 +38,10 @@ def upsert_block(text: str, content: str = _BLOCK_CONTENT) -> str:
     end = text.find(ENTRY_BLOCK_END)
     if start != -1 and end != -1 and start < end:
         return f"{text[:start]}{block}{text[end + len(ENTRY_BLOCK_END) :]}"
-    if not text.strip():
+    if not text:
         return block + "\n"
-    trimmed = text.rstrip("\n")
-    return f"{trimmed}\n\n{block}\n"
+    separator = "" if text.endswith("\n\n") else "\n" if text.endswith("\n") else "\n\n"
+    return f"{text}{separator}{block}\n"
 
 
 def write_entry_file(path: Path) -> None:

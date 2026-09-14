@@ -101,7 +101,7 @@ def test_start_builds_a_complete_workspace(tmp_path: Path) -> None:
         assert "$learn" in text
         assert ".skilling/" in text
         assert "showcase/" in text
-        assert "uvx skilling" in text
+        assert "installed and on PATH" in text
 
 
 def test_dir_defaults_to_the_current_directory(
@@ -128,7 +128,7 @@ def test_human_output_matches_the_documented_format(tmp_path: Path) -> None:
     assert "course     .skilling/courses/hello-skilling@1.0.0" in out
     assert "showcase   showcase/hello-skilling/" in out
     assert ".claude/skills/ + .agents/skills/ (learn, progress, homework)" in out
-    for host in ("Claude Code", "Codex", "Claude Cowork", "ChatGPT Work"):
+    for host in ("Claude Code", "Codex"):
         assert host in out
     assert 'say "learn"' in out
 
@@ -248,3 +248,163 @@ def test_unknown_ref_is_refused_and_nothing_is_created(tmp_path: Path) -> None:
     result = run(["start", str(tmp_path / "does-not-exist"), str(ws)], tmp_path / "home")
     assert result.exit_code == 1
     assert not ws.exists()
+
+
+@pytest.mark.parametrize("alias", [False, True])
+def test_reimporting_workspace_course_preserves_its_files(tmp_path: Path, alias: bool) -> None:
+    ws = tmp_path / "ws"
+    home = tmp_path / "home"
+    assert start_hello_skilling(ws, home).exit_code == 0
+    content = ws / ".skilling/courses/hello-skilling@1.0.0"
+    before = {p.relative_to(content): p.read_bytes() for p in content.rglob("*") if p.is_file()}
+    source = content
+    if alias:
+        source = tmp_path / "alias"
+        try:
+            source.symlink_to(content, target_is_directory=True)
+        except OSError:
+            pytest.skip("directory symlinks unavailable on this platform")
+    result = run(["start", str(source), str(ws), "--json"], home)
+    assert result.exit_code == 0, result.output
+    assert {
+        p.relative_to(content): p.read_bytes() for p in content.rglob("*") if p.is_file()
+    } == before
+
+
+@pytest.mark.parametrize("workspace_relative", [".", "nested/workspace"])
+def test_workspace_inside_source_is_refused_before_copy(
+    tmp_path: Path, clean_dir: Path, workspace_relative: str
+) -> None:
+    ws = clean_dir / workspace_relative
+    result = runner.invoke(app, ["start", str(clean_dir), str(ws)], catch_exceptions=True)
+    assert result.exit_code == 1
+    assert "overlap" in result.output
+    assert not (ws / ".skilling").exists()
+    assert (clean_dir / "course.yaml").is_file()
+
+
+def test_copy_failure_preserves_previous_content_and_retry_succeeds(
+    tmp_path: Path, clean_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    ws = tmp_path / "ws"
+    home = tmp_path / "home"
+    assert run(["start", str(clean_dir), str(ws)], home).exit_code == 0
+    course_id = json.loads(run(["start", str(clean_dir), str(ws), "--json"], home).stdout)[
+        "course"
+    ]["id"]
+    content = ws / ".skilling/courses" / f"{course_id}@1.0.0"
+    old_files = {p.relative_to(content): p.read_bytes() for p in content.rglob("*") if p.is_file()}
+    old_manifest = (ws / ".skilling/workspace.yaml").read_bytes()
+    (clean_dir / "new-asset.txt").write_text("updated content")
+    real_copytree = shutil.copytree
+
+    def interrupted_copy(source, destination, *args, **kwargs):
+        Path(destination).mkdir(parents=True)
+        (Path(destination) / "partial.txt").write_text("incomplete")
+        raise OSError("injected copy interruption")
+
+    monkeypatch.setattr(shutil, "copytree", interrupted_copy)
+    failed = run(["start", str(clean_dir), str(ws)], home)
+    assert failed.exit_code == 1
+    assert "injected copy interruption" in failed.output
+    assert {
+        p.relative_to(content): p.read_bytes() for p in content.rglob("*") if p.is_file()
+    } == old_files
+    assert (ws / ".skilling/workspace.yaml").read_bytes() == old_manifest
+    monkeypatch.setattr(shutil, "copytree", real_copytree)
+    retried = run(["start", str(clean_dir), str(ws)], home)
+    assert retried.exit_code == 0, retried.output
+    assert (content / "new-asset.txt").read_text() == "updated content"
+    assert not (content / "partial.txt").exists()
+
+
+def test_invalid_staged_copy_preserves_previous_content(
+    tmp_path: Path, clean_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    ws = tmp_path / "ws"
+    home = tmp_path / "home"
+    initial = run(["start", str(clean_dir), str(ws), "--json"], home)
+    course_id = json.loads(initial.stdout)["course"]["id"]
+    content = ws / ".skilling/courses" / f"{course_id}@1.0.0"
+    before = (content / "course.yaml").read_bytes()
+    real_copytree = shutil.copytree
+
+    def changed_during_copy(source, destination, *args, **kwargs):
+        result = real_copytree(source, destination, *args, **kwargs)
+        if Path(source) == clean_dir:
+            (Path(destination) / "course.yaml").unlink()
+        return result
+
+    monkeypatch.setattr(shutil, "copytree", changed_during_copy)
+    result = run(["start", str(clean_dir), str(ws), "--json"], home)
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["ok"] is False
+    assert (content / "course.yaml").read_bytes() == before
+
+
+def test_interior_symlink_is_refused_without_following_it(tmp_path: Path, clean_dir: Path) -> None:
+    link = clean_dir / "recursive-link"
+    try:
+        link.symlink_to(clean_dir, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks unavailable on this platform")
+    ws = tmp_path / "ws"
+    result = runner.invoke(app, ["start", str(clean_dir), str(ws)], catch_exceptions=True)
+    assert result.exit_code == 1
+    assert "symlink" in result.output
+    assert not (ws / ".skilling").exists()
+
+
+@pytest.mark.parametrize("foreign", ["# Learner notes\n\n\n\n", "  \n\t\n"])
+def test_entry_creation_preserves_foreign_whitespace(tmp_path: Path, foreign: str) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    entry = ws / "AGENTS.md"
+    entry.write_text(foreign, encoding="utf-8")
+    result = start_hello_skilling(ws, tmp_path / "home")
+    assert result.exit_code == 0, result.output
+    assert entry.read_text(encoding="utf-8").startswith(foreign)
+
+
+def test_publication_failure_restores_previous_course(
+    tmp_path: Path, clean_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = tmp_path / "ws"
+    home = tmp_path / "home"
+    initial = run(["start", str(clean_dir), str(ws), "--json"], home)
+    course_id = json.loads(initial.stdout)["course"]["id"]
+    content = ws / ".skilling/courses" / f"{course_id}@1.0.0"
+    old_manifest = (content / "course.yaml").read_bytes()
+    (clean_dir / "new-asset.txt").write_text("new")
+    real_rename = Path.rename
+
+    def failed_publish(source: Path, target: Path) -> Path:
+        if source.name == "course" and source.parent.name.startswith(".skilling-import-"):
+            raise OSError("injected publication failure")
+        return real_rename(source, target)
+
+    monkeypatch.setattr(Path, "rename", failed_publish)
+    result = run(["start", str(clean_dir), str(ws)], home)
+    assert result.exit_code == 1
+    assert "injected publication failure" in result.output
+    assert (content / "course.yaml").read_bytes() == old_manifest
+    assert not (content / "new-asset.txt").exists()
+
+
+def test_workspace_content_symlink_is_refused(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    (ws / ".skilling").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (ws / ".skilling/courses").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks unavailable on this platform")
+    result = run(["start", str(EXAMPLE_COURSE), str(ws)], tmp_path / "home")
+    assert result.exit_code == 1
+    assert "symlink" in result.output
+    assert list(outside.iterdir()) == []
