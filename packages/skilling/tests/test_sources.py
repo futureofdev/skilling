@@ -14,12 +14,16 @@ from __future__ import annotations
 
 import contextlib
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from skilling.course import Course, parse_lesson
 from skilling.sources import CourseInvalid, GitFailed, ResolveError, UnknownRef, resolve
+
+from .conftest import REPO_ROOT
 
 FAKE_OK = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 GH_URL = "https://github.com/acme/course"
@@ -104,7 +108,7 @@ def _redirect_github(monkeypatch: pytest.MonkeyPatch, remote: Path) -> list[list
     calls: list[list[str]] = []
 
     def run(argv, **kwargs):
-        argv = [f"file://{remote}" if arg == GH_URL else arg for arg in argv]
+        argv = [remote.as_uri() if arg == GH_URL else arg for arg in argv]
         calls.append(argv)
         return real_run(argv, **kwargs)
 
@@ -154,21 +158,81 @@ def test_unknown_ref_is_refused(tmp_path: Path) -> None:
 
 
 def test_git_file_remote_fetches_validates_and_caches(tmp_path: Path, clean_dir: Path) -> None:
+    (clean_dir / "assets").mkdir(exist_ok=True)
+    (clean_dir / "assets" / "notes.txt").write_text("Course resource\n", encoding="utf-8")
     remote = tmp_path / "remote.git"
     subprocess.run(
         ["git", "init", "--bare", "-q", str(remote)], check=True, capture_output=True, text=True
     )
     _push_to_bare(clean_dir, remote)
 
-    resolved = resolve(f"file://{remote}", cache=tmp_path / "cache")
+    resolved = resolve(remote.as_uri(), cache=tmp_path / "cache")
     assert resolved.path == tmp_path / "cache" / "clean-course@1.0.0"
     assert resolved.course.id == "clean-course"
     assert resolved.course.version == "1.0.0"
+    _assert_durable_course(resolved.course, resolved.path)
+    assert (resolved.course.assets_dir / "notes.txt").read_text() == "Course resource\n"
     mtime = resolved.path.stat().st_mtime
 
-    again = resolve(f"file://{remote}", cache=tmp_path / "cache")  # cache hit: no re-clone
+    again = resolve(remote.as_uri(), cache=tmp_path / "cache")  # cache hit: no re-clone
     assert again.path == resolved.path
     assert again.path.stat().st_mtime == mtime
+    assert again.course == resolved.course
+    assert again.ref == resolved.ref == remote.as_uri()
+    assert again.pinned is resolved.pinned is None
+    _assert_durable_course(again.course, again.path)
+
+
+def _assert_durable_course(course: Course, path: Path) -> None:
+    assert course.root == path
+    assert Course.load(path).manifest == course.manifest
+    for phase in course.phases:
+        assert phase.directory.is_relative_to(path)
+        assert phase.directory.is_dir()
+        if phase.overview_path is not None:
+            assert phase.overview_path.read_text(encoding="utf-8")
+    for lesson in course.lessons():
+        assert lesson.path.is_relative_to(path)
+        parsed = parse_lesson(lesson.path)
+        assert parsed.frontmatter is not None
+        assert parsed.section("concept") is not None
+
+
+@pytest.mark.parametrize("pin_kind", ["tag", "sha"])
+def test_pinned_subdirectory_paths_survive_fetch_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pin_kind: str
+) -> None:
+    repository = tmp_path / "repository"
+    original = REPO_ROOT / "examples" / "workbench"
+    shutil.copytree(original, repository / "course-subdir")
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True, capture_output=True)
+    _push_to_bare(repository, remote)
+    sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip()
+    subprocess.run(["git", "tag", "v1.0.0"], cwd=repository, check=True)
+    subprocess.run(
+        ["git", "push", "-q", "--tags", "origin"], cwd=repository, check=True, capture_output=True
+    )
+    calls = _redirect_github(monkeypatch, remote)
+    pin = "v1.0.0" if pin_kind == "tag" else sha
+    ref = f"gh:acme/course@{pin}#course-subdir"
+    fetched = resolve(ref, cache=tmp_path / "cache")
+    _assert_durable_course(fetched.course, fetched.path)
+    assert fetched.path == tmp_path / "cache" / "workbench@1.0.0"
+    for lesson in fetched.course.lessons():
+        relative = lesson.path.relative_to(fetched.path)
+        assert lesson.path.read_bytes() == (original / relative).read_bytes()
+    assert (fetched.course.assets_dir / "workbench.svg").read_bytes() == (
+        original / "assets" / "workbench.svg"
+    ).read_bytes()
+    git_calls = len(calls)
+    remote.rename(tmp_path / "unavailable.git")
+    cached = resolve(ref, cache=tmp_path / "cache")
+    assert cached == fetched
+    assert cached.ref == ref
+    assert cached.pinned == pin
+    _assert_durable_course(cached.course, cached.path)
+    assert len(calls) == git_calls
 
 
 def test_gh_pin_by_tag_resolves_and_caches(
