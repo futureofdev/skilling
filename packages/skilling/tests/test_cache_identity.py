@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import traceback
 from pathlib import Path
@@ -580,3 +581,28 @@ def test_windows_legacy_cannot_infer_absent_executable_intent(
     after = snapshot(cache)
     after.pop(".cache.lock", None)
     assert after == before
+
+
+def test_staging_flushes_through_a_writable_handle_before_restoring_permissions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "run.sh").write_bytes(b"#!/bin/sh\nexit 0\n")
+    (source / "empty").write_bytes(b"")
+    (source / "run.sh").chmod(0o555)
+    expected = snapshot(source)
+    real_fsync = os.fsync
+    flushed: list[int] = []
+
+    def require_write_access(fd: int) -> None:
+        if stat.S_ISREG(os.fstat(fd).st_mode):
+            os.write(fd, b"")
+            flushed.append(fd)
+        real_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", require_write_access)
+    _cache.stage(source, tmp_path / "staged")
+    assert len(flushed) == 2
+    assert snapshot(source) == snapshot(tmp_path / "staged") == expected
+    assert (tmp_path / "staged/run.sh").stat().st_mode == (source / "run.sh").stat().st_mode

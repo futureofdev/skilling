@@ -5,11 +5,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 from package_smoke import Commands, inspect_artifact
@@ -29,10 +32,11 @@ def repository(example: Path, root: Path) -> None:
     git(root, "commit", "-qm", "fixture")
 
 
-def probe(source: Path, case: Path) -> None:
+def probe(source: Path, case: Path, python_version: str) -> None:
     import skilling
     from skilling.sources import CacheConflict, resolve
 
+    assert f"{sys.version_info.major}.{sys.version_info.minor}" == python_version, sys.version
     imported = Path(skilling.__file__).resolve()
     assert imported.is_relative_to(Path(sys.prefix).resolve()), imported
     assert not imported.is_relative_to(source), imported
@@ -65,7 +69,9 @@ def probe(source: Path, case: Path) -> None:
         json.dumps(
             {
                 "import": str(imported),
+                "prefix": sys.prefix,
                 "python": sys.version,
+                "expected_python": python_version,
                 "course": hit.course.id,
                 "durable": str(durable),
                 "equivalent": True,
@@ -77,7 +83,8 @@ def probe(source: Path, case: Path) -> None:
     )
 
 
-def smoke(source: Path, dist: Path, evidence: Path) -> None:
+def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None:
+    assert f"{sys.version_info.major}.{sys.version_info.minor}" == python_version, sys.version
     evidence.mkdir(parents=True, exist_ok=False)
     commands = Commands(evidence)
     version = tomllib.loads((source / "packages/skilling/pyproject.toml").read_text())["project"][
@@ -89,6 +96,20 @@ def smoke(source: Path, dist: Path, evidence: Path) -> None:
     )
     root = Path(tempfile.mkdtemp(prefix="skilling-installed-sources-"))
     assert not root.resolve().is_relative_to(source)
+    (evidence / "environment.json").write_text(
+        json.dumps(
+            {
+                "source": str(source),
+                "temporary_root": str(root),
+                "controller_python": sys.version,
+                "expected_python": python_version,
+                "platform": platform.platform(),
+                "package_version": version,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     succeeded = False
     try:
         for kind, artifact in zip(("wheel", "sdist"), artifacts, strict=True):
@@ -122,6 +143,8 @@ def smoke(source: Path, dist: Path, evidence: Path) -> None:
                     str(source),
                     "--case",
                     str(case),
+                    "--python-version",
+                    python_version,
                 ],
                 case,
             )
@@ -135,8 +158,17 @@ def smoke(source: Path, dist: Path, evidence: Path) -> None:
     finally:
         (evidence / "result.json").write_text(json.dumps({"passed": succeeded, "root": str(root)}))
         if succeeded:
-            shutil.rmtree(root)
+            shutil.rmtree(root, onerror=remove_read_only)
     print(f"Installed wheel/sdist Git source proof passed; evidence: {evidence}")
+
+
+def remove_read_only(operation: Callable[..., object], filename: str, error: object) -> None:
+    """Cleanup only the controller's owned temporary tree, including Windows Git objects."""
+    path = Path(filename)
+    if path.is_symlink() or not path.is_file():
+        raise OSError("cannot safely remove temporary Git content")
+    path.chmod(path.stat().st_mode | stat.S_IWRITE)
+    operation(filename)
 
 
 def main() -> None:
@@ -146,15 +178,20 @@ def main() -> None:
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--case", type=Path)
+    parser.add_argument(
+        "--python-version", default=f"{sys.version_info.major}.{sys.version_info.minor}"
+    )
     args = parser.parse_args()
     if args.probe:
         if args.case is None:
             parser.error("--probe requires --case")
-        probe(args.source.resolve(), args.case.resolve())
+        probe(args.source.resolve(), args.case.resolve(), args.python_version)
     else:
         if args.dist is None or args.evidence is None:
             parser.error("--dist and --evidence are required")
-        smoke(args.source.resolve(), args.dist.resolve(), args.evidence.resolve())
+        smoke(
+            args.source.resolve(), args.dist.resolve(), args.evidence.resolve(), args.python_version
+        )
 
 
 if __name__ == "__main__":

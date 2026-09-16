@@ -131,9 +131,11 @@ def stage(fetched: Path, destination: Path) -> None:
         if path.is_dir():
             target.mkdir()
         else:
-            shutil.copy2(path, target)
-            with target.open("rb") as stream:
+            with path.open("rb") as source, target.open("wb") as stream:
+                shutil.copyfileobj(source, stream)
+                stream.flush()
                 os.fsync(stream.fileno())
+            shutil.copystat(path, target)
     for directory in reversed((destination, *(p for p in destination.rglob("*") if p.is_dir()))):
         fsync_directory(directory)
 
