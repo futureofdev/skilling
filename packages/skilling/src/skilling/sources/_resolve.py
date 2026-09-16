@@ -138,7 +138,7 @@ def _resolve_remote(ref: str, *, cache: Path) -> ResolvedSource:
         key = _cache.course_key(resolved.course.id, resolved.course.version)
         stored = _cache.store(cache, fetched, key)
         _cache.remember(cache, ref, key)
-        return resolved._replace(path=stored)
+        return resolved._replace(course=Course.load(stored), path=stored)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 

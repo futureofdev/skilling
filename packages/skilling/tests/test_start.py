@@ -16,6 +16,8 @@ reach the developer's real ``~/.claude`` or ``~/.agents``.
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -43,6 +45,40 @@ def start_hello_skilling(ws: Path, home: Path, *, dir_arg: bool = True):
 
 
 # ---------------------------------------------------------------------------------------- e2e
+
+
+def test_git_start_discovers_and_delivers_after_remote_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SKILLING_STATE_ROOT", raising=False)
+    monkeypatch.delenv("SKILLING_WORKSPACE", raising=False)
+    source = tmp_path / "remote"
+    shutil.copytree(EXAMPLE_COURSE, source)
+    for args in (
+        ["init", "-q"],
+        ["config", "user.name", "Test"],
+        ["config", "user.email", "test@example.invalid"],
+        ["add", "."],
+        ["commit", "-qm", "course"],
+    ):
+        subprocess.run(["git", *args], cwd=source, check=True, capture_output=True)
+    ws = tmp_path / "workspace"
+    home = tmp_path / "unused-home"
+    started = run(["start", source.as_uri(), str(ws), "--json"], home)
+    assert started.exit_code == 0, started.output
+    payload = json.loads(started.stdout)
+    assert payload["course"]["id"] == "hello-skilling"
+    source.rename(tmp_path / "unavailable")
+    monkeypatch.chdir(ws / "showcase" / "hello-skilling")
+    listed = run(["courses", "--json"], home)
+    assert listed.exit_code == 0, listed.output
+    assert json.loads(listed.stdout)["courses"][0]["id"] == "hello-skilling"
+    resumed = run(["next", "--course", "hello-skilling"], home)
+    assert resumed.exit_code == 0, resumed.output
+    assert json.loads(resumed.stdout)["beat"]["name"] == "welcome"
+    progress = run(["progress", "--course", "hello-skilling"], home)
+    assert progress.exit_code == 0, progress.output
+    assert not (home / ".skilling").exists()
 
 
 def test_start_builds_a_complete_workspace(tmp_path: Path) -> None:
