@@ -19,7 +19,7 @@ next.
 ## `skilling next --course <path>`
 
 Call it when unsure where things stand. It does not advance the lesson. First use may
-initialize a record, and reading after an interrupted completion may finish its already
+initialize a record, and reading after an interrupted transition or completion may finish its already
 prepared writes. Reads of consistent existing state leave learner progress unchanged. Its
 envelope:
 
@@ -59,12 +59,19 @@ learner along" before they have actually done what the current beat asked for:
 `ceremony` — those are finished by `skilling complete`/`skilling ceremony`, never by
 `advance`, even though the machine models a `next` transition out of them too.
 
-An optional `--key <token>` replays a successfully saved call's envelope without reapplying
-it. It is not a general crash-recovery guarantee: interruption after the record write but
-before scratch is saved can leave the key missing, so blindly retrying may advance again.
-After an uncertain `advance`, call `next` and inspect the current beat before deciding what
-the learner's input still authorizes. Do not manufacture a second input to compensate. This
-remaining interruption gap is tracked in [#64](https://github.com/futureofdev/skilling/issues/64).
+Use a fresh `--key <token>` for each authorized advance and retain it for that action's
+retries. Repeating the same key and input cannot apply that action twice, including after
+interruption or later progress. The response describes **current** state with `replayed: true`,
+not the original beat; a first accepted keyed input reports `replayed: false`. Render that
+current beat and do not announce another action on replay. Keys last for the entire
+learner/course/version stream, so never recycle a key for a new action. Different-input reuse
+returns exit 3, `idempotency-key-conflict`; do not change the key simply to bypass that refusal.
+
+Record and teaching scratch recover together for unkeyed `advance` and `answer` too, but
+those calls are not idempotent. After an uncertain unkeyed call, use `next` and inspect the
+current beat before deciding what the learner's input still authorizes. Do not manufacture
+a second input to compensate. A legacy scratch key with no trustworthy input is refused;
+inspect current state and use a fresh key only for a newly authorized action.
 
 ## Gates are open waits
 
@@ -110,8 +117,9 @@ Once the envelope reports the `complete` beat, call `skilling complete --course 
 prepares the whole completion write set — log, streak, badges, homework placement or queue,
 and completion scratch reset — before applying it. Reopening recovers a pending prepared
 completion. A retry preserves the original completion time and uses its durable identity,
-not the record's next-lesson position or completed-list order. This guarantee applies to new
-journaled completions, not arbitrary earlier submissions or mid-lesson transitions.
+not the record's next-lesson position or completed-list order. Completion receipts cover new
+journaled completions; `advance` and `answer` follow the transition and retry rules above.
+Earlier unjournaled operations gain no retroactive recovery guarantee.
 
 Its envelope adds `already_completed`, `badges_awarded`, `phase_completed`, `homework_placed`,
 and `homework_queued` to the current resume fields. Report newly awarded badges and placed or

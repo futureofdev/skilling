@@ -23,11 +23,11 @@ from pydantic import (
     field_validator,
 )
 
-from ..course import CompletionEntry, HomeworkSlot, Record
-from ._io import _fsync_dir
-from ._io import _write_bytes_atomic as _write_bytes_atomic
-from ._paths import checked_path
-from ._protocol import (
+from ...course import CompletionEntry, HomeworkSlot, Record
+from .._io import _fsync_dir
+from .._io import _write_bytes_atomic as _write_bytes_atomic
+from .._paths import checked_path
+from .._protocol import (
     CompletionCommit,
     CompletionCommitResult,
     CompletionReceipt,
@@ -35,6 +35,30 @@ from ._protocol import (
     HomeworkWrite,
     RecoveryRequired,
     StatePathError,
+)
+
+# The shared entrypoint validates both journals before either is allowed to recover.
+from ._transition import (
+    IdempotencyKeyConflict as IdempotencyKeyConflict,
+)
+from ._transition import Prepared as PreparedTransition
+from ._transition import (
+    RuntimeSnapshot as RuntimeSnapshot,
+)
+from ._transition import (
+    TransitionCommit as TransitionCommit,
+)
+from ._transition import (
+    TransitionIdentity as TransitionIdentity,
+)
+from ._transition import (
+    TransitionJournal as TransitionJournal,
+)
+from ._transition import (
+    TransitionResult as TransitionResult,
+)
+from ._transition import (
+    TransitionVerb as TransitionVerb,
 )
 
 
@@ -249,10 +273,15 @@ class Journal:
                         HomeworkSlot.model_validate(yaml.safe_load(raw))
             elif item.after != b"":
                 raise ValueError("completion runtime state must reset to empty bytes")
+            elif item.before:
+                TransitionJournal(self.root, self.course_id).legacy_reservation(item.before)
             if self._raw(item.target) not in (item.before, item.after):
                 raise ValueError(f"unexpected bytes at completion target {item.target}")
 
     def _apply(self, prepared: Prepared) -> None:
+        for item in prepared.mutations:
+            if item.target == Target.RUNTIME and item.before:
+                TransitionJournal(self.root, self.course_id).reserve_legacy(item.before)
         for item in prepared.mutations:
             if self._raw(item.target) == item.after:
                 continue
@@ -354,3 +383,29 @@ class Journal:
         self._publish(prepared)
         self._apply(prepared)
         return self._result(receipt, False)
+
+
+def recover_journals(root: Path, course_id: str) -> None:
+    completion = Journal(root, course_id)
+    transition = TransitionJournal(root, course_id)
+    try:
+        old = completion._load()
+        if isinstance(old, Prepared):
+            completion._preflight(old)
+        new = transition.inspect()
+        if isinstance(old, Prepared) and isinstance(new, PreparedTransition):
+            raise ValueError("multiple prepared runtime journals")
+        if isinstance(old, Prepared):
+            completion._apply(old)
+        if isinstance(new, PreparedTransition):
+            transition.apply(new)
+    except (ValueError, TypeError, yaml.YAMLError, StatePathError) as exc:
+        raise RecoveryRequired(
+            f"Cannot recover runtime journals: {exc}. Preserve state for inspection."
+        ) from exc
+
+
+def validate_transition_commit(commit: TransitionCommit, root: Path) -> TransitionCommit:
+    from ._transition import validate_commit as validate
+
+    return validate(commit, root)

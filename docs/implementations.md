@@ -53,12 +53,17 @@ state root. A caller-selected root alias remains supported. Path preflight reads
 metadata without opening learner files, so it cannot deny another cooperating writer's
 atomic replacement.
 
-Two known gaps remain outside completion recovery: [interrupted confirmed submission
-(#63)](https://github.com/futureofdev/skilling/issues/63) can archive twice before resetting its
-slot, and [interrupted general `advance`
-(#64)](https://github.com/futureofdev/skilling/issues/64) can commit a record without its
-scratch/idempotency result, allowing the same key to advance again.
-The completion-related scratch revision guard does not make all transitions transactional.
+The file runtime also journals `advance`/`answer` record and scratch together. It reads
+coherent snapshots and compares both record revision and scratch bytes before new effects.
+Lifetime `advance --key` receipts survive later inputs, unrelated record changes and
+completion. Replay reports current state with `replayed: true`; it never restores an old
+envelope or record. Reusing a key for another input refuses. Existing untrusted legacy keys
+are reserved without reconstructing their input, and a new key remains usable. Retain
+`transition.yaml` and `transition-receipts/` alongside completion metadata when moving state.
+Unkeyed inputs are recoverable but are not safe to retry blindly.
+
+[Interrupted confirmed submission (#63)](https://github.com/futureofdev/skilling/issues/63)
+can still archive twice before resetting its slot; transition recovery does not close that gap.
 Full Windows delivery/timezone support remains [#2](https://github.com/futureofdev/skilling/issues/2);
 source/cache/import recovery and generic chronology remain #56–#59. Retained host proof and
 release readiness are separate from these storage changes. See the

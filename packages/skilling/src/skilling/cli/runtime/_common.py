@@ -27,7 +27,17 @@ import yaml
 from ...conformance import validate_course
 from ...course import Course, CourseLoadError, Record, ResolvedLesson
 from ...delivery import load_or_create
-from ...store import Conflict, FileProgressStore, ProgressStore, StatePathError, open_store
+from ...store import (
+    Conflict,
+    FileProgressStore,
+    IdempotencyKeyConflict,
+    ProgressStore,
+    StatePathError,
+    TransitionCommit,
+    TransitionIdentity,
+    TransitionResult,
+    open_store,
+)
 from ...workspace import resolve_course_location, resolve_state_root
 
 SCRATCH_NAME = "scratch.yaml"
@@ -55,8 +65,8 @@ class Scratch:
     that residual has to live instead, or a wrong answer would be forgotten the instant the
     process that recorded it exited.
 
-    ``last_key``/``last_result`` back ``advance --key``'s idempotent replay: the exact
-    envelope a key already produced, so a retried call can be answered without re-applying it.
+    ``last_key``/``last_result`` are read only for compatibility with older state. New keys
+    live in immutable transition receipts; replay renders a current coherent snapshot.
     """
 
     wrong_count: int = 0
@@ -72,6 +82,7 @@ class Session(NamedTuple):
     record: Record
     revision: str | None
     scratch: Scratch
+    scratch_bytes: bytes
 
 
 def now_override() -> datetime | None:
@@ -94,7 +105,11 @@ def fail(code: ExitCode, error: str, message: str) -> NoReturn:
 def load_scratch(store: ProgressStore, course_id: str) -> Scratch:
     if not isinstance(store, FileProgressStore):
         raise TypeError("runtime-private scratch currently needs the file store backend")
-    data = yaml.safe_load(store.read_runtime_state(course_id)) or {}
+    return parse_scratch(store.read_runtime_state(course_id))
+
+
+def parse_scratch(raw: bytes) -> Scratch:
+    data = yaml.safe_load(raw) or {}
     return Scratch(
         wrong_count=data.get("wrong_count", 0),
         returning_to_quiz=data.get("returning_to_quiz", False),
@@ -106,12 +121,20 @@ def load_scratch(store: ProgressStore, course_id: str) -> Scratch:
 def save_scratch(session: Session, scratch: Scratch, expected_record_revision: str) -> None:
     """Reject delayed scratch writes after another record mutation or completion reset.
 
-    General record-plus-scratch interruption remains a separate contract (#64); these
-    adapters serialize each operation without pretending the two calls are one transaction.
+    Retained for callers that change only scratch. CLI transitions use ``commit_runtime``
+    to commit the record and its teaching residuals together.
     """
     if not isinstance(session.store, FileProgressStore):
         raise TypeError("runtime-private scratch currently needs the file store backend")
-    payload = yaml.safe_dump(
+    payload = serialize_scratch(scratch)
+    try:
+        session.store.write_runtime_state(session.course.id, payload, expected_record_revision)
+    except Conflict as exc:
+        fail(ExitCode.CONFLICT, "conflict", str(exc))
+
+
+def serialize_scratch(scratch: Scratch) -> bytes:
+    return yaml.safe_dump(
         {
             "wrong_count": scratch.wrong_count,
             "returning_to_quiz": scratch.returning_to_quiz,
@@ -120,8 +143,26 @@ def save_scratch(session: Session, scratch: Scratch, expected_record_revision: s
         },
         sort_keys=False,
     ).encode("utf-8")
+
+
+def commit_runtime(
+    session: Session, record: Record, scratch: Scratch, identity: TransitionIdentity
+) -> TransitionResult:
+    if not isinstance(session.store, FileProgressStore):
+        raise TypeError("runtime transitions currently need the file store backend")
+    assert session.revision is not None
     try:
-        session.store.write_runtime_state(session.course.id, payload, expected_record_revision)
+        return session.store.commit_transition(
+            TransitionCommit(
+                identity,
+                session.revision,
+                session.scratch_bytes,
+                record,
+                serialize_scratch(scratch),
+            )
+        )
+    except IdempotencyKeyConflict as exc:
+        fail(ExitCode.CONFLICT, "idempotency-key-conflict", str(exc))
     except Conflict as exc:
         fail(ExitCode.CONFLICT, "conflict", str(exc))
 
@@ -172,7 +213,12 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
         if isinstance(store, FileProgressStore):
             store.ensure_course_paths(course.id)
         record, revision = load_or_create(store, course, learner)
-        scratch = load_scratch(store, course.id)
+        if not isinstance(store, FileProgressStore):
+            raise TypeError("runtime-private scratch currently needs the file store backend")
+        snapshot = store.read_runtime_snapshot(learner, course.id)
+        assert snapshot is not None
+        record, revision = snapshot.record, snapshot.revision
+        scratch = parse_scratch(snapshot.scratch)
     except StatePathError as exc:
         fail(ExitCode.INVALID, "state-invalid", str(exc))
 
@@ -192,4 +238,4 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
             f"{record.position.coordinate} is not a lesson in {course.id}",
         )
 
-    return Session(course, lesson, store, record, revision, scratch)
+    return Session(course, lesson, store, record, revision, scratch, snapshot.scratch)

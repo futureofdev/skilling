@@ -228,7 +228,10 @@ def test_replayed_advance_is_idempotent(clean_dir: Path, tmp_path: Path) -> None
     a = _advance(clean_dir, tmp_path, "next", key="k1")
     b = _advance(clean_dir, tmp_path, "next", key="k1")
     assert a.exit_code == 0
-    assert a.stdout == b.stdout  # byte-identical; applied once
+    first, replay = json.loads(a.stdout), json.loads(b.stdout)
+    assert first.pop("replayed") is False
+    assert replay.pop("replayed") is True
+    assert first == replay  # current envelope; applied once
 
     assert _record(tmp_path)["position"]["beat"] == "objectives"
 
@@ -245,10 +248,10 @@ def test_conflict_surfaces_as_exit_3(clean_dir: Path, tmp_path: Path, monkeypatc
     # unaffected — only this call's own advance write should ever hit the patched method.
     run(["next", "--course", str(clean_dir)], tmp_path)
 
-    def _boom(self, record, expected_revision):  # noqa: ANN001
-        raise Conflict("record.yaml", expected_revision, "elsewhere")
+    def _boom(self, commit):
+        raise Conflict("record.yaml", commit.expected_record_revision, "elsewhere")
 
-    monkeypatch.setattr(FileProgressStore, "put_record", _boom)
+    monkeypatch.setattr(FileProgressStore, "commit_transition", _boom)
 
     result = _advance(clean_dir, tmp_path, "next")
     assert result.exit_code == 3
@@ -696,7 +699,7 @@ def test_console_entrypoint_controls_late_state_errors(clean_dir: Path, tmp_path
         "from skilling.store import StatePathError\n"
         "def refuse(*args, **kwargs):\n"
         "    raise StatePathError('test late scratch refusal')\n"
-        "_session.save_scratch = refuse\n",
+        "_session.commit_runtime = refuse\n",
         encoding="utf-8",
     )
     executable = Path(sys.executable).parent / ("skilling.exe" if os.name == "nt" else "skilling")

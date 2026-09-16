@@ -38,17 +38,26 @@ from ...delivery import (
     should_offer_revisit,
 )
 from ...delivery import advance as apply_input
-from ...store import LOCAL_LEARNER, Conflict, NotSupported, RecoveryRequired
+from ...store import (
+    LOCAL_LEARNER,
+    Conflict,
+    FileProgressStore,
+    IdempotencyKeyConflict,
+    NotSupported,
+    RecoveryRequired,
+    TransitionIdentity,
+    TransitionVerb,
+)
 from ...workspace import find_workspace, showcase_dir
 from ._common import (
     ExitCode,
     Scratch,
+    commit_runtime,
     emit,
     fail,
-    load_scratch,
     now_override,
     open_session,
-    save_scratch,
+    parse_scratch,
 )
 
 COURSE_HELP = "Path to the course directory."
@@ -297,10 +306,27 @@ def advance(
     """Apply exactly one transition and persist the resulting position."""
     session = open_session(course, state, learner)
 
-    if key is not None and key == session.scratch.last_key:
-        assert session.scratch.last_result is not None
-        emit(session.scratch.last_result)
-        return
+    if key is not None:
+        assert isinstance(session.store, FileProgressStore)
+        try:
+            previous = session.store.get_transition_identity(learner, session.course.id, key)
+            if previous is not None:
+                if previous.verb != "advance" or previous.input != given_input:
+                    raise IdempotencyKeyConflict("Key already belongs to a different input")
+                result = commit_runtime(session, session.record, session.scratch, previous)
+                current = result.snapshot
+                envelope = _resume_envelope(
+                    "advance",
+                    session.course,
+                    current.record,
+                    current.revision,
+                    parse_scratch(current.scratch),
+                )
+                envelope["replayed"] = True
+                emit(envelope)
+                return
+        except IdempotencyKeyConflict as exc:
+            fail(ExitCode.CONFLICT, "idempotency-key-conflict", str(exc))
 
     if _course_complete(session.course, session.record):
         fail(ExitCode.ILLEGAL, "course-complete", "the course is complete — nothing to advance")
@@ -338,32 +364,31 @@ def advance(
     )
     updated_record = session.record.model_copy(update={"position": new_position})
 
-    try:
-        new_revision = session.store.put_record(updated_record, session.revision)
-    except Conflict as exc:
-        fail(ExitCode.CONFLICT, "conflict", str(exc))
-
-    questions = _questions(parsed)
-    envelope = _envelope(
+    identity = TransitionIdentity(
+        learner,
+        session.course.id,
+        session.course.version,
+        lesson.coordinate,
+        TransitionVerb.ADVANCE,
+        given_input,
+        key,
+    )
+    result = commit_runtime(
+        session,
+        updated_record,
+        Scratch(wrong_count=new_state.wrong_count, returning_to_quiz=new_state.returning_to_quiz),
+        identity,
+    )
+    snapshot = result.snapshot
+    envelope = _resume_envelope(
         "advance",
         session.course,
-        updated_record,
-        new_revision,
-        beat_name=str(new_state.beat),
-        content=_beat_content(new_state, lesson, parsed, questions),
-        legal=legal_inputs(new_state),
+        snapshot.record,
+        snapshot.revision,
+        parse_scratch(snapshot.scratch),
     )
-
-    save_scratch(
-        session,
-        Scratch(
-            wrong_count=new_state.wrong_count,
-            returning_to_quiz=new_state.returning_to_quiz,
-            last_key=key if key is not None else session.scratch.last_key,
-            last_result=envelope if key is not None else session.scratch.last_result,
-        ),
-        new_revision,
-    )
+    if key is not None:
+        envelope["replayed"] = result.replayed
     emit(envelope)
 
 
@@ -432,10 +457,15 @@ def complete(
         fail(ExitCode.CONFLICT, "conflict", str(exc))
     except NotSupported as exc:
         fail(ExitCode.ERROR, "completion-not-supported", str(exc))
-    scratch = load_scratch(session.store, session.course.id)
-
+    assert isinstance(session.store, FileProgressStore)
+    snapshot = session.store.read_runtime_snapshot(learner, session.course.id)
+    assert snapshot is not None
     envelope = _resume_envelope(
-        "complete", session.course, outcome.record, outcome.revision, scratch
+        "complete",
+        session.course,
+        snapshot.record,
+        snapshot.revision,
+        parse_scratch(snapshot.scratch),
     )
     envelope.update(
         {
