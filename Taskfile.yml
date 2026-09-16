@@ -56,8 +56,14 @@ tasks:
       - uv run skilling validate examples/hello-skilling
       - uv run skilling validate examples/workbench
 
+  package:smoke:
+    desc: "Build and test installed wheel/sdist outside checkout; extra args after --"
+    cmds:
+      - uv build --package skilling
+      - uv run python packages/skilling/tests/package_smoke.py --source . --dist dist {{.CLI_ARGS}}
+
   check:
-    desc: Everything CI runs
+    desc: Source checks (CI also checks lock freshness and installed packages)
     cmds:
       - task: lint
       - task: typecheck

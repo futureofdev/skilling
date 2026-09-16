@@ -84,7 +84,8 @@ def install(target: HostTarget, *, project: Path | None, home: Path) -> InstallR
             dest = skill_dest / relative
             dest.parent.mkdir(parents=True, exist_ok=True)
             content = source.read_text(encoding="utf-8")
-            dest.write_text(content, encoding="utf-8")
+            dest.write_bytes(source.read_bytes())
+            # Keep legacy receipts' normalized text hashes while copying exact bytes.
             entries[relative.as_posix()] = _hash(content)
             written.append(dest)
 

@@ -21,7 +21,7 @@ def today_in(zone: str, now: datetime | None = None) -> date:
     try:
         return moment.astimezone(ZoneInfo(zone)).date()
     except (ZoneInfoNotFoundError, ValueError):
-        return moment.astimezone(ZoneInfo("UTC")).date()
+        return moment.astimezone(UTC).date()
 
 
 def next_streak(last_activity: date | None, today: date, current: int) -> int:

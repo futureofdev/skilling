@@ -1,5 +1,5 @@
-# CI runs exactly what `task check` runs locally, split into named steps so a failure
-# is legible from the job list alone. The only required branch-protection check is `check`.
+# Source checks match `task check`; CI also checks the lock and installed distributions.
+# The only required branch-protection check is `check`.
 name: CI
 
 on:
@@ -36,7 +36,7 @@ jobs:
         with:
           version: 3.x
           repo-token: ${{ github.token }}
-      - run: uv lock --check
+      - run: env -u UV_FROZEN uv lock --check
       - run: uv sync
       - run: task lint
       - run: task typecheck
@@ -50,12 +50,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.11", "3.12", "3.13"]
-        include:
-          - { os: macos-latest, python-version: "3.13" }
-          # windows-latest returns with the fix for issue #2 (ZoneInfo fallback
-          # raises without tzdata, cascading through the delivery tests).
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -83,28 +79,61 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv sync
-      # Fixed-date storage models avoid the full delivery ZoneInfo gap tracked in #2.
+      # Retain the focused native persistence profile alongside full Windows learning.
       - run: uv run pytest packages/skilling/tests/test_store.py packages/skilling/tests/test_state_paths.py packages/skilling/tests/test_store_concurrency.py packages/skilling/tests/test_store_locking.py -q
 
-      # Test-only UTC calendar isolates #2; locks, I/O and subprocess recovery stay native.
+      # Controlled test calendar; locks, I/O and subprocess recovery remain native.
       - run: uv run pytest packages/skilling/tests/test_completion_recovery.py packages/skilling/tests/test_completion_contract.py -m storage_native -vv
 
   package:
     name: build · inspect package
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      artifact-name: ${{ steps.package.outputs.artifact-name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: hynek/build-and-inspect-python-package@2abe76da66d0a6a4a227101f9348ee855797cfa5 # v3.0.1
+        id: package
         with:
           path: packages/skilling
+
+  installed:
+    name: installed wheel/sdist (${{ matrix.os }}, py${{ matrix.python-version }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.14"]
+    steps:
+      - name: Preserve archive line endings in the comparison checkout
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: ${{ needs.package.outputs.artifact-name }}
+          path: dist
+      - run: uv run --no-project --python ${{ matrix.python-version }} python packages/skilling/tests/package_smoke.py --source . --dist dist --evidence package-evidence --python-version ${{ matrix.python-version }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: installed-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: package-evidence
 
   check:
     name: check
     if: always()
-    needs: [checks, test, storage-windows, package]
+    needs: [checks, test, storage-windows, package, installed]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -12,9 +12,9 @@ installs): the target is the enclosing workspace's root, or the current director
 workspace encloses it. ``--home`` is the explicit opt-in for what every install used to do
 unconditionally; ``--project`` no longer exists.
 
-Every test passes an explicit ``home`` — a ``tmp_path`` straight to the pure functions, or a
-monkeypatched ``$HOME`` for the CLI — never the developer's real ``~/.claude`` or
-``~/.agents`` (global constraint: those directories are shared across worktrees). CLI tests
+Every test passes an explicit ``home`` — a ``tmp_path`` straight to the pure functions, or
+isolated ``HOME`` and ``USERPROFILE`` variables for the CLI — never the developer's real
+``~/.claude`` or ``~/.agents`` (those directories are shared across worktrees). CLI tests
 that exercise the folder-scoped default also ``monkeypatch.chdir`` into an isolated directory
 and clear ``SKILLING_WORKSPACE``, for the same reason: the default now reads the current
 directory, and the real one is a shared worktree.
@@ -35,6 +35,7 @@ from skilling.skills import (
     SKILL_NAMES,
     HostTarget,
     Platform,
+    _install,
     install,
     skill_md_path,
     uninstall,
@@ -43,6 +44,10 @@ from skilling.skills import skill_dir as bundled_skill_dir
 from skilling.workspace import WORKSPACE_ENV, WorkspaceManifest, save_manifest
 
 runner = CliRunner()
+
+
+def _home_env(home: Path) -> dict[str, str]:
+    return {"HOME": str(home), "USERPROFILE": str(home)}
 
 
 # --------------------------------------------------------------------------------- HostTarget
@@ -68,6 +73,28 @@ def test_project_target_ignores_home(tmp_path: Path) -> None:
 
 
 # ------------------------------------------------------------------------------------ install
+
+
+@pytest.mark.parametrize("platform", list(Platform))
+@pytest.mark.parametrize("content", [b"# Skill\n\nText\n", b"# Skill\r\n\r\nText\r\n"])
+def test_install_preserves_bundled_bytes_and_receipt_roundtrip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform, content: bytes
+) -> None:
+    source = tmp_path / "bundle"
+    source.mkdir()
+    bundled = source / "SKILL.md"
+    bundled.write_bytes(content)
+    monkeypatch.setattr(_install, "_bundled_skill_dir", lambda name: source)
+    monkeypatch.setattr(_install, "_bundled_skill_files", lambda name: [bundled])
+    target = HostTarget(platform)
+    home = tmp_path / "home"
+
+    installed = install(target, project=None, home=home)
+
+    for path in installed.files:
+        assert path.read_bytes() == content
+    removed = uninstall(target, project=None, home=home)
+    assert all(path in removed and not path.exists() for path in installed.files)
 
 
 def test_install_writes_all_three_skills_and_a_receipt_each(tmp_path: Path) -> None:
@@ -197,7 +224,7 @@ def test_cli_install_in_a_bare_directory_defaults_to_cwd(
     bare = tmp_path / "bare-repo"
     _isolate(monkeypatch, bare)
 
-    result = runner.invoke(app, ["install"], env={"HOME": str(tmp_path / "unused-home")})
+    result = runner.invoke(app, ["install"], env=_home_env(tmp_path / "unused-home"))
 
     assert result.exit_code == 0, result.output
     for name in SKILL_NAMES:
@@ -213,7 +240,7 @@ def test_cli_install_platform_flag_narrows_to_one_convention(
 ) -> None:
     _isolate(monkeypatch, tmp_path / "bare-repo")
     result = runner.invoke(
-        app, ["install", "--platform", "claude"], env={"HOME": str(tmp_path / "unused-home")}
+        app, ["install", "--platform", "claude"], env=_home_env(tmp_path / "unused-home")
     )
     assert result.exit_code == 0, result.output
     assert (Path.cwd() / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
@@ -233,7 +260,7 @@ def test_cli_install_inside_a_workspace_lands_at_the_root_even_from_a_subdirecto
     monkeypatch.chdir(subdir)
 
     result = runner.invoke(
-        app, ["install", "--platform", "claude"], env={"HOME": str(tmp_path / "unused-home")}
+        app, ["install", "--platform", "claude"], env=_home_env(tmp_path / "unused-home")
     )
 
     assert result.exit_code == 0, result.output
@@ -254,7 +281,9 @@ def test_cli_install_home_flag_reproduces_todays_home_profile_behavior(
     monkeypatch.chdir(workspace_root)
     home = tmp_path / "home"
 
-    result = runner.invoke(app, ["install", "--home"], env={"HOME": str(home)})
+    with runner.isolation(env=_home_env(home)):
+        assert Path.home() == home
+    result = runner.invoke(app, ["install", "--home"], env=_home_env(home))
 
     assert result.exit_code == 0, result.output
     for name in SKILL_NAMES:
@@ -274,7 +303,7 @@ def test_cli_install_project_flag_no_longer_exists(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _isolate(monkeypatch, tmp_path / "bare-repo")
-    result = runner.invoke(app, ["install", "--project"], env={"HOME": str(tmp_path)})
+    result = runner.invoke(app, ["install", "--project"], env=_home_env(tmp_path))
     assert result.exit_code == 2  # a clean usage error, not a crash or a silent no-op
     assert "No such option: --project" in Text.from_ansi(result.output).plain
     assert not (Path.cwd() / ".claude").exists()
@@ -284,7 +313,7 @@ def test_cli_reinstall_is_idempotent_and_upgrades_in_place(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _isolate(monkeypatch, tmp_path / "bare-repo")
-    env = {"HOME": str(tmp_path / "unused-home")}
+    env = _home_env(tmp_path / "unused-home")
     first = runner.invoke(app, ["install", "--platform", "claude"], env=env)
     assert first.exit_code == 0, first.output
 
@@ -303,7 +332,7 @@ def test_cli_uninstall_removes_exactly_what_was_written_and_keeps_foreign_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _isolate(monkeypatch, tmp_path / "bare-repo")
-    env = {"HOME": str(tmp_path / "unused-home")}
+    env = _home_env(tmp_path / "unused-home")
     installed = runner.invoke(app, ["install"], env=env)
     assert installed.exit_code == 0, installed.output
 
@@ -332,7 +361,7 @@ def test_cli_uninstall_inside_a_workspace_removes_from_the_root_even_from_a_subd
     save_manifest(workspace_root, WorkspaceManifest())
     subdir = workspace_root / "showcase"
     subdir.mkdir()
-    env = {"HOME": str(tmp_path / "unused-home")}
+    env = _home_env(tmp_path / "unused-home")
 
     monkeypatch.chdir(workspace_root)
     installed = runner.invoke(app, ["install", "--platform", "claude"], env=env)
@@ -352,7 +381,7 @@ def test_cli_uninstall_home_flag_matches_install_home_flag(
     workspace_root = tmp_path / "myworkspace"
     save_manifest(workspace_root, WorkspaceManifest())
     monkeypatch.chdir(workspace_root)
-    env = {"HOME": str(tmp_path / "home")}
+    env = _home_env(tmp_path / "home")
 
     installed = runner.invoke(app, ["install", "--home"], env=env)
     assert installed.exit_code == 0, installed.output
@@ -367,7 +396,7 @@ def test_cli_uninstall_project_flag_no_longer_exists(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _isolate(monkeypatch, tmp_path / "bare-repo")
-    result = runner.invoke(app, ["uninstall", "--project"], env={"HOME": str(tmp_path)})
+    result = runner.invoke(app, ["uninstall", "--project"], env=_home_env(tmp_path))
     assert result.exit_code == 2
     assert "No such option: --project" in Text.from_ansi(result.output).plain
 
@@ -376,5 +405,5 @@ def test_cli_uninstall_of_nothing_installed_exits_nonzero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _isolate(monkeypatch, tmp_path / "bare-repo")
-    result = runner.invoke(app, ["uninstall"], env={"HOME": str(tmp_path / "unused-home")})
+    result = runner.invoke(app, ["uninstall"], env=_home_env(tmp_path / "unused-home"))
     assert result.exit_code == 1
