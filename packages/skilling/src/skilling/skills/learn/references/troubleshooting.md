@@ -2,8 +2,9 @@
 
 Every verb prints exactly one JSON object and exits non-zero on failure. Check `ok` first.
 On `false` the body is always `{"ok": false, "error": {"code": "...", "message": "..."}}` —
-read the message and relay it to the learner in your own words. Never retry the identical
-call expecting a different result, and never work around a refusal by reading or writing
+read the message and relay it to the learner in your own words. An uncertain keyed advance
+may be retried with its original key and input; a typed refusal needs the action below.
+Never work around a refusal by reading or writing
 files under the state root yourself; `skilling` is the only write authority, and a refusal
 means something the format cares about, not a glitch to route around.
 
@@ -25,6 +26,11 @@ means something the format cares about, not a glitch to route around.
   verbs). Re-read `legal_inputs` from the last envelope; do not guess a different input and
   do not assume the beat moved.
 - `course-complete` — every lesson is already done; there is nothing left to `advance`.
+- `idempotency-key-conflict` — the key belongs to another input, or legacy state cannot prove
+  its original input. Read `next`; do not bypass the refusal with another key for the same
+  uncertain action. A distinct, newly authorized action gets its own fresh key.
+- `recovery-required` — preserve the state and recovery metadata for inspection. Do not edit
+  or delete a journal or guess a missing transition.
 - `unknown-input` — the input string itself is not one the machine recognises at all, not
   merely illegal here. A bug in your own call, not the learner's.
 - `quiz-finished` — `quiz next` was called with no open question. The quiz already moved on
@@ -49,5 +55,6 @@ the call had actually succeeded.
 
 ## When in doubt
 
-Call `skilling next --course <path>` again. It never writes anything, so there is no cost to
-checking reality before calling anything that does.
+Call `skilling next --course <path>` again. It does not advance the lesson; first use may
+initialize state and a pending prepared operation may finish recovery. Consistent existing
+state is read without changing progress.

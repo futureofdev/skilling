@@ -66,12 +66,12 @@ def test_main_preserves_real_stale_revision_conflict(clean_dir: Path, tmp_path: 
     launcher = """
 from skilling.store import FileProgressStore
 from skilling.cli import main
-original = FileProgressStore.put_record
-def competing_write(self, record, expected_revision):
-    peer = record.model_copy(update={"skills_unlocked": ["peer"]})
-    original(self, peer, expected_revision)
-    return original(self, record, expected_revision)
-FileProgressStore.put_record = competing_write
+original = FileProgressStore.commit_transition
+def competing_write(self, commit):
+    peer = commit.record.model_copy(update={"skills_unlocked": ["peer"]})
+    self.put_record(peer, commit.expected_record_revision)
+    return original(self, commit)
+FileProgressStore.commit_transition = competing_write
 main()
 """
     result = subprocess.run(

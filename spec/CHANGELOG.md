@@ -6,6 +6,19 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Recoverable file-runtime transitions — 2026-09-16
+
+The [file runtime](runtime.md#recoverable-file-runtime-transitions) now journals the record
+and teaching scratch as one recoverable transition, reads them as a coherent snapshot, and
+checks both before-images under its course lock. `advance --key` retains lifetime operation
+identities across intervening writes and completion; retries return current state with a
+replay marker, and different-input key reuse refuses without effects. Unkeyed advance and
+answer gain atomic recovery without a retry guarantee. Legacy scratch keys are reserved
+without guessed input, and existing version-1 completion journals remain compatible. The
+typed snapshot/transition API is file-only; the generic store protocol and public record,
+log and homework models are unchanged. This does not promote package/specification versions
+or establish confirmed-submission recovery.
+
 ### Recoverable completion and required backend operations — 2026-09-16
 
 [Runtime completion](runtime.md#completion) now prepares a stable operation identity and the

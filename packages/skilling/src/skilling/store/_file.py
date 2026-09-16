@@ -23,7 +23,17 @@ from pydantic import BaseModel
 
 from ..course import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
 from ._io import _fsync_dir, _write_bytes_atomic
-from ._journal import Journal, validate_commit
+from ._journal import (
+    Journal,
+    RuntimeSnapshot,
+    TransitionCommit,
+    TransitionIdentity,
+    TransitionJournal,
+    TransitionResult,
+    recover_journals,
+    validate_commit,
+    validate_transition_commit,
+)
 from ._locking import DEFAULT_LOCK_TIMEOUT as DEFAULT_LOCK_TIMEOUT
 from ._locking import locked_course
 from ._paths import canonical_root, checked_path
@@ -32,6 +42,7 @@ from ._protocol import (
     CompletionCommitResult,
     CompletionReceipt,
     Conflict,
+    RecoveryRequired,
     Revision,
     StatePathError,
 )
@@ -93,6 +104,11 @@ class FileProgressStore:
         self._homework_path(course_id)
         self.checked_path(course_id, "scratch.yaml")
         self.checked_path(course_id, "completion.yaml")
+        self.checked_path(course_id, "transition.yaml")
+        receipts = self.checked_path(course_id, "transition-receipts")
+        if receipts.is_dir():
+            for child in receipts.iterdir():
+                self.checked_path(course_id, "transition-receipts", child.name)
         archive = self._archive_dir(course_id)
         if archive.is_dir():
             for child in archive.iterdir():
@@ -121,7 +137,7 @@ class FileProgressStore:
         self.checked_path(course_id, ".skilling.lock")
         directory.mkdir(parents=True, exist_ok=True)
         with locked_course(directory, timeout=DEFAULT_LOCK_TIMEOUT):
-            Journal(self.state_root, course_id).recover()
+            recover_journals(self.state_root, course_id)
             yield
 
     # ------------------------------------------------------------------------ record
@@ -288,3 +304,35 @@ class FileProgressStore:
             if actual != expected_record_revision:
                 raise Conflict(RECORD_NAME, expected_record_revision, actual)
             _write_bytes_atomic(self.checked_path(course_id, "scratch.yaml"), data)
+
+    def read_runtime_snapshot(self, learner_id: str, course_id: str) -> RuntimeSnapshot | None:
+        self.ensure_course_paths(course_id)
+        if not self.course_dir(course_id).is_dir():
+            return None
+        with self._locked_course(course_id):
+            try:
+                return TransitionJournal(self.state_root, course_id).snapshot(learner_id)
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid runtime snapshot: {exc}") from exc
+
+    def get_transition_identity(
+        self, learner_id: str, course_id: str, key: str
+    ) -> TransitionIdentity | None:
+        self.ensure_course_paths(course_id)
+        if not self.course_dir(course_id).is_dir():
+            return None
+        with self._locked_course(course_id):
+            try:
+                return TransitionJournal(self.state_root, course_id).identity(learner_id, key)
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid transition receipt: {exc}") from exc
+
+    def commit_transition(self, commit: TransitionCommit) -> TransitionResult:
+        validated = validate_transition_commit(commit, self.state_root)
+        with self._locked_course(validated.identity.course_id):
+            try:
+                return TransitionJournal(self.state_root, validated.identity.course_id).commit(
+                    validated
+                )
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid transition intent: {exc}") from exc

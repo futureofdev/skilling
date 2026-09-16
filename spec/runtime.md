@@ -461,6 +461,52 @@ manual inspection.
 
 ## The file layout
 
+### Recoverable file-runtime transitions
+
+The reference file runtime commits each `advance` or `answer` record update and its teaching
+scratch together under the course lock. A coherent snapshot contains the record, its exact
+revision, and the raw scratch bytes read under that same lock. New commits compare both the
+record revision and scratch before-image; a change to either refuses with a conflict before
+publishing new intent. This is a file-backend extension, not an addition to `ProgressStore`.
+
+The file API exports frozen `RuntimeSnapshot(record, revision, scratch)`,
+`TransitionIdentity(learner_id, course_id, course_version, coordinate, verb, input, key)`,
+`TransitionCommit(identity, expected_record_revision, expected_scratch, record, scratch)` and
+`TransitionResult(snapshot, replayed)`. `TransitionVerb` names `advance` and `answer`;
+`input` is the normalized input string and `key` may be absent. `FileProgressStore` provides
+`read_runtime_snapshot(learner_id, course_id)`,
+`get_transition_identity(learner_id, course_id, key)` and `commit_transition(commit)`.
+The runtime computes effects; the store validates and persists their supplied after-images.
+
+For `advance --key KEY`, the key binds to its first accepted operation's stream, coordinate,
+verb and input for the lifetime of that learner/course/version stream. A retry with the same
+verb and input performs no second transition, even after intervening keys, record edits,
+lesson completion or full-course completion. It returns the **current** coherent teaching
+envelope with `replayed: true`; a new accepted keyed input returns `replayed: false`.
+Reusing that key for a different input or verb refuses with `IdempotencyKeyConflict` (CLI
+exit 3, `idempotency-key-conflict`) without effects. A new learner action needs a fresh key.
+Unkeyed `advance` and `answer` have recoverable record/scratch commits, but repeated unkeyed
+inputs are not idempotent: inspect current state before deciding what to submit next.
+
+Before effects, the file backend durably publishes versioned `transition.yaml` prepared
+intent with exact before/after bytes, stream and operation identity, and an optional receipt
+descriptor. It writes record, scratch and any immutable keyed receipt, then replaces the
+intent with a committed marker. Receipts live under `transition-receipts/` with filenames
+derived from a SHA-256 of the stream and key; caller keys are never paths. Completion resets
+teaching scratch without deleting these receipts.
+
+Every cooperating course operation validates both transition and existing version-1
+completion metadata before recovering either under the same lock. Two simultaneously
+prepared journals refuse without target writes. Unknown versions, missing required metadata,
+invalid identities or paths, and target bytes matching neither before nor after also refuse
+with `RecoveryRequired`; recovery never guesses a merge. Existing version-1 completion
+intents remain readable. Legacy scratch `last_key`/`last_result` cannot prove its input:
+that key is reserved and refused, its cached envelope is never replayed, and a fresh key
+works. A later committed operation retains the reservation before clearing legacy scratch.
+No historical input or missing receipt is invented.
+
+### Portable learner files
+
 The single-learner local layout is specified so that any runtime can read any learner's local state. This is what makes local progress portable between tools.
 
 ```

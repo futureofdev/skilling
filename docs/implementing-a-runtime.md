@@ -141,11 +141,25 @@ uncompleted coordinate already present in the matching legacy log raises `Recove
 when no trustworthy intent can recover it. Preserve that state and inspect record, log and
 homework together; the runtime does not choose a historical repair for you.
 
-General `advance` still writes its record and scratch separately. Revision-checked scratch
-writes prevent a delayed pre-completion writer from replacing completion's reset, but do not
-make that earlier pair recoverable. An interrupted keyed advance can reapply a transition;
-inspect `next` before proceeding instead of assuming every repeated key is safe. This remains
-tracked in [#64](https://github.com/futureofdev/skilling/issues/64).
+The file runtime's `read_runtime_snapshot` returns one coherent record/revision/scratch
+snapshot. `commit_transition` validates a runtime-supplied `TransitionCommit` and compares
+both record revision and exact scratch bytes before preparing `transition.yaml`. It persists
+the record and scratch together, so interruption cannot forget wrong-answer or revisit state.
+This file-only extension leaves the generic `ProgressStore` protocol unchanged; use the
+[typed values and methods](../spec/runtime.md#recoverable-file-runtime-transitions), not
+separate record/scratch writes, for a CLI transition.
+
+`advance --key` stores immutable identities under `transition-receipts/`. Keep each key for
+one authorized action and retry with the same input. A replay returns the current coherent
+snapshot with `replayed: true`, including later objective, artifact and consent edits; it
+never restores an old response. Different-input reuse raises `IdempotencyKeyConflict` (CLI
+exit 3). Completion preserves keys for the whole learner/course/version stream. Unkeyed
+`advance` and `answer` recover atomically but do not gain idempotent retries.
+
+Transition and version-1 completion journals are validated together before recovery; two
+prepared journals refuse without target writes. Legacy scratch keys have no trustworthy
+input and are reserved/refused, not replayed or guessed. New authorized actions use fresh
+keys. Preserve transition intent and all receipts when moving the stopped state directory.
 
 ## Homework: mechanics are given, judgement is yours
 

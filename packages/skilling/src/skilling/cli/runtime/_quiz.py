@@ -35,8 +35,8 @@ from ...delivery import (
     should_offer_revisit,
 )
 from ...delivery import advance as apply_input
-from ...store import LOCAL_LEARNER, Conflict
-from ._common import ExitCode, Scratch, emit, fail, open_session, save_scratch
+from ...store import LOCAL_LEARNER, TransitionIdentity, TransitionVerb
+from ._common import ExitCode, Scratch, commit_runtime, emit, fail, open_session
 
 COURSE_HELP = "Path to the course directory."
 STATE_HELP = "Where to keep the learner's progress record."
@@ -155,20 +155,19 @@ def answer(
     )
     updated_record = session.record.model_copy(update={"position": new_position})
 
-    try:
-        new_revision = session.store.put_record(updated_record, session.revision)
-    except Conflict as exc:
-        fail(ExitCode.CONFLICT, "conflict", str(exc))
-
-    save_scratch(
+    commit_runtime(
         session,
-        Scratch(
-            wrong_count=new_state.wrong_count,
-            returning_to_quiz=new_state.returning_to_quiz,
-            last_key=session.scratch.last_key,
-            last_result=session.scratch.last_result,
+        updated_record,
+        Scratch(wrong_count=new_state.wrong_count, returning_to_quiz=new_state.returning_to_quiz),
+        TransitionIdentity(
+            learner,
+            session.course.id,
+            session.course.version,
+            session.lesson.coordinate,
+            TransitionVerb.ANSWER,
+            normalized,
+            None,
         ),
-        new_revision,
     )
 
     objectives: list[str] = []
