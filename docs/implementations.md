@@ -47,6 +47,12 @@ assignments are not inferred. Corrupt metadata or unexpected bytes require inspe
 automatic guessed repair. Process termination and filesystem flushes are the supported
 verification boundary, not a physical power-loss or network-filesystem claim.
 
+On Windows, descendant reparse points are refused conservatively, including cloud or
+compression placeholders that are not aliases; use ordinary local files beneath the selected
+state root. A caller-selected root alias remains supported. Path preflight reads directory
+metadata without opening learner files, so it cannot deny another cooperating writer's
+atomic replacement.
+
 Two known gaps remain outside completion recovery: [interrupted confirmed submission
 (#63)](https://github.com/futureofdev/skilling/issues/63) can archive twice before resetting its
 slot, and [interrupted general `advance`

@@ -224,3 +224,104 @@ def test_spawn_writers_preserve_acknowledgements(tmp_path: Path, kind: str, exis
                 worker.join(15)
         ready.close()
         results.close()
+
+
+def test_path_preflight_cannot_deny_another_writers_replace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hold the Windows metadata handle at the exact preflight/replace interleaving.
+
+    Windows uses the real share-mode-zero handle used by CPython resolve. Other hosts
+    model only its replace refusal; the store, lock, paths and atomic writer remain real.
+    """
+    import os
+    from contextlib import contextmanager
+
+    from skilling.store import _paths
+
+    store = FileProgressStore(tmp_path / "state")
+    inspector = FileProgressStore(store.state_root)
+    revision = store.put_record(a_record(), None)
+    target = store.checked_path(COURSE, "record.yaml")
+    replacing, inspected, release, held = (threading.Event() for _ in range(4))
+    resolve, replace = Path.resolve, os.replace
+    inspector_id: int | None = None
+
+    @contextmanager
+    def metadata_handle():
+        if os.name != "nt":
+            yield
+            return
+        import ctypes
+        from ctypes import wintypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        create = kernel.CreateFileW
+        create.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        ]
+        create.restype = wintypes.HANDLE
+        close = kernel.CloseHandle
+        close.argtypes = [wintypes.HANDLE]
+        close.restype = wintypes.BOOL
+        handle = create(str(target), 0, 0, None, 3, 0x02000000, None)
+        if handle == ctypes.c_void_p(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            yield
+        finally:
+            assert close(handle)
+
+    def held_resolve(path: Path, strict: bool = False) -> Path:
+        if path == target and threading.get_ident() == inspector_id:
+            with metadata_handle():
+                held.set()
+                inspected.set()
+                assert release.wait(10)
+                held.clear()
+        return resolve(path, strict=strict)
+
+    def paused_replace(source, destination) -> None:
+        if Path(destination) == target:
+            replacing.set()
+            assert inspected.wait(10)
+            if os.name != "nt" and held.is_set():
+                raise PermissionError("Windows metadata preflight denied atomic replacement")
+        replace(source, destination)
+
+    def inspect() -> Path:
+        nonlocal inspector_id
+        inspector_id = threading.get_ident()
+        try:
+            return inspector.checked_path(COURSE, "record.yaml")
+        finally:
+            inspected.set()
+
+    if os.name != "nt":
+        from types import SimpleNamespace
+
+        monkeypatch.setattr(_paths, "os", SimpleNamespace(name="nt"))
+        # Only the Windows metadata syscall is modeled; a focused helper suite validates it.
+        monkeypatch.setattr(_paths, "_check_windows_component", lambda path: None)
+    monkeypatch.setattr(Path, "resolve", held_resolve)
+    monkeypatch.setattr(os, "replace", paused_replace)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        writing = pool.submit(
+            store.put_record, a_record(skills_unlocked=["acknowledged"]), revision
+        )
+        assert replacing.wait(10)
+        checking = pool.submit(inspect)
+        try:
+            new_revision = writing.result(timeout=10)
+        finally:
+            release.set()
+        assert checking.result(timeout=10) == target
+    found = store.get_record(LEARNER, COURSE)
+    assert found is not None and found[1] == new_revision
+    assert found[0].skills_unlocked == ["acknowledged"]

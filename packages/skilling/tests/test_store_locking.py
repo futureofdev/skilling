@@ -362,7 +362,10 @@ def test_homework_disappearance_during_path_preflight(
     store = FileProgressStore(tmp_path)
     revision = store.put_homework(LEARNER, COURSE, a_slot(), None)
     inspected, release = threading.Event(), threading.Event()
+    from skilling.store import _paths
+
     resolve = Path.resolve
+    windows_check = _paths._check_windows_component
     reader_id: int | None = None
 
     def paused_resolve(path: Path, strict: bool = False) -> Path:
@@ -370,6 +373,12 @@ def test_homework_disappearance_during_path_preflight(
             inspected.set()
             assert release.wait(5)
         return resolve(path, strict=strict)
+
+    def paused_windows_check(path: Path) -> None:
+        windows_check(path)
+        if path.name == "active.yaml" and threading.get_ident() == reader_id:
+            inspected.set()
+            assert release.wait(5)
 
     def contender():
         nonlocal reader_id
@@ -381,6 +390,7 @@ def test_homework_disappearance_during_path_preflight(
         )
 
     monkeypatch.setattr(Path, "resolve", paused_resolve)
+    monkeypatch.setattr(_paths, "_check_windows_component", paused_windows_check)
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(contender)
         try:
