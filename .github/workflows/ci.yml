@@ -86,6 +86,9 @@ jobs:
       # Fixed-date storage models avoid the full delivery ZoneInfo gap tracked in #2.
       - run: uv run pytest packages/skilling/tests/test_store.py packages/skilling/tests/test_state_paths.py packages/skilling/tests/test_store_concurrency.py packages/skilling/tests/test_store_locking.py -q
 
+      # Test-only UTC calendar isolates #2; locks, I/O and subprocess recovery stay native.
+      - run: uv run pytest packages/skilling/tests/test_completion_recovery.py packages/skilling/tests/test_completion_contract.py -m storage_native -vv
+
   package:
     name: build · inspect package
     runs-on: ubuntu-latest

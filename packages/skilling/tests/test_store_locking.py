@@ -310,8 +310,10 @@ def test_locked_operations_propagate_fsync_failure(
     def fail(directory: Path) -> None:
         raise error
 
+    from skilling.store import _io
+
     with monkeypatch.context() as patch:
-        patch.setattr(_file, "_fsync_dir", fail)
+        patch.setattr(_file if operation == "delete" else _io, "_fsync_dir", fail)
         with pytest.raises(OSError) as caught:
             if operation == "record":
                 store.put_record(a_record(), None)
@@ -360,7 +362,10 @@ def test_homework_disappearance_during_path_preflight(
     store = FileProgressStore(tmp_path)
     revision = store.put_homework(LEARNER, COURSE, a_slot(), None)
     inspected, release = threading.Event(), threading.Event()
+    from skilling.store import _paths
+
     resolve = Path.resolve
+    windows_check = _paths._check_windows_component
     reader_id: int | None = None
 
     def paused_resolve(path: Path, strict: bool = False) -> Path:
@@ -368,6 +373,12 @@ def test_homework_disappearance_during_path_preflight(
             inspected.set()
             assert release.wait(5)
         return resolve(path, strict=strict)
+
+    def paused_windows_check(path: Path) -> None:
+        windows_check(path)
+        if path.name == "active.yaml" and threading.get_ident() == reader_id:
+            inspected.set()
+            assert release.wait(5)
 
     def contender():
         nonlocal reader_id
@@ -379,6 +390,7 @@ def test_homework_disappearance_during_path_preflight(
         )
 
     monkeypatch.setattr(Path, "resolve", paused_resolve)
+    monkeypatch.setattr(_paths, "_check_windows_component", paused_windows_check)
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(contender)
         try:

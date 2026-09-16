@@ -6,6 +6,24 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Recoverable completion and required backend operations — 2026-09-16
+
+[Runtime completion](runtime.md#completion) now prepares a stable operation identity and the
+complete runtime-derived write set before durable effects. The required store interface adds
+`get_completion_receipt` and `commit_completion`, with `CompletionReceipt`, `HomeworkWrite`,
+`CompletionCommit` and `CompletionCommitResult` defining the public seam. Existing third-party
+backends must implement these operations; completion refuses unsupported backends before
+writing, with no fallback to the old separate writes. This is a backend-contract change
+within the current draft, not a package or specification version promotion.
+
+Recovery preserves the original completion/log/unlock times, final phase badges, homework
+slot or queue, and completion checkpoint reset. Cooperating reads and writes finish pending
+intent first; retries return current record/revision data. Completion hooks fire after a new
+durable commit and are suppressed during recovery or replay, so external delivery remains
+best-effort. Portable internal recovery metadata supplements the existing record/log/homework
+layout; existing files and history are preserved without inferred legacy repairs. Completion
+recovery does not establish general scratch or confirmed-submission interruption safety.
+
 ### The learner workspace
 
 [Workspace](workspace.md) specifies one folder a learner opens in any Agent-Skills host —

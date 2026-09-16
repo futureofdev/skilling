@@ -329,7 +329,7 @@ def test_directory_fsync_tolerates_only_unsupported_operations(
     import errno
     from types import SimpleNamespace
 
-    from skilling.store import _file
+    from skilling.store import _io as _file
 
     error = OSError(getattr(errno, failure), failure)
     closed: list[int] = []
@@ -369,7 +369,7 @@ def test_windows_directory_fsync_does_not_open_a_descriptor(
 ) -> None:
     from types import SimpleNamespace
 
-    from skilling.store import _file
+    from skilling.store import _io as _file
 
     # Absence of open/fsync attributes makes accidental calls fail on every test platform.
     monkeypatch.setattr(_file, "os", SimpleNamespace(name="nt"))

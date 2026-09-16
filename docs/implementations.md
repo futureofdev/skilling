@@ -22,6 +22,49 @@ The triad row's capabilities describe what an unmodified Claude Code or Codex se
 
 `skilling deliver` also claims [Conforming Producer](../spec/README.md#conforming-producer), since it is the interface as well as the runtime: it writes learner state only through the runtime, never synthesises input to unlock a gate, never renders an answer before it is earned, and asks about telemetry with the decline as the default. Claiming the class matters because it means the class is exercised rather than merely described.
 
+## Completion recovery and current limits
+
+The current source adds the required completion backend interface in the 1.4.0 draft:
+`get_completion_receipt` and `commit_completion`, with the public completion value types in
+`skilling.store`. Third-party stores implementing only the previous interface must add these
+operations; `complete_lesson` refuses with `NotSupported` before completion effects when they
+are missing. Plugin discovery does not establish compatibility, and no legacy fallback
+claims the new guarantee. This change does not promote the registry's historical version
+claims or publish a new package release.
+
+The file backend records a portable prepared completion intent before effects, then writes
+log, final record, optional homework and completion scratch reset under one course lock.
+Cooperating reads and writes recover pending intent first. Retry preserves original times,
+phase badges and assignment identity while returning the current record/revision; it does
+not restore an obsolete record over later acknowledged changes. Newly committed completion
+hooks fire after durability; recovery and replay suppress hooks, so a crash can omit external
+events.
+
+The scope is newly journaled completion on a local filesystem used by cooperating processes.
+Retain `completion.yaml` when relocating state after writers stop. Existing record/log/homework
+formats remain portable; old duplicate history is not removed and missing historical
+assignments are not inferred. Corrupt metadata or unexpected bytes require inspection, not
+automatic guessed repair. Process termination and filesystem flushes are the supported
+verification boundary, not a physical power-loss or network-filesystem claim.
+
+On Windows, descendant reparse points are refused conservatively, including cloud or
+compression placeholders that are not aliases; use ordinary local files beneath the selected
+state root. A caller-selected root alias remains supported. Path preflight reads directory
+metadata without opening learner files, so it cannot deny another cooperating writer's
+atomic replacement.
+
+Two known gaps remain outside completion recovery: [interrupted confirmed submission
+(#63)](https://github.com/futureofdev/skilling/issues/63) can archive twice before resetting its
+slot, and [interrupted general `advance`
+(#64)](https://github.com/futureofdev/skilling/issues/64) can commit a record without its
+scratch/idempotency result, allowing the same key to advance again.
+The completion-related scratch revision guard does not make all transitions transactional.
+Full Windows delivery/timezone support remains [#2](https://github.com/futureofdev/skilling/issues/2);
+source/cache/import recovery and generic chronology remain #56–#59. Retained host proof and
+release readiness are separate from these storage changes. See the
+[runtime implementation guide](implementing-a-runtime.md#recovery-scope-and-legacy-state)
+for backend and legacy-state handling.
+
 ## Why the reference runtime has no language model in it
 
 `skilling deliver` walks the loop, holds the gates on real input, grades the quiz from the lesson's inline answer lines, re-presents the concept on a wrong answer, and writes a correct record. It re-*prints* rather than re-*explains*, and it cannot judge homework.

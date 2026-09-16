@@ -339,3 +339,147 @@ def test_unresolvable_directory_aliases_are_refused(
         [COURSE, "other-course"] if kind == "two-node" else [COURSE]
     )
     assert not (tmp_path / "missing").exists()
+
+
+@pytest.mark.parametrize(
+    "requested,actual,attributes,refused",
+    [
+        ("record.yaml", "record.yaml", 0, False),
+        ("RECORD.YAML", "record.yaml", 0, False),
+        ("literal~name.yaml", "literal~name.yaml", 0, False),
+        ("RECORD~1.YAM", "record-long-name.yaml", 0, True),
+        ("SHORT", "long-directory-name", 0x10, True),
+        ("record.yaml", "record.yaml", 0x400, True),
+        ("homework", "homework", 0x410, True),
+    ],
+)
+def test_windows_metadata_checks_canonical_names_and_reparse_points(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    requested: str,
+    actual: str,
+    attributes: int,
+    refused: bool,
+) -> None:
+    """The same metadata interpretation runs on all hosts; Windows CI uses real API too."""
+    import ctypes
+    from ctypes import wintypes
+    from types import SimpleNamespace
+
+    from skilling.store import _paths
+
+    closed: list[int] = []
+    queried: list[str] = []
+
+    def find(path, pointer):
+        queried.append(path)
+        data = ctypes.cast(pointer, ctypes.POINTER(wintypes.WIN32_FIND_DATAW)).contents
+        data.cFileName = actual
+        data.dwFileAttributes = attributes
+        return 42
+
+    def close(handle):
+        closed.append(handle)
+        return 1
+
+    monkeypatch.setattr(_paths, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(
+        _paths, "_windows_api", lambda: SimpleNamespace(FindFirstFileW=find, FindClose=close)
+    )
+    target = tmp_path / requested
+    if refused:
+        with pytest.raises(StatePathError, match="alias"):
+            _paths._check_windows_component(target)
+    else:
+        _paths._check_windows_component(target)
+    assert queried == [str(target)]
+    assert closed == [42], "successful lookup handles close even on alias refusal"
+
+
+@pytest.mark.parametrize("error", [2, 3, 5, 123])
+def test_windows_metadata_missing_and_io_errors_are_distinct(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: int
+) -> None:
+    import ctypes
+    from types import SimpleNamespace
+
+    from skilling.store import _paths
+
+    def find(*args):
+        return ctypes.c_void_p(-1).value
+
+    def close(*args):
+        raise AssertionError("an invalid search handle must not be closed")
+
+    monkeypatch.setattr(_paths, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(
+        _paths, "_windows_api", lambda: SimpleNamespace(FindFirstFileW=find, FindClose=close)
+    )
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: error, raising=False)
+    failure = OSError(error, "metadata lookup failed")
+    monkeypatch.setattr(ctypes, "WinError", lambda code: failure, raising=False)
+    if error in {2, 3}:
+        _paths._check_windows_component(tmp_path / "record.yaml")
+    else:
+        with pytest.raises(OSError) as caught:
+            _paths._check_windows_component(tmp_path / "record.yaml")
+        assert caught.value is failure
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "record.",
+        "record ",
+        "record?",
+        "record*",
+        "record\x01",
+        "NUL",
+        "nul.txt",
+        "CONOUT$",
+        "COM1",
+        "LPT².txt",
+    ],
+)
+def test_windows_nonliteral_or_device_components_refuse_before_metadata_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    from types import SimpleNamespace
+
+    from skilling.store import _paths
+
+    def unexpected():
+        raise AssertionError("unsafe names must fail before even a directory query")
+
+    monkeypatch.setattr(_paths, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(_paths, "_windows_api", unexpected)
+    with pytest.raises(StatePathError, match="Invalid Windows"):
+        _paths._check_windows_component(tmp_path / name)
+
+
+def test_windows_metadata_close_failure_is_not_suppressed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import ctypes
+    from ctypes import wintypes
+    from types import SimpleNamespace
+
+    from skilling.store import _paths
+
+    def find(path, pointer):
+        data = ctypes.cast(pointer, ctypes.POINTER(wintypes.WIN32_FIND_DATAW)).contents
+        data.cFileName = "record.yaml"
+        return 42
+
+    monkeypatch.setattr(_paths, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(
+        _paths,
+        "_windows_api",
+        lambda: SimpleNamespace(FindFirstFileW=find, FindClose=lambda handle: 0),
+    )
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: 5, raising=False)
+    failure = OSError(5, "search handle close failed")
+    monkeypatch.setattr(ctypes, "WinError", lambda code: failure, raising=False)
+    with pytest.raises(OSError) as caught:
+        _paths._check_windows_component(tmp_path / "record.yaml")
+    assert caught.value is failure

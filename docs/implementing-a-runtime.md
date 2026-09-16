@@ -70,9 +70,20 @@ if outcome.homework_placed:
     ...   # show the assignment
 ```
 
-This writes the log first and then the record, so no observable state can show a completion without its log entry. It is idempotent by coordinate. It applies the streak in the record's timezone. It unions the lesson's declared badges into the record.
+This prepares one completion operation before writing: the original timestamp, log entry,
+final record with lesson and phase badges, and any homework slot or queue update. The file
+store durably records that intent, applies the log before the record, then completes homework
+and resets completion-related scratch before acknowledging. Reopening through the store
+finishes pending intent under the same course lock used by other reads and writes. A retry
+uses the original operation and its dates, even on the next day; it returns the current
+record and revision, preserving later acknowledged changes.
 
-That last one is the reason to reuse this rather than reimplement it: in the course this format generalises, eleven lessons declared badges and the delivery system wrote none of them, for months, unnoticed. It was not a hard bug. It was an easy one, in code nobody thought was interesting.
+Operation identity belongs to the runtime and binds learner/course/version/coordinate. Do
+not infer a failed completion from the record's next-lesson position or the last element of
+`completed`. The completion receipt supplies replay identity, while the current record still
+authorizes the next lesson's transitions. A prior receipt cannot bypass an unfinished quiz.
+
+Preserving badges is one reason to reuse this rather than reimplement it: in the course this format generalises, eleven lessons declared badges and the delivery system wrote none of them, for months, unnoticed. It was not a hard bug. It was an easy one, in code nobody thought was interesting.
 
 ## Persist through the store, not around it
 
@@ -87,11 +98,64 @@ except Conflict:
 
 Writes are optimistically concurrent. A `Conflict` is information, not an obstacle — silently overwriting is the failure mode the revision token exists to prevent.
 
-To add a backend, implement the `ProgressStore` protocol and run the existing suite against it. The suite is written against the protocol and parametrised over implementations, so a new backend costs one entry in `BACKENDS` and no new assertions.
+To add a backend, implement the required `ProgressStore` operations, including
+`get_completion_receipt(learner_id, course_id)` and `commit_completion(commit)`. The public
+`skilling.store` exports `CompletionReceipt`, `HomeworkWrite`, `CompletionCommit` and
+`CompletionCommitResult`; their fields and semantics are in the
+[store contract](../spec/runtime.md#completion-commit). Runtime code derives the effects;
+your backend validates and persists them, including expected record/log/homework comparisons,
+serialized recovery, and returning the current stream on replay. It must never load course
+content to reconstruct a missing effect.
+
+This extends the backend contract: an older third-party backend without these methods raises
+`NotSupported` from `complete_lesson` before new completion effects. There is no unsafe
+fallback. Entry-point discovery still discovers factories; successfully loading a plugin does
+not certify its completion support. Exercise the public store contract and interruption,
+replay and concurrent-writer cases against your backend before claiming that support.
+
+`Conflict` means reread and prepare against current state. `StoreBusy` means the bounded
+course-lock wait expired. `RecoveryRequired` means the intent or target bytes cannot be
+safely reconciled; preserve the files for inspection rather than deleting the journal,
+forcing stale bytes, or trying a guessed repair. The CLI reports the latter two as
+`store-busy` and `recovery-required` (exit 1); stale revision conflicts retain exit 3.
+
+### Recovery scope and legacy state
+
+For the file backend, `<state-root>/<course-id>/completion.yaml` holds a prepared write set
+or the latest committed receipt. Prepared metadata contains course-relative targets and
+exact before/after bytes; the store validates every target before applying any of them.
+Ordinary operations resolve pending intent under the existing course lock. Invalid metadata,
+unsafe paths and unexpected target bytes fail closed. The record, completion log and
+homework formats are unchanged; `completion.yaml` is internal recovery metadata, not a new
+record model or a replacement source of learner progress.
+
+Move the whole state directory, including a pending journal, after all writers have stopped.
+Recovery needs no original source path, absolute workspace root or transcript. The supported
+coordination scope is cooperating processes on one local filesystem. Atomic replacement and
+filesystem flushes support the tested process-interruption behavior; this is not evidence of
+physical power-loss survival or coordination across network-mounted clients.
+
+Unjournaled legacy records remain readable. Already-completed coordinates are no-ops; the
+runtime does not invent absent historical homework or remove duplicated old log entries. An
+uncompleted coordinate already present in the matching legacy log raises `RecoveryRequired`
+when no trustworthy intent can recover it. Preserve that state and inspect record, log and
+homework together; the runtime does not choose a historical repair for you.
+
+General `advance` still writes its record and scratch separately. Revision-checked scratch
+writes prevent a delayed pre-completion writer from replacing completion's reset, but do not
+make that earlier pair recoverable. An interrupted keyed advance can reapply a transition;
+inspect `next` before proceeding instead of assuming every repeated key is safe. This remains
+tracked in [#64](https://github.com/futureofdev/skilling/issues/64).
 
 ## Homework: mechanics are given, judgement is yours
 
-The core does place, display, queue, submit, archive, and idempotence. What it cannot do is look at a learner's work.
+The core places, displays and queues homework, and provides the ordinary submit/archive
+path. What it cannot do is look at a learner's work. Submission interruption is a known gap:
+if the process stops after archiving but before resetting the slot, retry can append a
+duplicate archive. Completion recovery does not cover that separate operation. Preserve and
+inspect the active slot and archive after an uncertain submission; do not promise general
+submission crash safety from successful ordinary retries. The interruption gap is tracked
+in [#63](https://github.com/futureofdev/skilling/issues/63).
 
 If your tutor can judge work, you owe two things the specification is strict about:
 
@@ -115,6 +179,11 @@ hooks = Dispatcher(
 )
 delivery.complete_lesson(store, course, record, revision, lesson, hooks=hooks)
 ```
+
+Completion events are dispatched only after the durable commit. A new uninterrupted commit
+emits the existing events using its original timestamp. Read-triggered recovery and completed
+retries emit none; a crash between commit and dispatch can omit events. These hooks are
+best-effort notifications, not an exactly-once external transaction.
 
 Three things the dispatcher does so you cannot get them wrong:
 

@@ -10,7 +10,13 @@ import yaml
 from ...conformance import validate_course
 from ...course import Course, CourseLoadError
 from ...delivery import Dispatcher, parse_sink, set_telemetry_consent
-from ...store import LOCAL_LEARNER, FileProgressStore, StatePathError
+from ...store import (
+    LOCAL_LEARNER,
+    FileProgressStore,
+    NotSupported,
+    RecoveryRequired,
+    StatePathError,
+)
 from ...workspace import resolve_state_root
 from .. import _render as render
 from ._walk import Walker
@@ -89,6 +95,12 @@ def deliver(
             set_telemetry_consent(store, walker.record, walker.revision, False)
     except StatePathError as exc:
         render.err_console.print(f"[red]state-invalid[/] {exc}")
+        raise typer.Exit(1) from exc
+    except RecoveryRequired as exc:
+        render.err_console.print(f"[red]recovery-required[/] {exc}")
+        raise typer.Exit(1) from exc
+    except NotSupported as exc:
+        render.err_console.print(f"[red]completion-not-supported[/] {exc}")
         raise typer.Exit(1) from exc
     finally:
         dispatcher.close()

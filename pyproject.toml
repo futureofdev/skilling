@@ -41,3 +41,5 @@ typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
 testpaths = ["packages/skilling/tests"]
+
+markers = ["storage_native: real native persistence with a controlled UTC calendar"]

@@ -2,9 +2,14 @@
 
 from ._file import LOCAL_LEARNER, FileProgressStore
 from ._protocol import (
+    CompletionCommit,
+    CompletionCommitResult,
+    CompletionReceipt,
     Conflict,
+    HomeworkWrite,
     NotSupported,
     ProgressStore,
+    RecoveryRequired,
     Revision,
     StatePathError,
     StoreBusy,
@@ -15,6 +20,11 @@ from ._select import STORE_ENTRY_POINT_GROUP, UnknownScheme, default_state_root,
 __all__ = [
     "LOCAL_LEARNER",
     "STORE_ENTRY_POINT_GROUP",
+    "CompletionCommit",
+    "CompletionCommitResult",
+    "CompletionReceipt",
+    "HomeworkWrite",
+    "RecoveryRequired",
     "Conflict",
     "FileProgressStore",
     "NotSupported",

@@ -156,7 +156,7 @@ def answer(
     updated_record = session.record.model_copy(update={"position": new_position})
 
     try:
-        session.store.put_record(updated_record, session.revision)
+        new_revision = session.store.put_record(updated_record, session.revision)
     except Conflict as exc:
         fail(ExitCode.CONFLICT, "conflict", str(exc))
 
@@ -168,6 +168,7 @@ def answer(
             last_key=session.scratch.last_key,
             last_result=session.scratch.last_result,
         ),
+        new_revision,
     )
 
     objectives: list[str] = []
