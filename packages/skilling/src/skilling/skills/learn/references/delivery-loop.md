@@ -129,9 +129,11 @@ the next lesson has begun, an old receipt does not authorize completing it early
 If a call reports `recovery-required`, preserve the state and ask for inspection; never edit
 or delete the journal, replay guessed transitions, or invent missing historical homework.
 Old completed records can remain readable without evidence to reconstruct every old effect.
-Completion recovery does not make confirmed homework submission interruption-safe: uncertain
-submissions need inspection of the active slot and archive before another submission
-([#63](https://github.com/futureofdev/skilling/issues/63)).
+Homework submission has its own checked-token recovery. Follow the `homework` workflow:
+check/display, retain `submission_token`, wait for a distinct learner confirmation, then
+submit that token. Retry an uncertain submission with the same token; a conflict requires
+a new check and confirmation. Never replace the token silently or submit the next queued
+assignment using a previous confirmation.
 
 When `phase_completed` is true, call `skilling ceremony --course <path>` next for the
 phase-boundary copy — `phase_name`, `phase_highlight`, and (if the course declares a brand)

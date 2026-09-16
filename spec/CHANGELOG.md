@@ -6,6 +6,22 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Token-bound recoverable homework submission — 2026-09-16
+
+[Submission](runtime.md#submit) now binds the checked assignment instance and exact slot
+revision to a portable opaque token. `homework check` returns it; `homework submit --token`
+and the public runtime keyword require it after a distinct learner confirmation. Stale
+pre-acceptance tokens conflict. Accepted-token retries return the original immutable archive
+and cannot submit the next queued assignment.
+
+The required backend seam adds frozen `SubmissionReceipt`, `SubmissionCommit` and
+`SubmissionCommitResult`, plus `get_submission_receipt` and `commit_submission`. Unsupported
+backends refuse before effects. The file backend journals archive, queue promotion and token
+receipt under the existing lock; all three journals validate before any recovery, preserving
+version-1 completion compatibility. Recovery/replay emits no hooks and may omit notification
+after a post-commit death. Old archives/duplicates remain untouched. This changes the current
+draft contract without promoting package or specification versions or claiming host proof.
+
 ### Recoverable file-runtime transitions — 2026-09-16
 
 The [file runtime](runtime.md#recoverable-file-runtime-transitions) now journals the record

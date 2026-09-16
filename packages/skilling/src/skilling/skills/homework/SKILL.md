@@ -23,7 +23,9 @@ the sub-flow below that matches what they asked for.
 
 Read `references/workflows.md` before running any of them — in particular, **Check** never
 marks anything complete, and **Submit** requires the learner's confirmation as its own
-distinct reply, never inferred from a passing check, enthusiasm, or silence.
+distinct reply, never inferred from a passing check, enthusiasm, or silence. Retain the
+checked `submission_token` through that pause and all retries; a conflict needs a new check
+and a new confirmation.
 
 ## The one rule that matters most
 

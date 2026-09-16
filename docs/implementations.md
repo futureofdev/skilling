@@ -62,10 +62,17 @@ are reserved without reconstructing their input, and a new key remains usable. R
 `transition.yaml` and `transition-receipts/` alongside completion metadata when moving state.
 Unkeyed inputs are recoverable but are not safe to retry blindly.
 
-[Interrupted confirmed submission (#63)](https://github.com/futureofdev/skilling/issues/63)
-can still archive twice before resetting its slot; transition recovery does not close that gap.
-Full Windows delivery/timezone support remains [#2](https://github.com/futureofdev/skilling/issues/2);
-source/cache/import recovery and generic chronology remain #56–#59. Retained host proof and
+Confirmed homework now uses a checked-assignment token and the required
+`get_submission_receipt` / `commit_submission` backend methods. The file transaction prepares
+archive and slot/queue effects before writing; retrying the same accepted token returns the
+original archive without advancing another assignment. Check/display must precede distinct
+learner confirmation. A stale token requires a new check and confirmation. Keep
+`submission.yaml` and `submission-receipts/` when moving state; all three journals validate
+before any recovery, with multiple prepared intents refused. Existing archives remain intact,
+and recovery/replay dispatch no hooks. This is source behavior in the current draft, not a
+new release or completed human-host proof.
+
+Source/cache/import recovery and generic chronology remain #57–#59. Retained host proof and
 release readiness are separate from these storage changes. See the
 [runtime implementation guide](implementing-a-runtime.md#recovery-scope-and-legacy-state)
 for backend and legacy-state handling.

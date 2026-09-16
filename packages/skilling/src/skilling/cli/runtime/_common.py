@@ -167,18 +167,8 @@ def commit_runtime(
         fail(ExitCode.CONFLICT, "conflict", str(exc))
 
 
-def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
-    """Load everything one verb needs: the course, the record (created fresh if absent), the
-    lesson the record currently points at, and the scratch beside it.
-
-    ``course_ref`` is a directory first — today's behaviour, unchanged — and only when that
-    is not a directory is it tried as a course id inside the enclosing workspace
-    (``resolve_course_location``). An unusable workspace entry earns ``course-not-found``;
-    an explicit directory with an invalid manifest still earns ``course-invalid``.
-
-    Creates a record on first use and finishes any prepared completion before returning.
-    Otherwise reads preserve existing state; verbs perform their own writes through CAS.
-    """
+def load_session_course(course_ref: str) -> Course:
+    """Resolve and validate course content without opening learner state."""
     course_path = Path(course_ref)
     if not course_path.is_dir():
         located = resolve_course_location(course_ref)
@@ -207,18 +197,42 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
         fail(ExitCode.INVALID, "course-invalid", f"Cannot read course: {type(exc).__name__}")
 
+    return course
+
+
+def open_session(
+    course_ref: str | Course, state: Path | None, learner: str, *, initialize: bool = True
+) -> Session:
+    """Load everything one verb needs: the course, the record (created fresh if absent), the
+    lesson the record currently points at, and the scratch beside it.
+
+    ``course_ref`` is a directory first — today's behaviour, unchanged — and only when that
+    is not a directory is it tried as a course id inside the enclosing workspace
+    (``resolve_course_location``). An unusable workspace entry earns ``course-not-found``;
+    an explicit directory with an invalid manifest still earns ``course-invalid``.
+
+    Initialization is optional for homework reads/refusals. Existing prepared operations
+    recover before access; otherwise reads preserve state and writes use CAS.
+    """
+    course = load_session_course(course_ref) if isinstance(course_ref, str) else course_ref
+
     try:
         state_root = resolve_state_root(state)
         store = open_store(str(state_root))
         if isinstance(store, FileProgressStore):
             store.ensure_course_paths(course.id)
-        record, revision = load_or_create(store, course, learner)
+        if initialize:
+            load_or_create(store, course, learner)
         if not isinstance(store, FileProgressStore):
             raise TypeError("runtime-private scratch currently needs the file store backend")
         snapshot = store.read_runtime_snapshot(learner, course.id)
-        assert snapshot is not None
-        record, revision = snapshot.record, snapshot.revision
-        scratch = parse_scratch(snapshot.scratch)
+        if snapshot is None:
+            record, revision = Record.new(course, learner), None
+            scratch_bytes = b""
+        else:
+            record, revision = snapshot.record, snapshot.revision
+            scratch_bytes = snapshot.scratch
+        scratch = parse_scratch(scratch_bytes)
     except StatePathError as exc:
         fail(ExitCode.INVALID, "state-invalid", str(exc))
 
@@ -238,4 +252,4 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
             f"{record.position.coordinate} is not a lesson in {course.id}",
         )
 
-    return Session(course, lesson, store, record, revision, scratch, snapshot.scratch)
+    return Session(course, lesson, store, record, revision, scratch, scratch_bytes)

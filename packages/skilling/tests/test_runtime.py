@@ -9,7 +9,7 @@ import pytest
 
 from skilling import delivery as runtime
 from skilling.course import Course, Record
-from skilling.store import LOCAL_LEARNER, FileProgressStore
+from skilling.store import LOCAL_LEARNER, FileProgressStore, InvalidSubmissionToken, SubmissionToken
 
 NOW = datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC)
 
@@ -218,10 +218,20 @@ def _finish_phase_zero(store: FileProgressStore, course: Course):
     return record, revision
 
 
+def checked_token(store: FileProgressStore, course: Course) -> str:
+    slot, revision = store.get_homework(LOCAL_LEARNER, course.id)
+    assert slot is not None and revision is not None
+    return SubmissionToken.for_slot(
+        LOCAL_LEARNER, course.id, course.version, slot, revision
+    ).encode()
+
+
 def test_submitting_archives_and_clears_the_slot(store: FileProgressStore, clean: Course) -> None:
     _finish_phase_zero(store, clean)
 
-    entry = runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "0.2", now=NOW)
+    entry = runtime.submit_homework(
+        store, LOCAL_LEARNER, clean.id, "0.2", token=checked_token(store, clean), now=NOW
+    )
     assert entry is not None
     assert entry.coordinate == "0.2"
 
@@ -233,17 +243,19 @@ def test_submitting_twice_is_a_no_op_that_returns_the_archived_result(
     store: FileProgressStore, clean: Course
 ) -> None:
     _finish_phase_zero(store, clean)
-    first = runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "0.2", now=NOW)
-    second = runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "0.2", now=NOW)
+    token = checked_token(store, clean)
+    first = runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "0.2", token=token, now=NOW)
+    second = runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "0.2", token=token, now=NOW)
 
     assert first == second
     assert len(store.get_homework_archive(LOCAL_LEARNER, clean.id)) == 1
 
 
-def test_submitting_something_that_was_never_assigned_returns_nothing(
+def test_submitting_without_a_valid_checked_token_is_refused(
     store: FileProgressStore, clean: Course
 ) -> None:
-    assert runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "9.9", now=NOW) is None
+    with pytest.raises(InvalidSubmissionToken):
+        runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "9.9", token="missing", now=NOW)
 
 
 def test_a_second_assignment_queues_rather_than_overwriting(
@@ -266,7 +278,9 @@ def test_a_second_assignment_queues_rather_than_overwriting(
         slot_revision,
     )
 
-    runtime.submit_homework(store, LOCAL_LEARNER, clean.id, "0.2", now=NOW)
+    runtime.submit_homework(
+        store, LOCAL_LEARNER, clean.id, "0.2", token=checked_token(store, clean), now=NOW
+    )
 
     loaded, _ = store.get_homework(LOCAL_LEARNER, clean.id)
     assert loaded is not None

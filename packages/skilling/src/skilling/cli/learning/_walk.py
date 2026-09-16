@@ -48,7 +48,7 @@ from ...delivery import (
     submit_homework,
     utc_now,
 )
-from ...store import ProgressStore
+from ...store import Conflict, ProgressStore, SubmissionToken
 
 
 class LearnerLeft(Exception):
@@ -502,10 +502,14 @@ class Walker:
         return f"{following.title}"
 
     def _homework(self, *, now: datetime | None = None) -> None:
-        slot, _ = self.store.get_homework(self.learner_id, self.course.id)
+        slot, revision = self.store.get_homework(self.learner_id, self.course.id)
         if slot is None:
             return
 
+        assert revision is not None
+        token = SubmissionToken.for_slot(
+            self.learner_id, self.course.id, self.course.version, slot, revision
+        ).encode()
         self.console.print(f"[bold magenta]Homework unlocked:[/] {slot.title}")
         self.console.print(f"[dim]{slot.objective}[/]\n")
         for requirement in slot.requirements:
@@ -529,14 +533,22 @@ class Walker:
             self.console.print("[dim]Left in your mailbox.[/]\n")
             return
 
-        entry = submit_homework(
-            self.store,
-            self.learner_id,
-            self.course.id,
-            slot.coordinate,
-            now=now,
-            hooks=self.hooks,
-            record=self.record,
-        )
+        try:
+            entry = submit_homework(
+                self.store,
+                self.learner_id,
+                self.course.id,
+                slot.coordinate,
+                token=token,
+                now=now,
+                hooks=self.hooks,
+                record=self.record,
+            )
+        except Conflict:
+            self.console.print(
+                "[yellow]The assignment changed while you were confirming. "
+                "Check it again before a new confirmation.[/]\n"
+            )
+            return
         if entry:
             self.console.print(f"[bold green]Submitted[/] and archived: {entry.title}\n")

@@ -156,20 +156,36 @@ never restores an old response. Different-input reuse raises `IdempotencyKeyConf
 exit 3). Completion preserves keys for the whole learner/course/version stream. Unkeyed
 `advance` and `answer` recover atomically but do not gain idempotent retries.
 
-Transition and version-1 completion journals are validated together before recovery; two
+Transition, submission and version-1 completion journals are validated together before recovery; two
 prepared journals refuse without target writes. Legacy scratch keys have no trustworthy
 input and are reserved/refused, not replayed or guessed. New authorized actions use fresh
 keys. Preserve transition intent and all receipts when moving the stopped state directory.
 
 ## Homework: mechanics are given, judgement is yours
 
-The core places, displays and queues homework, and provides the ordinary submit/archive
-path. What it cannot do is look at a learner's work. Submission interruption is a known gap:
-if the process stops after archiving but before resetting the slot, retry can append a
-duplicate archive. Completion recovery does not cover that separate operation. Preserve and
-inspect the active slot and archive after an uncertain submission; do not promise general
-submission crash safety from successful ordinary retries. The interruption gap is tracked
-in [#63](https://github.com/futureofdev/skilling/issues/63).
+The core places, displays and queues homework. To submit, read the slot and revision, derive
+`SubmissionToken.for_slot(learner_id, course.id, course.version, slot, revision).encode()`,
+show the assignment, and obtain the learner's distinct confirmation. Pass that retained
+value to `submit_homework(store, learner_id, course.id, slot.coordinate, token=token)`.
+The CLI equivalent is `homework check` followed, after confirmation, by
+`homework submit --token TOKEN` with the same course/state/learner selection.
+
+The token is not consent proof or a credential. Never replace it after confirmation. A
+`Conflict` (CLI exit 3) means the assignment changed before acceptance: inspect again and
+ask for a new confirmation. Retry an uncertain call with its original token, including on
+the next day. An accepted token returns its original archive even if another assignment is
+now active; no coordinate-only fallback selects a different item. Missing, malformed or
+wrong-stream CLI tokens fail with `invalid-submission-token` (exit 2) before state opens.
+
+Backends must add `get_submission_receipt` and `commit_submission` with the frozen
+`SubmissionReceipt`, `SubmissionCommit` and `SubmissionCommitResult` exports. The runtime
+derives the archive and queue promotion; the store validates and persists them together.
+Older backends get `NotSupported`, naming missing methods before effects. All file journals
+validate together before any recovery. Keep `submission.yaml` and `submission-receipts/`
+when relocating stopped state. Corrupt metadata requires inspection, and old duplicate
+archives are preserved. A new uninterrupted submit emits best-effort hooks after commit;
+recovery/replay emits none, and post-commit death can omit dispatch. See the
+[backend contract](../spec/runtime.md#submission-commit) for validation and write ordering.
 
 If your tutor can judge work, you owe two things the specification is strict about:
 

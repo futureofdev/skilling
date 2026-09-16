@@ -15,6 +15,7 @@ from ._protocol import (
     CompletionReceipt,
     Conflict,
     HomeworkWrite,
+    InvalidSubmissionToken,
     NotSupported,
     ProgressStore,
     RecoveryRequired,
@@ -22,10 +23,21 @@ from ._protocol import (
     StatePathError,
     StoreBusy,
     StoreError,
+    SubmissionCommit,
+    SubmissionCommitResult,
+    SubmissionReceipt,
+    SubmissionToken,
+    require_store,
 )
 from ._select import STORE_ENTRY_POINT_GROUP, UnknownScheme, default_state_root, open_store
 
 __all__ = [
+    "SubmissionCommit",
+    "SubmissionCommitResult",
+    "SubmissionReceipt",
+    "SubmissionToken",
+    "InvalidSubmissionToken",
+    "require_store",
     "RuntimeSnapshot",
     "TransitionCommit",
     "TransitionIdentity",

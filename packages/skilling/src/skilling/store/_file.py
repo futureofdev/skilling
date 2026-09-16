@@ -26,12 +26,14 @@ from ._io import _fsync_dir, _write_bytes_atomic
 from ._journal import (
     Journal,
     RuntimeSnapshot,
+    SubmissionJournal,
     TransitionCommit,
     TransitionIdentity,
     TransitionJournal,
     TransitionResult,
     recover_journals,
     validate_commit,
+    validate_submission_commit,
     validate_transition_commit,
 )
 from ._locking import DEFAULT_LOCK_TIMEOUT as DEFAULT_LOCK_TIMEOUT
@@ -42,9 +44,14 @@ from ._protocol import (
     CompletionCommitResult,
     CompletionReceipt,
     Conflict,
+    InvalidSubmissionToken,
     RecoveryRequired,
     Revision,
     StatePathError,
+    SubmissionCommit,
+    SubmissionCommitResult,
+    SubmissionReceipt,
+    SubmissionToken,
 )
 
 RECORD_NAME = "record.yaml"
@@ -105,10 +112,15 @@ class FileProgressStore:
         self.checked_path(course_id, "scratch.yaml")
         self.checked_path(course_id, "completion.yaml")
         self.checked_path(course_id, "transition.yaml")
+        self.checked_path(course_id, "submission.yaml")
         receipts = self.checked_path(course_id, "transition-receipts")
         if receipts.is_dir():
             for child in receipts.iterdir():
                 self.checked_path(course_id, "transition-receipts", child.name)
+        submitted = self.checked_path(course_id, "submission-receipts")
+        if submitted.is_dir():
+            for child in submitted.iterdir():
+                self.checked_path(course_id, "submission-receipts", child.name)
         archive = self._archive_dir(course_id)
         if archive.is_dir():
             for child in archive.iterdir():
@@ -131,12 +143,16 @@ class FileProgressStore:
         return self.checked_path(course_id, HOMEWORK_DIR, HOMEWORK_ARCHIVE)
 
     @contextmanager
-    def _locked_course(self, course_id: str) -> Iterator[None]:
+    def _locked_course(
+        self, course_id: str, *, submission: SubmissionToken | None = None
+    ) -> Iterator[None]:
         """Shared exclusion seam for every read and write of an existing course."""
         directory = self.course_dir(course_id)
         self.checked_path(course_id, ".skilling.lock")
         directory.mkdir(parents=True, exist_ok=True)
         with locked_course(directory, timeout=DEFAULT_LOCK_TIMEOUT):
+            if submission is not None:
+                SubmissionJournal(self.state_root, course_id).validate_token_stream(submission)
             recover_journals(self.state_root, course_id)
             yield
 
@@ -336,3 +352,33 @@ class FileProgressStore:
                 )
             except (ValueError, TypeError, yaml.YAMLError) as exc:
                 raise RecoveryRequired(f"Invalid transition intent: {exc}") from exc
+
+    def get_submission_receipt(
+        self, learner_id: str, course_id: str, token: str
+    ) -> SubmissionReceipt | None:
+        identity = SubmissionToken.parse(token)
+        if (identity.learner_id, identity.course_id) != (learner_id, course_id):
+            raise InvalidSubmissionToken("Token belongs to a different learner/course stream")
+        self.ensure_course_paths(course_id)
+        if not self.course_dir(course_id).is_dir():
+            return None
+        with self._locked_course(course_id, submission=identity):
+            try:
+                found = SubmissionJournal(self.state_root, course_id).load_receipt(token)
+                return found.value.value() if found is not None else None
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid submission receipt: {exc}") from exc
+
+    def commit_submission(self, commit: SubmissionCommit) -> SubmissionCommitResult:
+        validated = validate_submission_commit(commit, self.state_root)
+        self.ensure_course_paths(validated.receipt.course_id)
+        identity = SubmissionToken.parse(validated.receipt.token)
+        if not self.course_dir(validated.receipt.course_id).is_dir():
+            raise Conflict("submission record stream", identity.course_version, None)
+        with self._locked_course(validated.receipt.course_id, submission=identity):
+            try:
+                return SubmissionJournal(self.state_root, validated.receipt.course_id).commit(
+                    validated
+                )
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid submission intent: {exc}") from exc

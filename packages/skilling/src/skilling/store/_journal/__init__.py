@@ -36,8 +36,11 @@ from .._protocol import (
     RecoveryRequired,
     StatePathError,
 )
+from ._submission import Prepared as PreparedSubmission
+from ._submission import SubmissionJournal as SubmissionJournal
+from ._submission import validate_submission_commit as validate_submission_commit
 
-# The shared entrypoint validates both journals before either is allowed to recover.
+# The shared entrypoint validates all journals before any is allowed to recover.
 from ._transition import (
     IdempotencyKeyConflict as IdempotencyKeyConflict,
 )
@@ -388,17 +391,30 @@ class Journal:
 def recover_journals(root: Path, course_id: str) -> None:
     completion = Journal(root, course_id)
     transition = TransitionJournal(root, course_id)
+    submission = SubmissionJournal(root, course_id)
     try:
         old = completion._load()
         if isinstance(old, Prepared):
             completion._preflight(old)
         new = transition.inspect()
-        if isinstance(old, Prepared) and isinstance(new, PreparedTransition):
+        submitted = submission.inspect()
+        if (
+            sum(
+                (
+                    isinstance(old, Prepared),
+                    isinstance(new, PreparedTransition),
+                    isinstance(submitted, PreparedSubmission),
+                )
+            )
+            > 1
+        ):
             raise ValueError("multiple prepared runtime journals")
         if isinstance(old, Prepared):
             completion._apply(old)
         if isinstance(new, PreparedTransition):
             transition.apply(new)
+        if isinstance(submitted, PreparedSubmission):
+            submission.apply(submitted)
     except (ValueError, TypeError, yaml.YAMLError, StatePathError) as exc:
         raise RecoveryRequired(
             f"Cannot recover runtime journals: {exc}. Preserve state for inspection."

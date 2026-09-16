@@ -25,7 +25,15 @@ from ..course import (
     today_in,
     utc_now,
 )
-from ..store import ProgressStore
+from ..store import (
+    Conflict,
+    InvalidSubmissionToken,
+    ProgressStore,
+    SubmissionCommit,
+    SubmissionReceipt,
+    SubmissionToken,
+    require_store,
+)
 from ._hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
@@ -219,22 +227,41 @@ def submit_homework(
     course_id: str,
     coordinate: str,
     *,
+    token: str,
     now: datetime | None = None,
     hooks: Dispatcher = NO_HOOKS,
     record: Record | None = None,
-) -> HomeworkArchiveEntry | None:
-    """Archive the active assignment and reset the slot, loading any queued assignment.
+) -> HomeworkArchiveEntry:
+    """Commit only the separately confirmed checked instance; replay its original archive.
 
-    After a successful submission, retry returns the archived result. Archive and slot
-    writes are not one recoverable operation; interruption recovery remains issue #63.
+    Tokens bind a checked slot, not consent. Recovery/replay emits no hooks; a crash after
+    durability can omit the new commit's best-effort notification.
     """
+    identity = SubmissionToken.parse(token)
+    if (identity.learner_id, identity.course_id, identity.coordinate) != (
+        learner_id,
+        course_id,
+        coordinate,
+    ):
+        raise InvalidSubmissionToken("Token belongs to a different checked assignment")
+    require_store(store)
+    accepted = store.get_submission_receipt(learner_id, course_id, token)
+    if accepted is not None:
+        return SubmissionReceipt.checked(accepted, token).archive
+    current = store.get_record(learner_id, course_id)
+    if current is None:
+        raise Conflict("submission record stream", identity.course_version, None)
+    if current[0].course_version != identity.course_version:
+        raise InvalidSubmissionToken("Token belongs to a different course version")
     active, revision = store.get_homework(learner_id, course_id)
-
-    if active is None or active.coordinate != coordinate:
-        for entry in reversed(store.get_homework_archive(learner_id, course_id)):
-            if entry.coordinate == coordinate:
-                return entry
-        return None
+    if active is None or revision != identity.slot_revision:
+        raise Conflict("homework/active.yaml", identity.slot_revision, revision)
+    assert revision is not None
+    checked = SubmissionToken.for_slot(
+        learner_id, course_id, identity.course_version, active, revision
+    )
+    if checked != identity:
+        raise Conflict("homework assignment instance", identity.instance_id, checked.instance_id)
 
     entry = HomeworkArchiveEntry(
         coordinate=active.coordinate,
@@ -243,23 +270,27 @@ def submit_homework(
         stretch_goals=active.stretch_goals,
         submitted_at=now or utc_now(),
     )
-    store.append_homework_archive(learner_id, course_id, entry)
-
     if active.queued:
         head, *rest = active.queued
-        store.put_homework(
-            learner_id,
-            course_id,
-            HomeworkSlot(**head.model_dump(), queued=rest),
-            revision,
-        )
+        following = HomeworkSlot(**head.model_dump(), queued=rest)
     else:
-        store.put_homework(learner_id, course_id, None, revision)
+        following = None
+    receipt = SubmissionReceipt(
+        token,
+        learner_id,
+        course_id,
+        identity.course_version,
+        coordinate,
+        identity.instance_id,
+        entry,
+    )
+    result = store.commit_submission(SubmissionCommit(receipt, revision, following))
+    entry = SubmissionReceipt.checked(result.receipt, token).archive
 
-    if record is not None:
+    if not result.replayed and record is not None:
         hooks.emit(
             EventName.HOMEWORK_SUBMITTED,
-            record,
+            current[0],
             occurred_at=entry.submitted_at,
             coordinate=entry.coordinate,
             verdicts=[r.verdict for r in entry.requirements],

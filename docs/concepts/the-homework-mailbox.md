@@ -36,7 +36,9 @@ The queue that does exist is minimal and mechanical: if a phase ends while an as
 
 ## Archives are immutable
 
-A confirmed submission writes an archive entry — the assignment, its final verdicts, a timestamp — and archives are never rewritten. Submitting twice is a no-op that returns what was already archived, rather than a second entry.
+A confirmed submission writes an archive entry — the assignment, its final verdicts, a timestamp — and archives are never rewritten. Retrying with the same checked-assignment token returns that original archive, even after
+another assignment becomes active. A new assignment needs a new check and confirmation.
+If the checked slot changes before submission is accepted, the old token conflicts.
 
 That idempotence is not defensive coding. A learner on a flaky connection will retry, and a system that archives twice has invented work that never happened.
 
