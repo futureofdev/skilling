@@ -104,7 +104,7 @@ def _redirect_github(monkeypatch: pytest.MonkeyPatch, remote: Path) -> list[list
     calls: list[list[str]] = []
 
     def run(argv, **kwargs):
-        argv = [f"file://{remote}" if arg == GH_URL else arg for arg in argv]
+        argv = [remote.as_uri() if arg == GH_URL else arg for arg in argv]
         calls.append(argv)
         return real_run(argv, **kwargs)
 
@@ -160,13 +160,13 @@ def test_git_file_remote_fetches_validates_and_caches(tmp_path: Path, clean_dir:
     )
     _push_to_bare(clean_dir, remote)
 
-    resolved = resolve(f"file://{remote}", cache=tmp_path / "cache")
+    resolved = resolve(remote.as_uri(), cache=tmp_path / "cache")
     assert resolved.path == tmp_path / "cache" / "clean-course@1.0.0"
     assert resolved.course.id == "clean-course"
     assert resolved.course.version == "1.0.0"
     mtime = resolved.path.stat().st_mtime
 
-    again = resolve(f"file://{remote}", cache=tmp_path / "cache")  # cache hit: no re-clone
+    again = resolve(remote.as_uri(), cache=tmp_path / "cache")  # cache hit: no re-clone
     assert again.path == resolved.path
     assert again.path.stat().st_mtime == mtime
 

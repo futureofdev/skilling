@@ -35,6 +35,7 @@ from skilling.skills import (
     SKILL_NAMES,
     HostTarget,
     Platform,
+    _install,
     install,
     skill_md_path,
     uninstall,
@@ -68,6 +69,28 @@ def test_project_target_ignores_home(tmp_path: Path) -> None:
 
 
 # ------------------------------------------------------------------------------------ install
+
+
+@pytest.mark.parametrize("platform", list(Platform))
+@pytest.mark.parametrize("content", [b"# Skill\n\nText\n", b"# Skill\r\n\r\nText\r\n"])
+def test_install_preserves_bundled_bytes_and_receipt_roundtrip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: Platform, content: bytes
+) -> None:
+    source = tmp_path / "bundle"
+    source.mkdir()
+    bundled = source / "SKILL.md"
+    bundled.write_bytes(content)
+    monkeypatch.setattr(_install, "_bundled_skill_dir", lambda name: source)
+    monkeypatch.setattr(_install, "_bundled_skill_files", lambda name: [bundled])
+    target = HostTarget(platform)
+    home = tmp_path / "home"
+
+    installed = install(target, project=None, home=home)
+
+    for path in installed.files:
+        assert path.read_bytes() == content
+    removed = uninstall(target, project=None, home=home)
+    assert all(path in removed and not path.exists() for path in installed.files)
 
 
 def test_install_writes_all_three_skills_and_a_receipt_each(tmp_path: Path) -> None:
