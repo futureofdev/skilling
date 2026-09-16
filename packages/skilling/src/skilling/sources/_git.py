@@ -8,7 +8,10 @@ from __future__ import annotations
 import os
 import string
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import NamedTuple
+
+from ._errors import CacheInvalid
 
 GIT_TOKEN_ENV = "SKILLING_GIT_TOKEN"
 """Set by the learner for headless HTTPS (CI, a container with no keyring or interactive
@@ -49,15 +52,64 @@ def _is_full_sha(pin: str) -> bool:
     return len(pin) in (40, 64) and all(c in string.hexdigits for c in pin)
 
 
-def _git(*args: str, cwd: Path | None = None) -> None:
-    subprocess.run(
-        ["git", *_credential_args(), *args],
+def revision(workdir: Path) -> str:
+    return _git("rev-parse", "HEAD", cwd=workdir).strip()
+
+
+class GitPayload(NamedTuple):
+    files: tuple[str, ...]
+    executables: tuple[str, ...]
+
+
+def payload_intent(workdir: Path, course: Path) -> GitPayload:
+    scope = PurePosixPath(course.relative_to(workdir).as_posix())
+    files: list[str] = []
+    found: list[str] = []
+    for entry in _git(
+        "-c",
+        "core.fsmonitor=false",
+        "--git-dir",
+        str(workdir / ".git"),
+        "--work-tree",
+        str(workdir),
+        "ls-files",
+        "--stage",
+        "-z",
+        cwd=workdir,
+    ).split("\0"):
+        if not entry:
+            continue
+        metadata, _, name = entry.partition("\t")
+        path = PurePosixPath(name)
+        if not path.is_relative_to(scope):
+            continue
+        fields = metadata.split()
+        if len(fields) != 3 or fields[2] != "0":
+            raise CacheInvalid("Git course index has unresolved or invalid file intent")
+        mode = fields[0]
+        if mode not in {"100644", "100755"}:
+            raise CacheInvalid("Git course payload contains a symlink or unsupported file kind")
+        files.append(path.relative_to(scope).as_posix())
+        if mode == "100755":
+            found.append(path.relative_to(scope).as_posix())
+    return GitPayload(tuple(sorted(files)), tuple(sorted(found)))
+
+
+def executable_paths(workdir: Path, course: Path) -> tuple[str, ...]:
+    return payload_intent(workdir, course).executables
+
+
+def _git(*args: str, cwd: Path | None = None) -> str:
+    done = subprocess.run(
+        ["git", "-c", "core.autocrlf=false", "-c", "core.eol=lf", *_credential_args(), *args],
         cwd=cwd,
         env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
+    return done.stdout
 
 
 def _credential_args() -> list[str]:

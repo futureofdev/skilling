@@ -22,6 +22,17 @@ version-1 completion compatibility. Recovery/replay emits no hooks and may omit 
 after a post-commit death. Old archives/duplicates remain untouched. This changes the current
 draft contract without promoting package or specification versions or claiming host proof.
 
+### Verified fetched-course identity — 2026-09-16
+
+[Fetched content](workspace.md#fetched-content) now requires verified source/content agreement
+before directory reuse. Different payloads under the same id/version refuse without replacing
+working content; equivalent payloads may share it. Cached refs remain snapshots, and interrupted
+acquisition cannot establish a trusted binding to missing or unverified content. The reference
+resolver uses private typed metadata, digest lookup keys, sanitized provenance, payload identity
+excluding Git metadata, a persistent cache lock and atomic publication. Legacy mappings require
+source verification before adoption. This preserves `<id>@<version>`, exact-input resolver refs,
+installed-workspace loading and the current package/specification versions.
+
 ### Recoverable file-runtime transitions — 2026-09-16
 
 The [file runtime](runtime.md#recoverable-file-runtime-transitions) now journals the record
