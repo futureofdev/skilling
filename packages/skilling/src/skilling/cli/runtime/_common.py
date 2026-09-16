@@ -27,7 +27,7 @@ import yaml
 from ...conformance import validate_course
 from ...course import Course, CourseLoadError, Record, ResolvedLesson
 from ...delivery import load_or_create
-from ...store import FileProgressStore, ProgressStore, StatePathError, open_store
+from ...store import Conflict, FileProgressStore, ProgressStore, StatePathError, open_store
 from ...workspace import resolve_course_location, resolve_state_root
 
 SCRATCH_NAME = "scratch.yaml"
@@ -91,16 +91,10 @@ def fail(code: ExitCode, error: str, message: str) -> NoReturn:
     raise typer.Exit(code)
 
 
-def _scratch_path(store: ProgressStore, course_id: str) -> Path:
+def load_scratch(store: ProgressStore, course_id: str) -> Scratch:
     if not isinstance(store, FileProgressStore):
         raise TypeError("runtime-private scratch currently needs the file store backend")
-    return store.checked_path(course_id, SCRATCH_NAME)
-
-
-def _load_scratch(path: Path) -> Scratch:
-    if not path.is_file():
-        return Scratch()
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = yaml.safe_load(store.read_runtime_state(course_id)) or {}
     return Scratch(
         wrong_count=data.get("wrong_count", 0),
         returning_to_quiz=data.get("returning_to_quiz", False),
@@ -109,32 +103,27 @@ def _load_scratch(path: Path) -> Scratch:
     )
 
 
-def save_scratch(session: Session, scratch: Scratch) -> None:
-    """Overwrite the scratch file beside this session's record.
+def save_scratch(session: Session, scratch: Scratch, expected_record_revision: str) -> None:
+    """Reject delayed scratch writes after another record mutation or completion reset.
 
-    Coupled to the file backend: ``Session.store`` is typed against the store ``Protocol``,
-    but scratch's file layout — beside the record, keyed by course id — is the file
-    backend's own layout, not something the protocol promises. ``open_session`` below
-    selects the backend through ``open_store``, which can in principle return a non-file
-    backend (a third-party ``skilling.stores`` entry point); the ``TypeError`` here is the
-    honest refusal for that case rather than a silent no-op.
+    General record-plus-scratch interruption remains a separate contract (#64); these
+    adapters serialize each operation without pretending the two calls are one transaction.
     """
     if not isinstance(session.store, FileProgressStore):
         raise TypeError("runtime-private scratch currently needs the file store backend")
-    path = _scratch_path(session.store, session.course.id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        yaml.safe_dump(
-            {
-                "wrong_count": scratch.wrong_count,
-                "returning_to_quiz": scratch.returning_to_quiz,
-                "last_key": scratch.last_key,
-                "last_result": scratch.last_result,
-            },
-            sort_keys=False,
-        ),
-        encoding="utf-8",
-    )
+    payload = yaml.safe_dump(
+        {
+            "wrong_count": scratch.wrong_count,
+            "returning_to_quiz": scratch.returning_to_quiz,
+            "last_key": scratch.last_key,
+            "last_result": scratch.last_result,
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+    try:
+        session.store.write_runtime_state(session.course.id, payload, expected_record_revision)
+    except Conflict as exc:
+        fail(ExitCode.CONFLICT, "conflict", str(exc))
 
 
 def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
@@ -146,8 +135,8 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
     (``resolve_course_location``). An unusable workspace entry earns ``course-not-found``;
     an explicit directory with an invalid manifest still earns ``course-invalid``.
 
-    Never writes beyond the record's own creation-on-first-use (``load_or_create``) — each
-    verb decides for itself whether *it* makes a write, and through what CAS.
+    Creates a record on first use and finishes any prepared completion before returning.
+    Otherwise reads preserve existing state; verbs perform their own writes through CAS.
     """
     course_path = Path(course_ref)
     if not course_path.is_dir():
@@ -183,7 +172,7 @@ def open_session(course_ref: str, state: Path | None, learner: str) -> Session:
         if isinstance(store, FileProgressStore):
             store.ensure_course_paths(course.id)
         record, revision = load_or_create(store, course, learner)
-        scratch = _load_scratch(_scratch_path(store, course.id))
+        scratch = load_scratch(store, course.id)
     except StatePathError as exc:
         fail(ExitCode.INVALID, "state-invalid", str(exc))
 

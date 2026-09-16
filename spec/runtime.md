@@ -89,6 +89,23 @@ These writes happen before, or atomically with, announcing completion to the lea
 
 **Completion is idempotent.** Re-delivering a lesson the learner has already completed must not change `completed`, the log, the streak, or the badge set. A learner may revisit any lesson freely; revisiting is not completing.
 
+For newly committed completions, the runtime must prepare one durable operation identity and
+write set before its first completion effect. Identity binds the learner, course, course
+version and lesson coordinate. The write set includes the final record, matching log entry,
+phase badges, any required homework placement or queue update, and the runtime's completion
+checkpoint reset. The runtime derives these effects and freezes their original timestamps;
+the store persists them mechanically through [the completion commit](#completion-commit).
+An interrupted operation must recover the same effects before later cooperating reads or
+writes proceed. A next-day retry must not manufacture a new completion date, streak update,
+assignment unlock time or log entry.
+
+A retry identifies the original operation, not the record's new next-lesson position or the
+order of `completed`. Its response uses the current durable record and revision. A previous
+completion receipt does not authorize completing a subsequent lesson before that lesson's
+final quiz feedback has been delivered. Historical files without trustworthy completion
+intent must remain readable; their presence does not authorize guessed repairs, removal of
+old duplicate log entries, or creation of missing historical homework.
+
 Badges are not optional bookkeeping. A `skills_unlocked` entry that never reaches the record is a conformance failure — the originating system declared badges on eleven lessons and wrote none of them, ever.
 
 ## Phase-boundary ceremony
@@ -348,6 +365,13 @@ Emitting must not block or delay the delivery loop. A failing, slow, or unreacha
 
 This has to be true of *slow* sinks and not only broken ones. A sink that takes five seconds to answer has stopped the lesson just as effectively as one that raises.
 
+Completion events are emitted only after the entire completion commit is durable, using the
+original operation time. An ordinary new commit emits its badge, lesson, phase and course
+events as applicable; recovery and already-committed retries emit none. A process that dies
+after committing but before dispatch may omit those events. Completion recovery therefore
+promises durable learner state, not exactly-once external delivery, and must not block on a
+sink to bridge that gap.
+
 ## Telemetry
 
 **Since 1.1.** A telemetry sink is any hook consumer that leaves the adopter's trust boundary — a product-analytics endpoint, a course author's usage counter. Three rules are non-negotiable.
@@ -377,15 +401,63 @@ A store persists records, completion logs, and homework behind one small interfa
 | `append_homework_archive(learner_id, course_id, entry)` | Append-only archive |
 | `get_homework_archive(learner_id, course_id)` → `[entry]` | The archive, oldest first |
 | `list_records(course_id)` → `[(learner_id, record)]` | Enumeration for reporting; optional for single-learner backends |
+| `get_completion_receipt(learner_id, course_id)` → `CompletionReceipt` or `None` | The latest durable completion receipt, after pending recovery |
+| `commit_completion(commit)` → `CompletionCommitResult` | Persist or recover one runtime-prepared completion write set |
 
 - **Optimistic concurrency.** A `put_*` whose `expected_revision` is not the store's current revision must fail with a distinguishable conflict error and must not write. Silent last-write-wins is not conforming.
 - **Append-only means append-only.** Log and archive entries are never mutated, deleted, or reordered by any operation.
 - **Durability before acknowledgement.** An acknowledged completion survives a crash of the runtime, the store, or both.
 - **Atomicity.** A completion's record update and log append are atomic, or applied log-first, so no observable state shows a completion without its log entry.
-- **Storage is dumb on purpose.** A store must not interpret, enrich, or repair record contents. Derivation is the runtime's job.
+- **Storage is dumb on purpose.** A store must not interpret, enrich, or repair record contents. Derivation is the runtime's job. Replaying a validated runtime-supplied write set is mechanical persistence, not semantic repair.
+- **Recover before access.** Every cooperating operation resolves pending completion intent under the same serialization boundary before exposing or changing its stream. A stale writer must receive a distinguishable conflict rather than overwrite a recovered completion.
 - **No transcripts.** No operation may require conversation history.
 
 A multi-learner store must key all state by (`learner_id`, `course_id`), must isolate learners — no operation returns another learner's state except `list_records` — and must implement atomicity transactionally. It must make deletion of a (`learner_id`, `course_id`) pair *possible*; when that happens is the adopter's policy, not this specification's.
+
+### Completion commit
+
+The completion operations are required extensions to the store contract. A backend that only
+implements the older record/log/homework methods cannot claim this recovery capability. A
+runtime must refuse completion before new completion effects when the backend lacks these
+operations; silently reverting to separate log and record writes is not permitted. In the
+Python reference API that refusal is `NotSupported`; plugin discovery alone is not proof of
+backend compatibility.
+
+The runtime supplies these values; the store must not derive them from teaching content:
+
+| Value | Fields and meaning |
+|---|---|
+| `CompletionReceipt` | `operation_id`, `learner_id`, `course_id`, `course_version`, `coordinate`, `completed_at`, `badges_awarded`, `phase_completed`, `homework_placed`, `homework_queued`; stable operation identity and original completion facts |
+| `HomeworkWrite` | `expected_revision`, `slot`; a revision-checked replacement, including deletion when `slot` is absent |
+| `CompletionCommit` | `receipt`, `expected_record_revision`, final `record`, exact `expected_log` sequence, new log `entry`, optional `homework`; absent `homework` means no slot mutation |
+| `CompletionCommitResult` | Current durable `record`, its `revision`, the durable `receipt`, and `replayed`; never a cached response envelope |
+
+Before publishing any new intent, the store validates stream identity and the complete write
+set, then checks the expected record revision, log sequence and optional homework revision
+under one serialization boundary. A mismatch raises a distinguishable conflict without
+publishing that intent. An already-committed operation with the same identity returns the
+current matching stream and `replayed=true` without restoring old record bytes, even when the
+retry carries an older expected revision. Malformed input cannot bypass validation by reusing
+an operation ID. The runtime checks that the returned receipt's coordinate is complete in
+that returned record before reporting success.
+
+A successful new commit durably stores the prepared intent before any target changes,
+applies the log before the final record, then any homework change and checkpoint reset, and
+retains a committed receipt before acknowledging. A backend may provide an equivalent atomic
+transaction. Recovery validates the entire intent and all targets before changing any of
+them. Targets already at their after-image need no rewrite; targets matching neither the
+recorded before-image nor after-image must cause a distinguishable recovery refusal rather
+than guessed merging or rollback. In the Python reference API that refusal is
+`RecoveryRequired`. Unknown or malformed recovery metadata is also refused without repair.
+Recovery needs neither course source nor transcript and emits no hooks.
+
+The guarantee covers newly prepared completion operations, not arbitrary sequences of store
+calls. The separate [submission contract](#submit) still applies to homework submission;
+completion recovery is not evidence that an implementation satisfies interruption recovery
+for submission or every mid-lesson scratch update. Existing unjournaled files are not
+retrospectively transactional. Where a runtime detects an incomplete old operation without
+sufficient intent to recover it, it must preserve the evidence and report the need for
+manual inspection.
 
 ## The file layout
 
@@ -402,6 +474,17 @@ The single-learner local layout is specified so that any runtime can read any le
 ```
 
 A file backend must use this layout, must implement optimistic concurrency with an atomic rename or equivalent plus revision tokens (a content hash or a monotonic counter stored in the file), and serves exactly one learner per `<state-root>` — `learner_id` is implicit. `list_records` is optional for file backends and required for multi-learner ones.
+
+Recovery metadata may be added beside these files without changing their public models or
+meaning. It must move with the learner state, use course-relative targets, and require no
+original absolute root or source path. A pending journal must travel with the state; copying
+only `record.yaml` is not a complete recovery-preserving move. Relocation happens after
+writers have stopped, not while another process owns the stream.
+
+The reference file backend serializes cooperating processes on one local filesystem and
+uses atomic replacement plus filesystem flushes. Its process-interruption recovery does not
+establish cross-machine network-filesystem coordination or claim an unperformed physical
+power-loss test. Other backends must state their own durability and coordination scope.
 
 ## What conformance cannot promise
 

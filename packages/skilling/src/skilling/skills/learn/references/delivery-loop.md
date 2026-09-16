@@ -18,7 +18,9 @@ next.
 
 ## `skilling next --course <path>`
 
-Read-only, no side effects — call it any time you are unsure where things stand. Its
+Call it when unsure where things stand. It does not advance the lesson. First use may
+initialize a record, and reading after an interrupted completion may finish its already
+prepared writes. Reads of consistent existing state leave learner progress unchanged. Its
 envelope:
 
 ```json
@@ -57,10 +59,12 @@ learner along" before they have actually done what the current beat asked for:
 `ceremony` — those are finished by `skilling complete`/`skilling ceremony`, never by
 `advance`, even though the machine models a `next` transition out of them too.
 
-An optional `--key <token>` makes a call idempotent: a repeated call with the same key
-returns the exact envelope the first call produced, without reapplying anything. Reach for
-it if you are ever unsure whether a previous `advance` actually landed (a dropped connection,
-a retried tool call) rather than guessing whether to resend.
+An optional `--key <token>` replays a successfully saved call's envelope without reapplying
+it. It is not a general crash-recovery guarantee: interruption after the record write but
+before scratch is saved can leave the key missing, so blindly retrying may advance again.
+After an uncertain `advance`, call `next` and inspect the current beat before deciding what
+the learner's input still authorizes. Do not manufacture a second input to compensate. This
+remaining interruption gap is tracked in [#64](https://github.com/futureofdev/skilling/issues/64).
 
 ## Gates are open waits
 
@@ -103,12 +107,23 @@ see them ahead of time and so you cannot accidentally reveal them. The loop:
 ## Finishing a lesson
 
 Once the envelope reports the `complete` beat, call `skilling complete --course <path>`. It
-performs the whole completion write set — the completion log, the streak, any badge, any
-homework placement — once, and is safe to call again if you are ever unsure whether it
-already ran (idempotent, keyed off what was actually completed rather than the record's new
-position). Its envelope adds `already_completed`, `badges_awarded`, `phase_completed`,
-`homework_placed`, and `homework_queued` to the usual resume fields — tell the learner about
-any badge, and mention a placed or queued homework assignment plainly.
+prepares the whole completion write set — log, streak, badges, homework placement or queue,
+and completion scratch reset — before applying it. Reopening recovers a pending prepared
+completion. A retry preserves the original completion time and uses its durable identity,
+not the record's next-lesson position or completed-list order. This guarantee applies to new
+journaled completions, not arbitrary earlier submissions or mid-lesson transitions.
+
+Its envelope adds `already_completed`, `badges_awarded`, `phase_completed`, `homework_placed`,
+and `homework_queued` to the current resume fields. Report newly awarded badges and placed or
+queued homework, but do not announce fresh progress for an `already_completed` replay. Once
+the next lesson has begun, an old receipt does not authorize completing it early.
+
+If a call reports `recovery-required`, preserve the state and ask for inspection; never edit
+or delete the journal, replay guessed transitions, or invent missing historical homework.
+Old completed records can remain readable without evidence to reconstruct every old effect.
+Completion recovery does not make confirmed homework submission interruption-safe: uncertain
+submissions need inspection of the active slot and archive before another submission
+([#63](https://github.com/futureofdev/skilling/issues/63)).
 
 When `phase_completed` is true, call `skilling ceremony --course <path>` next for the
 phase-boundary copy — `phase_name`, `phase_highlight`, and (if the course declares a brand)

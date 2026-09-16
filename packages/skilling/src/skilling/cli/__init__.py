@@ -16,7 +16,7 @@ from __future__ import annotations
 import typer
 
 from .. import __version__
-from ..store import StatePathError, StoreBusy
+from ..store import NotSupported, RecoveryRequired, StatePathError, StoreBusy
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
@@ -106,6 +106,12 @@ def main() -> None:
 
     try:
         app()
+    except RecoveryRequired as exc:
+        emit({"ok": False, "error": {"code": "recovery-required", "message": str(exc)}})
+        raise SystemExit(ExitCode.ERROR) from exc
+    except NotSupported as exc:
+        emit({"ok": False, "error": {"code": "completion-not-supported", "message": str(exc)}})
+        raise SystemExit(ExitCode.ERROR) from exc
     except StoreBusy as exc:
         emit({"ok": False, "error": {"code": "store-busy", "message": str(exc)}})
         raise SystemExit(ExitCode.ERROR) from exc

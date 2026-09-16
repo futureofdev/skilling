@@ -759,7 +759,7 @@ def test_scratch_save_rechecks_its_path(clean_dir: Path, tmp_path: Path) -> None
     file_alias(state / "clean-course" / "scratch.yaml", target)
     before = snapshot(tmp_path)
     with pytest.raises(StatePathError):
-        save_scratch(session, Scratch(wrong_count=1))
+        save_scratch(session, Scratch(wrong_count=1), session.revision or "")
     assert snapshot(tmp_path) == before
 
 

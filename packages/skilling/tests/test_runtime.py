@@ -9,7 +9,7 @@ import pytest
 
 from skilling import delivery as runtime
 from skilling.course import Course, Record
-from skilling.store import LOCAL_LEARNER, Conflict, FileProgressStore
+from skilling.store import LOCAL_LEARNER, FileProgressStore
 
 NOW = datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC)
 
@@ -128,29 +128,33 @@ def test_position_never_leaves_the_manifest(store: FileProgressStore, clean: Cou
     assert record.position.coordinate == clean.coordinates[-1]
 
 
-def test_the_log_is_written_before_the_record(store: FileProgressStore, clean: Course) -> None:
-    """No observable state may show a completion without its log entry.
+def test_the_log_is_written_before_the_record(
+    store: FileProgressStore, clean: Course, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Raw log becomes durable first; public readers finish the pending final record."""
+    import yaml
 
-    The file backend cannot write both atomically, so it must write the log first. A store
-    that fails on the record write should leave a log entry and an unchanged record — never
-    the other way round.
-    """
+    from skilling.store import _journal
+
     record, revision = _fresh(store, clean)
     lesson = clean.lesson_at("0.1")
     assert lesson
+    original = _journal._write_bytes_atomic
 
-    class RecordWritesFail(type(store)):  # type: ignore[misc]
-        def put_record(self, record, expected_revision):  # noqa: ANN001, ANN201
-            raise Conflict("record.yaml", expected_revision, "someone-else")
+    def fail(path: Path, data: bytes) -> None:
+        if path.name == "record.yaml":
+            raise OSError("record boundary")
+        original(path, data)
 
-    breaking = RecordWritesFail(store.state_root)
-    with pytest.raises(Conflict):
-        runtime.complete_lesson(breaking, clean, record, revision, lesson, now=NOW)
-
-    assert [e.coordinate for e in store.get_log(LOCAL_LEARNER, clean.id)] == ["0.1"]
+    with monkeypatch.context() as patch:
+        patch.setattr(_journal, "_write_bytes_atomic", fail)
+        with pytest.raises(OSError, match="record boundary"):
+            runtime.complete_lesson(store, clean, record, revision, lesson, now=NOW)
+    directory = store.course_dir(clean.id)
+    assert yaml.safe_load((directory / "record.yaml").read_bytes())["completed"] == []
+    assert yaml.safe_load((directory / "completed.yaml").read_bytes())[0]["coordinate"] == "0.1"
     reread = store.get_record(LOCAL_LEARNER, clean.id)
-    assert reread is not None
-    assert reread[0].completed == [], "the record must not show a completion it failed to write"
+    assert reread is not None and reread[0].completed == ["0.1"]
 
 
 # ------------------------------------------------------------------------------ ceremony

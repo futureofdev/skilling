@@ -10,7 +10,9 @@ and an unwritten log are all ``None`` rather than a special stored value.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from dataclasses import dataclass
+from datetime import datetime
+from typing import NamedTuple, Protocol, runtime_checkable
 
 from ..course import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
 
@@ -30,6 +32,10 @@ class StoreBusy(StoreError):
     """The course lock could not be acquired within the bounded wait."""
 
 
+class RecoveryRequired(StoreError):
+    """Completion metadata needs inspection; no guessed repair is safe."""
+
+
 class Conflict(StoreError):
     """A write whose ``expected_revision`` did not match the store's current revision.
 
@@ -45,7 +51,44 @@ class Conflict(StoreError):
 
 
 class NotSupported(StoreError):
-    """An optional operation this backend does not implement."""
+    """An operation unsupported by this backend's implemented contract."""
+
+
+@dataclass(frozen=True)
+class CompletionReceipt:
+    operation_id: str
+    learner_id: str
+    course_id: str
+    course_version: str
+    coordinate: str
+    completed_at: datetime
+    badges_awarded: tuple[str, ...]
+    phase_completed: int | None
+    homework_placed: bool
+    homework_queued: bool
+
+
+@dataclass(frozen=True)
+class HomeworkWrite:
+    expected_revision: Revision | None
+    slot: HomeworkSlot | None
+
+
+@dataclass(frozen=True)
+class CompletionCommit:
+    receipt: CompletionReceipt
+    expected_record_revision: Revision
+    record: Record
+    expected_log: tuple[CompletionEntry, ...]
+    entry: CompletionEntry
+    homework: HomeworkWrite | None
+
+
+class CompletionCommitResult(NamedTuple):
+    record: Record
+    revision: Revision
+    receipt: CompletionReceipt
+    replayed: bool
 
 
 @runtime_checkable
@@ -87,3 +130,9 @@ class ProgressStore(Protocol):
     ) -> list[HomeworkArchiveEntry]: ...
 
     def list_records(self, course_id: str) -> list[tuple[str, Record]]: ...
+
+    def get_completion_receipt(
+        self, learner_id: str, course_id: str
+    ) -> CompletionReceipt | None: ...
+
+    def commit_completion(self, commit: CompletionCommit) -> CompletionCommitResult: ...

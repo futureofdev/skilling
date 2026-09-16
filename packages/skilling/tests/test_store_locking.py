@@ -310,8 +310,10 @@ def test_locked_operations_propagate_fsync_failure(
     def fail(directory: Path) -> None:
         raise error
 
+    from skilling.store import _io
+
     with monkeypatch.context() as patch:
-        patch.setattr(_file, "_fsync_dir", fail)
+        patch.setattr(_file if operation == "delete" else _io, "_fsync_dir", fail)
         with pytest.raises(OSError) as caught:
             if operation == "record":
                 store.put_record(a_record(), None)

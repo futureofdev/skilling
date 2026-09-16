@@ -27,6 +27,7 @@ from ...course import (
 )
 from ...delivery import (
     Beat,
+    CompletionOutcome,
     IllegalTransition,
     Input,
     LessonShape,
@@ -37,9 +38,18 @@ from ...delivery import (
     should_offer_revisit,
 )
 from ...delivery import advance as apply_input
-from ...store import LOCAL_LEARNER, Conflict
+from ...store import LOCAL_LEARNER, Conflict, NotSupported, RecoveryRequired
 from ...workspace import find_workspace, showcase_dir
-from ._common import ExitCode, Scratch, emit, fail, now_override, open_session, save_scratch
+from ._common import (
+    ExitCode,
+    Scratch,
+    emit,
+    fail,
+    load_scratch,
+    now_override,
+    open_session,
+    save_scratch,
+)
 
 COURSE_HELP = "Path to the course directory."
 STATE_HELP = "Where to keep the learner's progress record."
@@ -265,7 +275,7 @@ def next(
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
 ) -> None:
-    """Resume info: the current beat's content and the inputs legal from here. Read-only."""
+    """Resume current content; first use initializes and pending completion recovers."""
     session = open_session(course, state, learner)
     emit(
         _resume_envelope("next", session.course, session.record, session.revision, session.scratch)
@@ -352,6 +362,7 @@ def advance(
             last_key=key if key is not None else session.scratch.last_key,
             last_result=envelope if key is not None else session.scratch.last_result,
         ),
+        new_revision,
     )
     emit(envelope)
 
@@ -364,50 +375,67 @@ def complete(
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
 ) -> None:
-    """Complete the current lesson: the write set, done once and idempotent after.
-
-    A retried call after position has already moved on replays against the coordinate that
-    was actually completed (``record.completed[-1]``), not the new one, so
-    ``complete_lesson``'s own idempotency (checking ``has_completed``) is what answers it —
-    not a second, separate cache.
-    """
+    """Complete the explicit lesson or replay its durable immediate completion receipt."""
     session = open_session(course, state, learner)
     lesson = session.lesson
     parsed = parse_lesson(lesson.path)
-    shape = _shape(session.course, lesson, parsed)
-    current = _lesson_state(session.record, session.scratch, shape)
-
+    current = _lesson_state(session.record, session.scratch, _shape(session.course, lesson, parsed))
+    legacy_noop = False
     if current.beat is not Beat.COMPLETE:
-        if not session.record.completed:
+        replay = None
+        if session.record.position.beat is None:
+            receipt = session.store.get_completion_receipt(learner, session.course.id)
+            if receipt is not None:
+                if (receipt.learner_id, receipt.course_id, receipt.course_version) != (
+                    session.record.learner_id,
+                    session.course.id,
+                    session.course.version,
+                ) or receipt.coordinate not in session.record.completed:
+                    raise RecoveryRequired(
+                        "Completion receipt does not match this session snapshot"
+                    )
+                finished = session.course.lesson_at(receipt.coordinate)
+                if finished is not None:
+                    following = session.course.next_lesson(receipt.coordinate) or finished
+                    if following.coordinate == session.record.position.coordinate:
+                        replay = finished
+            else:
+                coordinates = session.course.coordinates
+                index = coordinates.index(session.record.position.coordinate)
+                legacy_noop = (
+                    index > 0 and coordinates[index - 1] in session.record.completed
+                ) or (
+                    index == len(coordinates) - 1 and coordinates[index] in session.record.completed
+                )
+        if replay is None and not legacy_noop:
             fail(
                 ExitCode.ILLEGAL,
                 "illegal-transition",
                 f"the lesson is at {current.beat!s}, not the completion beat",
             )
-        replay = session.course.lesson_at(session.record.completed[-1])
-        assert replay is not None
-        lesson = replay
-
+        if replay is not None:
+            lesson = replay
     try:
-        outcome = complete_lesson(
-            session.store,
-            session.course,
-            session.record,
-            session.revision,
-            lesson,
-            now=now_override(),
+        outcome = (
+            CompletionOutcome(session.record, session.revision, already_completed=True)
+            if legacy_noop
+            else complete_lesson(
+                session.store,
+                session.course,
+                session.record,
+                session.revision,
+                lesson,
+                now=now_override(),
+            )
         )
     except Conflict as exc:
         fail(ExitCode.CONFLICT, "conflict", str(exc))
-
-    if not outcome.already_completed:
-        save_scratch(
-            session,
-            Scratch(last_key=session.scratch.last_key, last_result=session.scratch.last_result),
-        )
+    except NotSupported as exc:
+        fail(ExitCode.ERROR, "completion-not-supported", str(exc))
+    scratch = load_scratch(session.store, session.course.id)
 
     envelope = _resume_envelope(
-        "complete", session.course, outcome.record, outcome.revision, session.scratch
+        "complete", session.course, outcome.record, outcome.revision, scratch
     )
     envelope.update(
         {

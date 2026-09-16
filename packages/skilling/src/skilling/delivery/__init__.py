@@ -20,6 +20,12 @@ from ._ceremony import (
     unknown_placeholders,
     values,
 )
+from ._completion import (
+    CompletionOutcome,
+    assignment_from_lesson,
+    complete_lesson,
+    skills_for,
+)
 from ._hooks import (
     NO_HOOKS,
     Dispatcher,
@@ -45,18 +51,14 @@ from ._machine import (
 )
 from ._runtime import (
     SPEC_VERSION,
-    CompletionOutcome,
     ObjectivesMarked,
     StoredRecord,
-    assignment_from_lesson,
-    complete_lesson,
     load_or_create,
     mark_objectives_met,
     objectives_of,
     set_telemetry_consent,
     settle_objective,
     settleable,
-    skills_for,
     submit_homework,
 )
 
