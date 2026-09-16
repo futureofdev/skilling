@@ -51,6 +51,23 @@ unchanged. A workspace re-points the layout; it does not fork it.
 disjoint from state. An implementation may keep a resolver index beside them; the index is its
 own business and carries no meaning here.
 
+An id/version alone is not proof that two fetched sources contain the same course. A resolver
+that reuses a fetched directory must verify the source binding and content identity before
+returning it. Different payloads claiming the same id/version must refuse without replacing
+the existing directory or silently binding the new source to it. Equivalent payloads may share
+the directory. A verified cached ref remains a snapshot; resolving it again does not implicitly
+update a moving remote branch. An interrupted acquisition must not create a trusted source
+binding to missing or unverified content. Private recovery/index representation remains an
+implementation detail; the directory layout and installed-workspace loading stay unchanged.
+When an existing unversioned or deliberately invalidated tree's prior executable intent
+cannot be established independently, remote adoption must refuse rather than infer that
+intent from the newly fetched source. On Windows this includes plain trees without retained
+trusted Git mode metadata, even if their visible bytes match. Direct loading of already
+installed workspace content remains available offline.
+
+The reference implementation's comparison, legacy adoption and recovery behavior are described
+in [course sources](../docs/course-sources.md).
+
 ## The manifest
 
 `.skilling/workspace.yaml` is what makes a folder a workspace. It records, per course the

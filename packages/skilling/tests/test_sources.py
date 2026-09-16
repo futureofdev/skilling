@@ -203,8 +203,15 @@ def test_pinned_subdirectory_paths_survive_fetch_cleanup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pin_kind: str
 ) -> None:
     repository = tmp_path / "repository"
-    original = REPO_ROOT / "examples" / "workbench"
+    original = tmp_path / "original"
+    shutil.copytree(REPO_ROOT / "examples" / "workbench", original)
+    # Exercise Windows-style checkout bytes on every platform; the remote stores LF blobs.
+    for path in original.rglob("*"):
+        if path.is_file():
+            path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
     shutil.copytree(original, repository / "course-subdir")
+    subprocess.run(["git", "init", "-q", str(repository)], check=True, capture_output=True)
+    subprocess.run(["git", "config", "core.autocrlf", "true"], cwd=repository, check=True)
     remote = tmp_path / "remote.git"
     subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True, capture_output=True)
     _push_to_bare(repository, remote)
@@ -213,6 +220,17 @@ def test_pinned_subdirectory_paths_survive_fetch_cleanup(
     subprocess.run(
         ["git", "push", "-q", "--tags", "origin"], cwd=repository, check=True, capture_output=True
     )
+    expected = {
+        path.relative_to(original).as_posix(): subprocess.check_output(
+            ["git", "show", f"{sha}:course-subdir/{path.relative_to(original).as_posix()}"],
+            cwd=repository,
+        )
+        for path in original.rglob("*")
+        if path.is_file()
+    }
+    for relative, blob in expected.items():
+        assert b"\r\n" in (original / relative).read_bytes()
+        assert b"\r\n" not in blob
     calls = _redirect_github(monkeypatch, remote)
     pin = "v1.0.0" if pin_kind == "tag" else sha
     ref = f"gh:acme/course@{pin}#course-subdir"
@@ -221,10 +239,10 @@ def test_pinned_subdirectory_paths_survive_fetch_cleanup(
     assert fetched.path == tmp_path / "cache" / "workbench@1.0.0"
     for lesson in fetched.course.lessons():
         relative = lesson.path.relative_to(fetched.path)
-        assert lesson.path.read_bytes() == (original / relative).read_bytes()
-    assert (fetched.course.assets_dir / "workbench.svg").read_bytes() == (
-        original / "assets" / "workbench.svg"
-    ).read_bytes()
+        assert lesson.path.read_bytes() == expected[relative.as_posix()]
+    assert (fetched.course.assets_dir / "workbench.svg").read_bytes() == expected[
+        "assets/workbench.svg"
+    ]
     git_calls = len(calls)
     remote.rename(tmp_path / "unavailable.git")
     cached = resolve(ref, cache=tmp_path / "cache")
