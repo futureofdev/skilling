@@ -31,6 +31,7 @@ LOCK_POLL_INTERVAL = 0.05
 class _Identity(NamedTuple):
     device: int
     inode: int
+    filename: str
 
 
 class _Ownership(threading.local):
@@ -96,14 +97,18 @@ def _close(fd: int) -> None:
 
 
 @contextmanager
-def locked_cache(directory: Path, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> Iterator[None]:
+def locked_directory(
+    directory: Path, *, filename: str, timeout: float = DEFAULT_LOCK_TIMEOUT
+) -> Iterator[None]:
     """Lock an already checked existing directory, with one deadline for all waits."""
+    if filename not in {".cache.lock", ".workspace.lock"}:
+        raise ValueError("unsupported lock filename")
     if not math.isfinite(timeout) or timeout < 0:
         raise ValueError("Lock timeout must be finite and nonnegative")
     deadline = time.monotonic() + timeout
     owner_pid = os.getpid()
     stat = directory.stat()
-    identity = _Identity(stat.st_dev, stat.st_ino)
+    identity = _Identity(stat.st_dev, stat.st_ino, filename)
     with _REGISTRY_MUTEX:
         local_lock = _LOCKS.setdefault(identity, threading.RLock())
     if not local_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
@@ -113,7 +118,7 @@ def locked_cache(directory: Path, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> I
             yield
             return
         with _REGISTRY_MUTEX:
-            fd = os.open(directory / ".cache.lock", os.O_RDWR | os.O_CREAT, 0o600)
+            fd = os.open(directory / filename, os.O_RDWR | os.O_CREAT, 0o600)
             _OPEN_FDS.add(fd)
         try:
             # Seek failures are I/O failures, never mistaken for lock contention.
@@ -146,3 +151,9 @@ def locked_cache(directory: Path, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> I
     finally:
         if os.getpid() == owner_pid:
             local_lock.release()
+
+
+@contextmanager
+def locked_cache(directory: Path, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> Iterator[None]:
+    with locked_directory(directory, filename=".cache.lock", timeout=timeout):
+        yield

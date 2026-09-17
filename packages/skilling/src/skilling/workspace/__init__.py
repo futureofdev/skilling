@@ -25,10 +25,22 @@ from ._layout import (
     state_root,
 )
 from ._manifest import WorkspaceCourse, WorkspaceManifest
+from ._recovery import ImportRecoveryError, recover_workspace, workspace_lock, workspace_read
 from ._resolve import resolve_course_location, resolve_state_root
-from ._setup import ImportedCourse, add_course, ensure_workspace, import_local_course
+from ._setup import (
+    ImportedCourse,
+    add_course,
+    ensure_workspace,
+    import_local_course,
+    validate_local_import,
+)
 
 __all__ = [
+    "ImportRecoveryError",
+    "recover_workspace",
+    "workspace_lock",
+    "workspace_read",
+    "validate_local_import",
     "COURSES_DIR",
     "ENTRY_BLOCK_END",
     "ENTRY_BLOCK_START",

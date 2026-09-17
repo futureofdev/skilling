@@ -19,7 +19,7 @@ from ...course import Course
 from ...delivery import load_or_create
 from ...skills import SKILL_NAMES, HostTarget, Platform
 from ...skills import install as install_triad
-from ...sources import CourseInvalid, GhResolver, ResolveError, UrlResolver
+from ...sources import CourseInvalid, GhResolver, ResolveError, UrlResolver, safe_source_ref
 from ...sources import resolve as resolve_remote
 from ...store import LOCAL_LEARNER, FileProgressStore
 from ...workspace import (
@@ -30,6 +30,8 @@ from ...workspace import (
     import_local_course,
     refresh_entry_files,
     state_root,
+    validate_local_import,
+    workspace_lock,
 )
 from .. import _render as render
 
@@ -54,42 +56,47 @@ def start(
     workspace = (dir if dir is not None else Path.cwd()).resolve()
 
     try:
-        if GhResolver.claims(ref) or UrlResolver.claims(ref):
-            resolved = resolve_remote(ref, cache=courses_dir(workspace))
-            course, content_path = Course.load(resolved.path), resolved.path
-        else:
-            imported = import_local_course(workspace, Path(ref))
-            course, content_path = imported.course, imported.path
+        if not (GhResolver.claims(ref) or UrlResolver.claims(ref)):
+            validate_local_import(workspace, Path(ref))
+        with workspace_lock(workspace):
+            if GhResolver.claims(ref) or UrlResolver.claims(ref):
+                resolved = resolve_remote(ref, cache=courses_dir(workspace))
+                course, content_path = Course.load(resolved.path), resolved.path
+            else:
+                imported = import_local_course(workspace, Path(ref), ref=ref)
+                course, content_path = imported.course, imported.path
+            # Finishing steps are idempotent; committed content survives failures here.
+            ensure_workspace(workspace)
+            entry = add_course(workspace, course, ref, content_path)
+
+            skill_dirs: list[Path] = []
+            for platform in ALL_PLATFORMS:
+                target = HostTarget(platform)
+                # `home` is dead here — `skills_dir` ignores it whenever `project` is given — but it
+                # is a required argument, and passing `workspace` rather than the real `Path.home()`
+                # means a future refactor that starts honouring it can never reach outside the
+                # workspace this command owns.
+                result = install_triad(target, project=workspace, home=workspace)
+                skill_dirs.extend(result.skill_dirs)
+
+            entry_files = refresh_entry_files(workspace)
+
+            store = FileProgressStore(state_root(workspace))
+            load_or_create(store, course, LOCAL_LEARNER)
+
     except CourseInvalid as exc:
         report = Report(exc.findings)
         if as_json:
             render.findings_json(report)
         else:
-            render.findings(report, root=ref)
+            display_ref = (
+                safe_source_ref(ref) if GhResolver.claims(ref) or UrlResolver.claims(ref) else ref
+            )
+            render.findings(report, root=display_ref)
         raise typer.Exit(1) from exc
     except (ResolveError, OSError) as exc:
         render.err_console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
-
-    # Register only fully copied and validated content. A failed local copy can leave empty
-    # cache directories, but never publishes a workspace manifest or replaces working content.
-    ensure_workspace(workspace)
-    entry = add_course(workspace, course, ref, content_path)
-
-    skill_dirs: list[Path] = []
-    for platform in ALL_PLATFORMS:
-        target = HostTarget(platform)
-        # `home` is dead here — `skills_dir` ignores it whenever `project` is given — but it
-        # is a required argument, and passing `workspace` rather than the real `Path.home()`
-        # means a future refactor that starts honouring it can never reach outside the
-        # workspace this command owns.
-        result = install_triad(target, project=workspace, home=workspace)
-        skill_dirs.extend(result.skill_dirs)
-
-    entry_files = refresh_entry_files(workspace)
-
-    store = FileProgressStore(state_root(workspace))
-    load_or_create(store, course, LOCAL_LEARNER)
 
     course_display = f"{SKILLING_DIR}/{entry.path}"
     skills_relative = [p.relative_to(workspace).as_posix() for p in skill_dirs]

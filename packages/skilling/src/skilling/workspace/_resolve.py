@@ -29,6 +29,7 @@ from ..course import load_manifest as load_course_manifest
 from ..store import default_state_root
 from ._discover import find_workspace
 from ._layout import SKILLING_DIR, load_manifest, state_root
+from ._recovery import workspace_lock
 
 STATE_ROOT_ENV = "SKILLING_STATE_ROOT"
 """Mirrors ``store._select.STATE_ROOT_ENV`` — duplicated rather than imported, since that
@@ -64,18 +65,19 @@ def resolve_course_location(ref: str, *, version: str | None = None) -> Path | N
     workspace = find_workspace()
     if workspace is None:
         return None
-    try:
-        manifest = load_manifest(workspace)
-    except (OSError, ValueError, yaml.YAMLError):
-        return None
-    entry = manifest.course(ref)
-    if entry is None or (version is not None and entry.version != version):
-        return None
-    candidate = workspace / SKILLING_DIR / entry.path
-    try:
-        course = load_course_manifest(candidate)
-    except (CourseLoadError, OSError, UnicodeError):
-        return None
-    if course.id != entry.id or course.version != entry.version:
-        return None
-    return candidate
+    with workspace_lock(workspace):
+        try:
+            manifest = load_manifest(workspace)
+        except (OSError, ValueError, yaml.YAMLError):
+            return None
+        entry = manifest.course(ref)
+        if entry is None or (version is not None and entry.version != version):
+            return None
+        candidate = workspace / SKILLING_DIR / entry.path
+        try:
+            course = load_course_manifest(candidate)
+        except (CourseLoadError, OSError, UnicodeError):
+            return None
+        if course.id != entry.id or course.version != entry.version:
+            return None
+        return candidate

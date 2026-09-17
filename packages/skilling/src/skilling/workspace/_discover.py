@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 from ._layout import manifest_path
+from ._recovery import recover_workspace
 
 WORKSPACE_ENV = "SKILLING_WORKSPACE"
 """Overrides the *start point* of the walk, not its answer: pointing it anywhere inside a
@@ -27,6 +28,11 @@ def find_workspace(start: Path | None = None) -> Path | None:
     origin = Path(configured) if configured else fallback
     current = origin.resolve()
     for candidate in (current, *current.parents):
-        if manifest_path(candidate).is_file():
-            return candidate
+        if any(
+            p.exists() or p.is_symlink()
+            for p in (manifest_path(candidate), candidate / ".skilling/import.yaml")
+        ):
+            recover_workspace(candidate)
+            if manifest_path(candidate).is_file():
+                return candidate
     return None

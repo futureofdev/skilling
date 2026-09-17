@@ -31,6 +31,14 @@ from ._layout import (
     showcase_dir,
 )
 from ._manifest import WorkspaceCourse, WorkspaceManifest
+from ._recovery import (
+    _ref,
+    claim_staging,
+    publish_import,
+    recover_workspace,
+    remove_owned_tree,
+    workspace_lock,
+)
 
 README_NAME = "README.md"
 
@@ -46,8 +54,9 @@ def ensure_workspace(dir: Path) -> Path:
     manifest. An existing workspace is left exactly as it is — this only ever grows one, it
     never resets it. Returns ``dir``."""
     dir.mkdir(parents=True, exist_ok=True)
-    if not manifest_path(dir).is_file():
-        save_manifest(dir, WorkspaceManifest())
+    with workspace_lock(dir):
+        if not manifest_path(dir).is_file():
+            save_manifest(dir, WorkspaceManifest())
     return dir
 
 
@@ -61,58 +70,73 @@ def _validated_course(path: Path) -> Course:
     return Course.load(path)
 
 
-def import_local_course(ws: Path, path: Path) -> ImportedCourse:
-    """Import a validated, independent copy without deleting the last working course.
-
-    Resolve source aliases before comparing trees. Importing our own content is a no-op;
-    overlapping trees and interior symlinks are refused rather than followed recursively.
-    A replacement is copied and validated in a sibling staging directory first. Caught
-    publication failures restore the previous directory; an unrecoverable restore leaves
-    its backup on disk and reports the location instead of deleting the learner's content.
-    """
+def validate_local_import(ws: Path, path: Path) -> ImportedCourse:
+    """Validate input and containment before creating any workspace directories."""
+    if (ws / SKILLING_DIR / "import.yaml").exists():
+        recover_workspace(ws)
     if not path.is_dir():
         raise UnknownRef(f"not a recognised ref, and no local directory at {path}")
-    path = path.resolve()
-    ws = ws.resolve()
+    path, ws = path.resolve(), ws.resolve()
     course = _validated_course(path)
     content_root = courses_dir(ws)
     destination = content_root / f"{course.id}@{course.version}"
     if any(p.is_symlink() for p in (ws / SKILLING_DIR, content_root, destination)):
         raise ResolveError("workspace course destination must not be a symlink")
-    if path == destination.resolve():
-        return ImportedCourse(course=course, path=destination)
-    if destination.is_relative_to(path) or path.is_relative_to(destination):
+    if path != destination.resolve() and (
+        destination.is_relative_to(path) or path.is_relative_to(destination)
+    ):
         raise ResolveError("course source and workspace content destination overlap")
     if any(p.is_symlink() for p in path.rglob("*")):
         raise ResolveError("course content contains a symlink; import a standalone course tree")
     if destination.exists() and not destination.is_dir():
         raise ResolveError(f"course destination is not a directory: {destination}")
+    return ImportedCourse(course, destination)
 
-    content_root.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".skilling-import-", dir=content_root))
-    candidate = staging / "course"
-    previous = staging.with_name(staging.name + "-previous")
-    try:
-        shutil.copytree(path, candidate)
-        copied = _validated_course(candidate)
-        if (copied.id, copied.version) != (course.id, course.version):
-            raise ResolveError("course identity changed during import; retry with a stable source")
-        if destination.exists():
-            destination.rename(previous)
+
+def _updated_manifest(ws: Path, course: Course, ref: str, path: Path) -> WorkspaceManifest:
+    manifest = load_manifest(ws) if manifest_path(ws).is_file() else WorkspaceManifest()
+    existing = manifest.course(course.id)
+    entry = WorkspaceCourse(
+        id=course.id,
+        version=course.version,
+        ref=_ref(ref),
+        path=path.relative_to(ws / SKILLING_DIR).as_posix(),
+        showcase=showcase_dir(ws, course.id).relative_to(ws).as_posix(),
+        added_at=existing.added_at if existing is not None else utc_now(),
+    )
+    return WorkspaceManifest(courses=[*[c for c in manifest.courses if c.id != course.id], entry])
+
+
+def import_local_course(ws: Path, path: Path, *, ref: str | None = None) -> ImportedCourse:
+    """Publish a validated local copy and its manifest as one recoverable operation."""
+    checked = validate_local_import(ws, path)
+    path, ws = path.resolve(), ws.resolve()
+    with workspace_lock(ws):
+        checked = validate_local_import(ws, path)
+        destination = checked.path
+        supplied_ref = ref if ref is not None else str(path)
+        if path == destination.resolve():
+            save_manifest(ws, _updated_manifest(ws, checked.course, supplied_ref, destination))
+            return checked
+        content_root = courses_dir(ws)
+        content_root.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=".skilling-import-", dir=content_root))
+        candidate = staging / "course"
         try:
-            candidate.rename(destination)
-        except BaseException:
-            if previous.exists():
-                try:
-                    previous.rename(destination)
-                except OSError as exc:
-                    raise ResolveError(f"previous course preserved at {previous}: {exc}") from exc
-            raise
-        if previous.exists():
-            shutil.rmtree(previous)
-    finally:
-        shutil.rmtree(staging)
-    return ImportedCourse(course=Course.load(destination), path=destination)
+            claim_staging(staging)
+            shutil.copytree(path, candidate)
+            copied = _validated_course(candidate)
+            if (copied.id, copied.version) != (checked.course.id, checked.course.version):
+                raise ResolveError(
+                    "course identity changed during import; retry with a stable source"
+                )
+            manifest = _updated_manifest(ws, copied, supplied_ref, destination)
+            publish_import(ws, candidate, destination, manifest)
+        finally:
+            # Once intent exists, its copies belong to recovery, including caught failures.
+            if not (ws / SKILLING_DIR / "import.yaml").exists() and staging.exists():
+                remove_owned_tree(staging)
+        return ImportedCourse(course=Course.load(destination), path=destination)
 
 
 def add_course(ws: Path, course: Course, ref: str, path: Path) -> WorkspaceCourse:
@@ -124,18 +148,11 @@ def add_course(ws: Path, course: Course, ref: str, path: Path) -> WorkspaceCours
     course first joined this workspace, not when it was last refreshed, so a re-run stays
     byte-identical rather than drifting a timestamp forward every time.
     """
-    manifest = load_manifest(ws) if manifest_path(ws).is_file() else WorkspaceManifest()
-    existing = manifest.course(course.id)
-    entry = WorkspaceCourse(
-        id=course.id,
-        version=course.version,
-        ref=ref,
-        path=path.relative_to(ws / SKILLING_DIR).as_posix(),
-        showcase=showcase_dir(ws, course.id).relative_to(ws).as_posix(),
-        added_at=existing.added_at if existing is not None else utc_now(),
-    )
-    kept = [c for c in manifest.courses if c.id != course.id]
-    save_manifest(ws, WorkspaceManifest(courses=[*kept, entry]))
+    with workspace_lock(ws):
+        manifest = _updated_manifest(ws, course, ref, path)
+        save_manifest(ws, manifest)
+        entry = manifest.course(course.id)
+        assert entry is not None
 
     showcase = showcase_dir(ws, course.id)
     showcase.mkdir(parents=True, exist_ok=True)
