@@ -228,8 +228,8 @@ ROWS: tuple[Row, ...] = (
         "submitting homework when none was ever assigned",
         _nothing,
         lambda c, t: run(["homework", "submit", "--course", str(c)], t),
-        4,
-        "no-homework",
+        2,
+        "invalid-submission-token",
     ),
 )
 

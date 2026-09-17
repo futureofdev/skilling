@@ -5,8 +5,9 @@ Every call below assumes you already resolved `--course <path>` (see
 
 ## `skilling homework check --course <path>`
 
-Read-only — never a write, not even scratch, so call it as often as you like. Returns the
-active slot as-is:
+Inspect the active slot without creating state or changing the assignment. A previously
+accepted interrupted operation may finish recovery before the read. Repeated checks issue
+no token files and return the same token while the slot is unchanged:
 
 ```json
 {"ok": true, "verb": "homework-check",
@@ -20,10 +21,11 @@ active slot as-is:
    "unlocked_at": "2026-08-05T14:31:07Z",
    "queued": []
  },
- "revision": "..."}
+ "revision": "...", "submission_token": "..."}
 ```
 
-`active` is `null` when the slot is empty — nothing has unlocked a homework assignment yet.
+`active` and `submission_token` are `null` when the slot is empty. Explain that there is
+no active assignment; do not invent one or submit a previous archive.
 `verdict` starts (and, through this verb alone, stays) `null`; `skilling` never fills it in.
 `queued` lists any further assignments already waiting behind this one (a learner who
 finished two phases back-to-back before submitting either).
@@ -52,6 +54,9 @@ telling the learner "this looks ready" is not the same as it being submitted, an
 
 ## Submit
 
+Call `homework check`, display the assignment, and retain its exact `submission_token`.
+The token identifies that assignment and checked revision; it is not proof of consent.
+
 Submission requires the learner's confirmation as its **own, distinct** reply — never
 inferred from a passing check, from enthusiasm, or from silence. Ask directly ("ready to
 submit this?") and wait for an actual yes before calling anything.
@@ -59,7 +64,7 @@ submit this?") and wait for an actual yes before calling anything.
 On confirmation:
 
 ```
-skilling homework submit --course <path>
+skilling homework submit --course <path> --token <the-retained-submission_token>
 # {"ok": true, "verb": "homework-submit", "course": {"id": "...", "version": "..."},
 #  "archived": {"coordinate": "...", "title": "...", "requirements": [...],
 #               "stretch_goals": [...], "submitted_at": "..."}}
@@ -67,9 +72,16 @@ skilling homework submit --course <path>
 
 This archives the assignment exactly as it stood (whatever, if anything, is in `verdict`/
 `reason` — usually still `null`, since nothing upstream of this call writes them) and, if
-anything was queued, loads it into the active slot. Idempotent: submitting an assignment
-already archived is a no-op that returns the same archived result rather than duplicating it,
-so a retry after an uncertain call is safe.
+anything was queued, loads it into the active slot. Retry an uncertain call with the **same
+retained token**: it returns the original archive, including its original timestamp and
+verdicts, even the next day or after another assignment becomes active. It cannot submit
+that next assignment. Never check again just to replace a retry token.
 
-`no-homework` (exit 4) means there is nothing active or archived at all to submit — tell the
-learner plainly rather than trying again with different arguments.
+`conflict` (exit 3) means the checked slot changed before acceptance, including a verdict
+or queue change. Check and display the new state, then ask for a new, distinct confirmation
+before using its new token. Do not silently refresh the token and submit.
+
+A missing, malformed, or wrong-stream token produces `invalid-submission-token` (exit 2)
+before opening learner state. Preserve an uncertain call's token for retry; without it,
+inspect current state and explain the uncertainty rather than guessing which archive or
+assignment the learner intended. Corrupt recovery metadata requires inspection, not edits.

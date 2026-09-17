@@ -15,8 +15,8 @@ import typer
 
 from ...course import Course
 from ...delivery import submit_homework
-from ...store import LOCAL_LEARNER
-from ._common import ExitCode, emit, fail, now_override, open_session
+from ...store import LOCAL_LEARNER, Conflict, InvalidSubmissionToken, NotSupported, SubmissionToken
+from ._common import ExitCode, emit, fail, load_session_course, now_override, open_session
 
 COURSE_HELP = "Path to the course directory."
 STATE_HELP = "Where to keep the learner's progress record."
@@ -41,11 +41,16 @@ def check(
 ) -> None:
     """The active homework slot and its requirements.
 
-    Read-only: never a write, not even scratch — a driving pack can poll this as often as
-    it likes.
+    Does not initialize state or change the slot. Existing accepted intent may recover.
     """
-    session = open_session(course, state, learner)
+    session = open_session(course, state, learner, initialize=False)
     active, revision = session.store.get_homework(learner, session.course.id)
+    token = None
+    if active is not None:
+        assert revision is not None
+        token = SubmissionToken.for_slot(
+            learner, session.course.id, session.course.version, active, revision
+        ).encode()
     emit(
         {
             "ok": True,
@@ -53,6 +58,7 @@ def check(
             "course": _course_envelope(session.course),
             "active": active.model_dump(mode="json") if active is not None else None,
             "revision": revision,
+            "submission_token": token,
         }
     )
 
@@ -62,29 +68,48 @@ def submit(
     course: str = _CourseOption,
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
+    token: str | None = typer.Option(
+        None, "--token", help="Required token from the separately confirmed homework check."
+    ),
 ) -> None:
-    """Archive the active assignment.
-
-    A retry after the slot has already been emptied is not a failure: it looks in the
-    archive for what was last submitted and asks ``submit_homework`` to replay against
-    that coordinate, which is where its own idempotency (checking the archive before
-    archiving again) actually answers the call.
-    """
-    session = open_session(course, state, learner)
-    active, _ = session.store.get_homework(learner, session.course.id)
-    if active is not None:
-        coordinate = active.coordinate
-    else:
-        archive = session.store.get_homework_archive(learner, session.course.id)
-        if not archive:
-            fail(ExitCode.ILLEGAL, "no-homework", "no homework is active or archived to submit")
-        coordinate = archive[-1].coordinate
-
-    entry = submit_homework(
-        session.store, learner, session.course.id, coordinate, now=now_override()
-    )
-    if entry is None:
-        fail(ExitCode.ILLEGAL, "no-homework", f"no homework at {coordinate!r} to submit")
+    """Submit the checked assignment, or replay that token's original archive."""
+    if token is None:
+        fail(
+            ExitCode.INVALID,
+            "invalid-submission-token",
+            "--token is required; check and separately confirm the assignment first",
+        )
+    try:
+        identity = SubmissionToken.parse(token)
+    except InvalidSubmissionToken as exc:
+        fail(ExitCode.INVALID, "invalid-submission-token", str(exc))
+    selected = load_session_course(course)
+    if (identity.learner_id, identity.course_id, identity.course_version) != (
+        learner,
+        selected.id,
+        selected.version,
+    ):
+        fail(
+            ExitCode.INVALID,
+            "invalid-submission-token",
+            "Token belongs to a different record stream",
+        )
+    session = open_session(selected, state, learner, initialize=False)
+    try:
+        entry = submit_homework(
+            session.store,
+            learner,
+            session.course.id,
+            identity.coordinate,
+            token=token,
+            now=now_override(),
+        )
+    except InvalidSubmissionToken as exc:
+        fail(ExitCode.INVALID, "invalid-submission-token", str(exc))
+    except Conflict as exc:
+        fail(ExitCode.CONFLICT, "conflict", str(exc))
+    except NotSupported as exc:
+        fail(ExitCode.ERROR, "submission-not-supported", str(exc))
 
     emit(
         {

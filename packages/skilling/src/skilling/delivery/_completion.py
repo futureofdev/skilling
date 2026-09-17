@@ -29,9 +29,9 @@ from ..store import (
     CompletionReceipt,
     Conflict,
     HomeworkWrite,
-    NotSupported,
     ProgressStore,
     RecoveryRequired,
+    require_store,
 )
 from ._hooks import NO_HOOKS, Dispatcher, EventName
 
@@ -89,11 +89,7 @@ def complete_lesson(
     Recovery and retries emit no hooks. An uninterrupted new commit emits best-effort
     events after its receipt is durable; a process exit in between can omit those events.
     """
-    if not isinstance(store, ProgressStore):
-        raise NotSupported(
-            "Completion requires get_completion_receipt and commit_completion; "
-            "upgrade the store backend."
-        )
+    require_store(store)
     before = store.get_record(record.learner_id, course.id)
     if before is None:
         raise Conflict("record.yaml", revision, None)

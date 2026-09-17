@@ -92,8 +92,15 @@ def test_check_reports_no_active_slot_honestly(clean_dir: Path, tmp_path: Path) 
 
 def test_retried_submit_returns_the_archived_result(clean_dir: Path, tmp_path: Path) -> None:
     complete_lesson_two(clean_dir, tmp_path)
-    a = json.loads(run(["homework", "submit", "--course", str(clean_dir)], tmp_path).stdout)
-    b = json.loads(run(["homework", "submit", "--course", str(clean_dir)], tmp_path).stdout)
+    token = json.loads(run(["homework", "check", "--course", str(clean_dir)], tmp_path).stdout)[
+        "submission_token"
+    ]
+    a = json.loads(
+        run(["homework", "submit", "--course", str(clean_dir), "--token", token], tmp_path).stdout
+    )
+    b = json.loads(
+        run(["homework", "submit", "--course", str(clean_dir), "--token", token], tmp_path).stdout
+    )
     assert b == a
     assert len(list((tmp_path / "clean-course" / "homework" / "archive").iterdir())) == 1
 
@@ -101,8 +108,8 @@ def test_retried_submit_returns_the_archived_result(clean_dir: Path, tmp_path: P
 def test_submit_with_nothing_active_or_archived_is_refused(clean_dir: Path, tmp_path: Path) -> None:
     complete_lesson_one(clean_dir, tmp_path)  # no homework placed yet
     result = run(["homework", "submit", "--course", str(clean_dir)], tmp_path)
-    assert result.exit_code == 4
-    assert json.loads(result.stdout)["error"]["code"] == "no-homework"
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "invalid-submission-token"
 
 
 # -------------------------------------------------------------------------------- progress

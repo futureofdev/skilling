@@ -323,12 +323,34 @@ Offering checks is optional. A runtime with no way to judge work — a text walk
 
 Submission requires an explicit learner confirmation **as its own input**, distinct from the input that requested submission. A runtime must not infer confirmation from a passing check, from enthusiasm, or from silence.
 
-On confirmed submission the runtime must, atomically or in this order and never partially:
+The runtime binds the displayed assignment and exact slot revision before asking for that
+confirmation. The Python reference CLI's `homework check` returns `submission_token` beside
+`active` and `revision`, or null when empty. This versioned opaque token binds learner,
+course, course version, immutable assignment instance, and checked revision. The instance
+includes coordinate, unlock time and assignment content; it excludes verdicts, reasons and
+queued assignments. Revision comparison still detects changes to any of those excluded
+fields. Token derivation is read-only and portable. A token is neither a secret nor proof of
+consent; hosts must still obtain the distinct real learner reply.
 
-1. Archive the assignment with its final verdicts and a timestamp
-2. Reset the slot to empty, or load the queued assignment
+`homework submit --token TOKEN` requires that exact checked token. Missing, malformed and
+wrong-stream tokens refuse before opening learner state. The Python runtime's
+`submit_homework(store, learner_id, course_id, coordinate, *, token=...)` also requires it;
+coordinate is an identity check, never a selector for the current slot or latest archive.
+A pre-acceptance slot change conflicts without a new submission effect. The host must check
+again and obtain a new confirmation, not silently replace the token.
 
-Archives are append-only and immutable. Submission is idempotent per assignment instance: retrying a submit of an already-archived instance is a no-op that returns the archived result.
+Before its first effect, a new submission durably prepares the exact archive and slot write
+set, then applies this order under one serialization boundary (or an equivalent transaction):
+
+1. Append the original assignment, final verdicts and original timestamp to an immutable archive
+2. Reset the slot or promote its queue head exactly once, preserving the remaining queue
+3. Persist the accepted token's immutable receipt and acknowledge the committed operation
+
+Accepted-token replay is checked before the active revision: it returns that token's
+original archive even on the next day or after the queue has advanced. A repeated coordinate
+with a different unlock time or content is a distinct instance and needs its own token and
+confirmation. Legacy duplicate archives remain unchanged; recovery never guesses which old
+coordinate-only call was intended. See [submission commit](#submission-commit).
 
 When asked for homework with an empty slot, a runtime should explain how assignments unlock — finish the phase — rather than inventing one.
 
@@ -372,6 +394,10 @@ after committing but before dispatch may omit those events. Completion recovery 
 promises durable learner state, not exactly-once external delivery, and must not block on a
 sink to bridge that gap.
 
+The same best-effort rule applies to `homework_submitted`: only a new uninterrupted
+submission dispatches after durability, at its original time. Recovery and accepted-token
+replay dispatch nothing. A process dying after commit may omit the notification.
+
 ## Telemetry
 
 **Since 1.1.** A telemetry sink is any hook consumer that leaves the adopter's trust boundary — a product-analytics endpoint, a course author's usage counter. Three rules are non-negotiable.
@@ -403,13 +429,15 @@ A store persists records, completion logs, and homework behind one small interfa
 | `list_records(course_id)` → `[(learner_id, record)]` | Enumeration for reporting; optional for single-learner backends |
 | `get_completion_receipt(learner_id, course_id)` → `CompletionReceipt` or `None` | The latest durable completion receipt, after pending recovery |
 | `commit_completion(commit)` → `CompletionCommitResult` | Persist or recover one runtime-prepared completion write set |
+| `get_submission_receipt(learner_id, course_id, token)` → `SubmissionReceipt` or `None` | The original accepted-token receipt, after pending recovery |
+| `commit_submission(commit)` → `SubmissionCommitResult` | Persist or replay one runtime-prepared archive and slot write set |
 
 - **Optimistic concurrency.** A `put_*` whose `expected_revision` is not the store's current revision must fail with a distinguishable conflict error and must not write. Silent last-write-wins is not conforming.
 - **Append-only means append-only.** Log and archive entries are never mutated, deleted, or reordered by any operation.
 - **Durability before acknowledgement.** An acknowledged completion survives a crash of the runtime, the store, or both.
 - **Atomicity.** A completion's record update and log append are atomic, or applied log-first, so no observable state shows a completion without its log entry.
 - **Storage is dumb on purpose.** A store must not interpret, enrich, or repair record contents. Derivation is the runtime's job. Replaying a validated runtime-supplied write set is mechanical persistence, not semantic repair.
-- **Recover before access.** Every cooperating operation resolves pending completion intent under the same serialization boundary before exposing or changing its stream. A stale writer must receive a distinguishable conflict rather than overwrite a recovered completion.
+- **Recover before access.** Every cooperating operation resolves pending accepted intent under the same serialization boundary before exposing or changing its stream. A stale writer must receive a distinguishable conflict rather than overwrite a recovered completion.
 - **No transcripts.** No operation may require conversation history.
 
 A multi-learner store must key all state by (`learner_id`, `course_id`), must isolate learners — no operation returns another learner's state except `list_records` — and must implement atomicity transactionally. It must make deletion of a (`learner_id`, `course_id`) pair *possible*; when that happens is the adopter's policy, not this specification's.
@@ -459,6 +487,50 @@ retrospectively transactional. Where a runtime detects an incomplete old operati
 sufficient intent to recover it, it must preserve the evidence and report the need for
 manual inspection.
 
+### Submission commit
+
+The required store interface adds `get_submission_receipt` and `commit_submission`. Backends
+implementing an older interface must upgrade; runtime refusal is `NotSupported` before new
+effects and names the missing operations. There is no fallback to separate archive/slot writes.
+
+The Python API exports frozen values:
+
+| Value | Fields and meaning |
+|---|---|
+| `SubmissionReceipt` | `token`, `learner_id`, `course_id`, `course_version`, `coordinate`, `instance_id`, original `archive` |
+| `SubmissionCommit` | `receipt`, `expected_slot_revision`, optional next `slot`; runtime derives the archive and queue promotion |
+| `SubmissionCommitResult` | Durable `receipt`, `replayed`; replay always returns the original archive |
+
+`SubmissionToken.for_slot(learner_id, course_id, course_version, slot, revision).encode()`
+is the reference token helper; consumers treat its result as opaque. `SubmissionToken.parse`
+validates its version and canonical encoding. Runtime validates receipt identity and archive
+coordinate before reporting success, including results returned by external backends.
+
+Receipt lookup and commit validate the token's learner/course/version against the current
+record stream before recovering accepted work. The runtime performs that checked receipt
+lookup before other state reads, so a wrong-stream token cannot trigger unrelated recovery.
+Missing streams are not initialized by submission. A store validates supplied values even
+on replay. For a new token it compares the expected
+slot revision under the same lock as intent publication, then checks that the supplied
+archive matches the checked assignment and that the next slot preserves the queue exactly.
+It must not discard a concurrent verdict or queue edit. Accepted-token replay precedes that
+CAS check and must not restore the old active slot or emit hooks.
+
+The file backend prepares `submission.yaml` with course-relative archive target and exact
+before/after bytes. It preserves existing archive names, selecting the next unused suffix
+when needed. The durable order is prepared intent, archive, active slot, immutable receipt
+under `submission-receipts/`, committed marker. Receipt filenames hash the token; tokens
+never become paths. All metadata and targets are preflighted before recovery effects, with
+unknown versions, inconsistent identities and unexpected bytes refusing as `RecoveryRequired`.
+
+Every cooperating read/write validates completion, transition and submission journals under
+one course lock before recovering any of them. Multiple prepared intents refuse rather than
+merge, even if each is individually valid. Existing version-1 completion intents remain
+compatible. Preserve all journals and receipts when moving stopped learner state. A check
+never creates state or changes a new assignment; it can finish already accepted recovery
+before returning the current slot. These guarantees apply to newly journaled operations,
+not historical coordinate-only submissions, physical power-loss, or cross-machine filesystems.
+
 ## The file layout
 
 ### Recoverable file-runtime transitions
@@ -495,8 +567,8 @@ intent with a committed marker. Receipts live under `transition-receipts/` with 
 derived from a SHA-256 of the stream and key; caller keys are never paths. Completion resets
 teaching scratch without deleting these receipts.
 
-Every cooperating course operation validates both transition and existing version-1
-completion metadata before recovering either under the same lock. Two simultaneously
+Every cooperating course operation validates transition, submission and existing version-1
+completion metadata before recovering any under the same lock. Two simultaneously
 prepared journals refuse without target writes. Unknown versions, missing required metadata,
 invalid identities or paths, and target bytes matching neither before nor after also refuse
 with `RecoveryRequired`; recovery never guesses a merge. Existing version-1 completion

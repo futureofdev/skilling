@@ -199,6 +199,104 @@ def probe(source: Path, workspace: Path, python_version: str) -> None:
     )
 
 
+def state_hashes(workspace: Path) -> dict[str, str]:
+    root = workspace / ".skilling/state"
+    return {
+        p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*")
+        if p.is_file() and p.name != ".skilling.lock"
+    }
+
+
+def submission_probe(workspace: Path, token: str) -> None:
+    """Check the installed public API against the CLI's already accepted token."""
+    from datetime import timedelta
+
+    import skilling
+    from skilling.delivery import submit_homework
+    from skilling.store import (
+        FileProgressStore,
+        ProgressStore,
+        SubmissionCommit,
+        SubmissionCommitResult,
+        SubmissionReceipt,
+        SubmissionToken,
+    )
+
+    assert Path(skilling.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+    store = FileProgressStore(workspace / ".skilling/state")
+    assert isinstance(store, ProgressStore)
+    identity = SubmissionToken.parse(token)
+    receipt = store.get_submission_receipt("local", "hello-skilling", token)
+    assert isinstance(receipt, SubmissionReceipt)
+    before = state_hashes(workspace)
+    retry = submit_homework(
+        store,
+        "local",
+        "hello-skilling",
+        identity.coordinate,
+        token=token,
+        now=receipt.archive.submitted_at + timedelta(days=1),
+    )
+    assert retry == receipt.archive
+    committed = store.commit_submission(SubmissionCommit(receipt, identity.slot_revision, None))
+    assert isinstance(committed, SubmissionCommitResult)
+    assert committed.replayed and committed.receipt == receipt
+    assert store.get_homework("local", "hello-skilling") == (None, None)
+    assert store.get_homework_archive("local", "hello-skilling") == [receipt.archive]
+    assert state_hashes(workspace) == before
+    print(
+        json.dumps(
+            {
+                "public_submission_api": "passed",
+                "archive_count": 1,
+                "original_submitted_at": receipt.archive.submitted_at.isoformat(),
+                "next_day_replay": True,
+                "replay_state_unchanged": True,
+            },
+            indent=2,
+        )
+    )
+
+
+def check_submission(
+    commands: Commands, python: Path, cli: Path, source: Path, workspace: Path
+) -> None:
+    """Synthetic confirmation mechanics; no claim of a real learner interaction."""
+    before = state_hashes(workspace)
+    checked = json.loads(
+        commands.run([str(cli), "homework", "check", "--course", "hello-skilling"], workspace)
+    )
+    assert state_hashes(workspace) == before
+    token = checked["submission_token"]
+    assert isinstance(token, str) and token
+    assert checked["active"] is not None
+    argv = [str(cli), "homework", "submit", "--course", "hello-skilling", "--token", token]
+    submitted = json.loads(commands.run(argv, workspace))
+    after = state_hashes(workspace)
+    replayed = json.loads(commands.run(argv, workspace))
+    assert replayed["archived"] == submitted["archived"]
+    assert state_hashes(workspace) == after
+    empty = json.loads(
+        commands.run([str(cli), "homework", "check", "--course", "hello-skilling"], workspace)
+    )
+    assert empty["active"] is None and empty["submission_token"] is None
+    assert state_hashes(workspace) == after
+    commands.run(
+        [
+            str(python),
+            str(Path(__file__).resolve()),
+            "--submission-probe",
+            token,
+            "--source",
+            str(source),
+            "--workspace",
+            str(workspace),
+        ],
+        workspace,
+    )
+
+
 def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None:
     assert f"{sys.version_info.major}.{sys.version_info.minor}" == python_version, sys.version
     evidence.mkdir(parents=True, exist_ok=False)
@@ -267,6 +365,7 @@ def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None
             )
             assert resumed["beat"]["name"] == "done", resumed
             commands.run([str(cli), "progress", "--course", "hello-skilling"], workspace)
+            check_submission(commands, python, cli, source, workspace)
             shutil.copytree(workspace / ".skilling/state", evidence / f"{kind}-state")
         succeeded = True
     finally:
@@ -285,9 +384,14 @@ def main() -> None:
         "--python-version", default=f"{sys.version_info.major}.{sys.version_info.minor}"
     )
     parser.add_argument("--probe", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--submission-probe", help=argparse.SUPPRESS)
     parser.add_argument("--workspace", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.probe:
+    if args.submission_probe:
+        if args.workspace is None:
+            parser.error("--submission-probe needs --workspace")
+        submission_probe(args.workspace.resolve(), args.submission_probe)
+    elif args.probe:
         if args.workspace is None:
             parser.error("--probe needs --workspace")
         probe(args.source.resolve(), args.workspace.resolve(), args.python_version)
