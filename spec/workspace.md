@@ -168,6 +168,12 @@ same reason it never writes anything else around the runtime.
 record with none is not a lesser record. They are pointers for a later reader — the learner,
 a next tutor, whoever the learner shows the folder to — not a fourth kind of evidence.
 
+Artifact recording defaults to the latest completed lesson in completion-log append order,
+subject to [history validation and legacy fallback](runtime.md#the-completion-log).
+`artifact add --coordinate` selects a known completed lesson explicitly; it cannot bypass
+invalid history. A record's completed-array ordering and artifact write times never determine
+completion chronology.
+
 ## Entry files
 
 `CLAUDE.md` and `AGENTS.md` at the workspace root are how a host that reads such files learns

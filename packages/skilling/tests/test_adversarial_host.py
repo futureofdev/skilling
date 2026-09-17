@@ -181,8 +181,8 @@ ROWS: tuple[Row, ...] = (
         "ceremony before anything has completed",
         _nothing,
         lambda c, t: run(["ceremony", "--course", str(c)], t),
-        4,
-        "not-a-phase-boundary",
+        2,
+        "coordinate-required",
     ),
     Row(
         "ceremony after a lesson that is not the end of its phase",

@@ -192,7 +192,9 @@ class FileProgressStore:
         with self._locked_course(course_id):
             if not path.is_file():
                 return []
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if not isinstance(data, list):
+                raise ValueError("completion log must be a sequence of entries")
             return [CompletionEntry.model_validate(item) for item in data]
 
     def append_completion(self, learner_id: str, course_id: str, entry: CompletionEntry) -> None:

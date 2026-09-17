@@ -23,7 +23,15 @@ from pydantic import ValidationError
 from ...course import Artifact, utc_now
 from ...store import LOCAL_LEARNER, Conflict
 from ...workspace import find_workspace, load_manifest, resolve_course_location
-from ._common import ExitCode, emit, fail, now_override, open_session
+from ._common import (
+    ExitCode,
+    emit,
+    fail,
+    now_override,
+    open_chronology_session,
+    open_session,
+    select_completed_coordinate,
+)
 
 COURSE_REF_HELP = (
     "Course id (resolved through the workspace manifest) or a path. Defaults to the "
@@ -74,7 +82,7 @@ def add(
     coordinate: str | None = typer.Option(
         None,
         "--coordinate",
-        help="Coordinate to record against. Defaults to the last completed lesson.",
+        help="Completed coordinate. Defaults to the final entry in the completion log.",
     ),
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
@@ -95,7 +103,7 @@ def add(
             "directory or any parent",
         )
 
-    session = open_session(_course_ref(course, workspace), state, learner)
+    session = open_chronology_session(_course_ref(course, workspace), state, learner)
 
     given = Path(path)
     absolute = (given if given.is_absolute() else Path.cwd() / given).resolve()
@@ -111,26 +119,7 @@ def add(
         )
     relative = absolute.relative_to(workspace_resolved).as_posix()
 
-    if coordinate is not None:
-        resolved_coordinate = coordinate
-    elif session.record.completed:
-        # The same keying `ceremony` already uses (`_session.py`): by the time there is
-        # anything worth pointing at, `complete` has moved `position` past the finished
-        # lesson, so "the current position" is not what a default coordinate should mean.
-        resolved_coordinate = session.record.completed[-1]
-    else:
-        fail(
-            ExitCode.INVALID,
-            "coordinate-unknown",
-            "no --coordinate given and no lesson has been completed yet",
-        )
-
-    if session.course.lesson_at(resolved_coordinate) is None:
-        fail(
-            ExitCode.INVALID,
-            "coordinate-unknown",
-            f"{resolved_coordinate!r} is not a lesson in {session.course.id}",
-        )
+    resolved_coordinate = select_completed_coordinate(session, learner, coordinate)
 
     try:
         new_artifact = Artifact(

@@ -39,6 +39,14 @@ The record's `completed` set must be reconstructible from the log alone, and **w
 
 It also gives an adopter something auditable that a mutable summary never can. "When did this learner finish that lesson, and against which version of the course?" is answerable from the log, permanently, without trusting whatever wrote the record last.
 
+Ceremony and artifact defaults follow the completion log's append order. The completed array
+is a set, and timestamps do not determine sequence. Imported records without a log can use
+a sole completed coordinate; otherwise pass `ceremony --coordinate 1.2` or
+`artifact add PATH --title TITLE --coordinate 1.2` for a known completed lesson. Ceremony
+requires a phase endpoint. Both commands refuse malformed or conflicting history even with
+an override, without repairing it or creating a new record. Completion retries continue to
+use their durable receipt rather than these presentation defaults.
+
 ## Streaks are counted in local days
 
 The streak is defined in the record's own timezone, not the server's. A learner in Auckland finishing at 11pm has finished today, and a runtime that counted in UTC would break their streak while they were looking at it. Small thing; the sort of small thing that makes people stop.

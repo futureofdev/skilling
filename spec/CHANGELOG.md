@@ -6,6 +6,15 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Authoritative completion chronology — 2026-09-17
+
+Ceremony and artifact defaults use validated completion-log append order rather than the
+unordered completed array or timestamps. Ceremony adds `--coordinate`; both overrides
+require a known completed coordinate and preserve phase-boundary checks. Missing-log legacy
+records default only when one completed coordinate exists. Ambiguous, malformed or
+conflicting history is refused without initializing or repairing records. Historical course
+versions and durable completion receipt retries remain supported.
+
 ### Token-bound recoverable homework submission — 2026-09-16
 
 [Submission](runtime.md#submit) now binds the checked assignment instance and exact slot

@@ -118,7 +118,7 @@ def probe(source: Path, workspace: Path, python_version: str) -> None:
 
     import skilling
     from skilling.course import Course, today_in
-    from skilling.delivery import complete_lesson, load_or_create
+    from skilling.delivery import complete_lesson, completed_coordinate, load_or_create
     from skilling.skills import SKILL_NAMES, skill_files
     from skilling.store import FileProgressStore
 
@@ -178,6 +178,12 @@ def probe(source: Path, workspace: Path, python_version: str) -> None:
     assert len(store.get_log("local", course.id)) == course.lesson_count
     homework, _ = store.get_homework("local", course.id)
     assert homework is not None and homework.unlocked_at == moment
+    # Persist a conforming reordered record; installed CLI defaults must still use the log.
+    record = record.model_copy(update={"completed": list(reversed(record.completed))})
+    store.put_record(record, revision)
+    assert (
+        completed_coordinate(course, record, store.get_log("local", course.id)) == last.coordinate
+    )
 
     print(
         json.dumps(
@@ -366,6 +372,34 @@ def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None
             assert resumed["beat"]["name"] == "done", resumed
             commands.run([str(cli), "progress", "--course", "hello-skilling"], workspace)
             check_submission(commands, python, cli, source, workspace)
+            ceremony = json.loads(
+                commands.run([str(cli), "ceremony", "--course", "hello-skilling"], workspace)
+            )
+            assert ceremony["beat"]["content"]["coordinate"] == "1.3"
+            override = json.loads(
+                commands.run(
+                    [str(cli), "ceremony", "--course", "hello-skilling", "--coordinate", "1.3"],
+                    workspace,
+                )
+            )
+            assert override["beat"]["content"]["coordinate"] == "1.3"
+            artifact_file = workspace / "showcase" / "chronology.txt"
+            artifact_file.write_text("installed chronology probe", encoding="utf-8")
+            for coordinate in ("1.1", None):
+                args = [
+                    str(cli),
+                    "artifact",
+                    "add",
+                    str(artifact_file),
+                    "--title",
+                    "Chronology",
+                    "--course",
+                    "hello-skilling",
+                ]
+                if coordinate is not None:
+                    args += ["--coordinate", coordinate]
+                added = json.loads(commands.run(args, workspace))
+                assert added["artifact"]["coordinate"] == (coordinate or "1.3")
             shutil.copytree(workspace / ".skilling/state", evidence / f"{kind}-state")
         succeeded = True
     finally:

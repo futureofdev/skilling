@@ -26,12 +26,18 @@ import yaml
 
 from ...conformance import validate_course
 from ...course import Course, CourseLoadError, Record, ResolvedLesson
-from ...delivery import load_or_create
+from ...delivery import (
+    ChronologyInvalid,
+    CoordinateRequired,
+    completed_coordinate,
+    load_or_create,
+)
 from ...store import (
     Conflict,
     FileProgressStore,
     IdempotencyKeyConflict,
     ProgressStore,
+    RecoveryRequired,
     StatePathError,
     TransitionCommit,
     TransitionIdentity,
@@ -259,3 +265,24 @@ def open_session(
         )
 
     return Session(course, lesson, store, record, revision, scratch, scratch_bytes)
+
+
+def open_chronology_session(course_ref: str, state: Path | None, learner: str) -> Session:
+    """Read existing history without initializing a record on a refused selection."""
+    try:
+        return open_session(course_ref, state, learner, initialize=False)
+    except (RecoveryRequired, ValueError, TypeError, OSError, yaml.YAMLError) as exc:
+        fail(ExitCode.INVALID, "chronology-invalid", f"cannot read completion history: {exc}")
+
+
+def select_completed_coordinate(session: Session, learner: str, coordinate: str | None) -> str:
+    """Translate history validation to stable CLI diagnostics without initializing records."""
+    try:
+        if session.record.learner_id != learner:
+            raise ChronologyInvalid("record does not belong to the selected learner")
+        log = session.store.get_log(learner, session.course.id)
+        return completed_coordinate(session.course, session.record, log, coordinate=coordinate)
+    except CoordinateRequired as exc:
+        fail(ExitCode.INVALID, "coordinate-required", str(exc))
+    except (RecoveryRequired, ValueError, TypeError, OSError, yaml.YAMLError) as exc:
+        fail(ExitCode.INVALID, "chronology-invalid", f"cannot select completed lesson: {exc}")

@@ -20,6 +20,7 @@ from ._ceremony import (
     unknown_placeholders,
     values,
 )
+from ._chronology import ChronologyInvalid, CoordinateRequired, completed_coordinate
 from ._completion import (
     CompletionOutcome,
     assignment_from_lesson,
@@ -68,7 +69,9 @@ __all__ = [
     "PLACEHOLDERS",
     "SPEC_VERSION",
     "Beat",
+    "ChronologyInvalid",
     "CompletionOutcome",
+    "CoordinateRequired",
     "Dispatcher",
     "Event",
     "EventName",
@@ -87,6 +90,7 @@ __all__ = [
     "assemble",
     "assignment_from_lesson",
     "complete_lesson",
+    "completed_coordinate",
     "facts",
     "legal_inputs",
     "load_or_create",
