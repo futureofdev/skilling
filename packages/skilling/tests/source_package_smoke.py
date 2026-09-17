@@ -153,6 +153,19 @@ def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None
             )
             assert resumed["beat"]["name"] == "welcome"
             commands.run([str(cli), "progress", "--course", "hello-skilling"], case / "relocated")
+            commands.run(
+                [
+                    str(python),
+                    str(Path(__file__).with_name("import_package_probe.py").resolve()),
+                    "--source",
+                    str(source),
+                    "--case",
+                    str(case / "imports"),
+                    "--python-version",
+                    python_version,
+                ],
+                case,
+            )
             shutil.copytree(case / "relocated/.skilling", evidence / f"{kind}-workspace")
         succeeded = True
     finally:

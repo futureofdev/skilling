@@ -21,9 +21,9 @@ class WorkspaceCourse(Strict):
     id: str
     version: str
     ref: str = Field(min_length=1)
-    """Exactly as the learner gave it — a path, a ``gh:`` shorthand, or a URL. Provenance
-    rather than a location: how to fetch the course again, not where it is now, which is why
-    it alone is exempt from the relative-paths rule."""
+    """Source provenance: local paths and GitHub refs retain their spelling; newly persisted
+    remote URLs omit credentials and query secrets. Legacy recovery before-images retain exact
+    historical bytes. Provenance alone is exempt from the relative-paths rule."""
 
     path: str
     """Where the content lives, relative to ``.skilling/``."""

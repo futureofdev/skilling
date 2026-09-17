@@ -16,6 +16,7 @@ import yaml
 
 from ..course import is_course_id
 from ._manifest import WorkspaceManifest
+from ._recovery import _atomic_write, manifest_bytes, workspace_lock
 
 SKILLING_DIR = ".skilling"
 MANIFEST_NAME = "workspace.yaml"
@@ -50,14 +51,13 @@ def showcase_dir(workspace: Path, course_id: str) -> Path:
 def load_manifest(workspace: Path) -> WorkspaceManifest:
     """The manifest as it stands. Raises ``FileNotFoundError`` when the folder is not a
     workspace at all — callers who are unsure should discover first, not probe with this."""
-    text = manifest_path(workspace).read_text(encoding="utf-8")
-    return WorkspaceManifest.model_validate(yaml.safe_load(text) or {})
+    if not (workspace / SKILLING_DIR).exists():
+        raise FileNotFoundError(manifest_path(workspace))
+    with workspace_lock(workspace):
+        text = manifest_path(workspace).read_text(encoding="utf-8")
+        return WorkspaceManifest.model_validate(yaml.safe_load(text) or {})
 
 
 def save_manifest(workspace: Path, manifest: WorkspaceManifest) -> None:
-    path = manifest_path(workspace)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = yaml.safe_dump(
-        manifest.model_dump(mode="json"), sort_keys=False, allow_unicode=True, width=100
-    )
-    path.write_text(text, encoding="utf-8")
+    with workspace_lock(workspace):
+        _atomic_write(manifest_path(workspace), manifest_bytes(manifest))

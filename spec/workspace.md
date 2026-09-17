@@ -77,7 +77,7 @@ learner has added:
 |---|---|
 | `id` | The course id, as its own manifest declares it |
 | `version` | The course version this workspace holds |
-| `ref` | The ref exactly as the learner gave it — a path, a `gh:` shorthand, or a URL |
+| `ref` | Source provenance — a local path, a `gh:` shorthand, or a URL with credentials and query secrets omitted |
 | `path` | Where the content lives, relative to `.skilling/` |
 | `showcase` | The course's visible output directory, relative to the workspace root |
 | `added_at` | When the course was added to this workspace |
@@ -95,13 +95,43 @@ courses:
 
 **Every path in the manifest is relative** — `path` to `.skilling/`, `showcase` to the
 workspace root — and uses POSIX separators. A workspace gets zipped and synced into sandboxed
-hosts; one absolute path in the manifest and the folder stops surviving the trip. `ref` is
-kept verbatim, absolute or not, because it is provenance rather than a location: it says how
-to fetch the course again, not where it is now.
+hosts; one absolute path in the manifest and the folder stops surviving the trip. `ref` is provenance rather than a location: it records the source, not where the content
+is now. Newly persisted remote provenance omits URL credentials and query/fragment secrets;
+ordinary SSH usernames may remain. Local paths and ordinary GitHub refs retain their spelling.
+Existing manifests are not a credential-migration surface: exact recovery before-images can
+contain historical secrets and must not be rewritten silently.
 
 The manifest records exactly the fact that state alone never holds: a progress record names a
 course id but never where that course's content lives. Within a workspace that question has a
 durable answer, and it moves with the folder.
+
+## Recoverable local imports
+
+A local import publishes validated content and its manifest binding as one recoverable
+operation. Cooperating starts and learner commands serialize on a persistent workspace lock;
+discovery and content reads recover pending imports before exposing their content. The
+reference implementation holds the lock through each learner command, including an interactive
+delivery session. A competing start may time out while that session remains open.
+
+Before replacing content, persist an intent containing the staged and prior content identities,
+relative owned paths, and exact before/after manifest bytes. Preserve the prior valid copy until
+the new content and manifest are committed. Recovery validates the complete intent and current
+files before effects, then finishes publication when the validated replacement survives, or
+restores a validated prior copy and its exact manifest. If neither result is provable, refuse
+explicitly and preserve the copies for investigation. The existence of a lock file does not
+mean a process owns its kernel lock.
+
+Local replacement invalidates remote-cache bindings under the workspace-then-cache lock order.
+Later remote resolution must independently verify source identity; workspace import metadata
+is not trusted Git executable provenance. The Windows legacy-adoption refusal above still
+applies. Entry files, skills, and showcase finishing steps follow durable publication and can
+be rerun after a failure without deleting committed content or learner work.
+
+These guarantees cover caught I/O failures and process death on a cooperating local filesystem.
+They do not imply physical power-loss durability, hostile concurrent path protection, or
+network-filesystem coordination. Stop all writers before moving a workspace. Pending recovery
+metadata uses relative paths; legacy before-images retain their exact bytes. Unowned staging
+leftovers are preserved, never guessed to be disposable.
 
 ## Discovery
 
@@ -112,7 +142,8 @@ not an error. The `SKILLING_WORKSPACE` environment variable, when set, overrides
 point* of the walk, not its answer — pointing it anywhere inside a workspace finds that
 workspace's root.
 
-Discovery keys on the manifest existing, never on a bare `.skilling/` directory. A stray
+Discovery keys on the manifest existing, or a pending import intent that first recovers its
+manifest, never on a bare `.skilling/` directory. A stray
 state directory from before workspaces existed — or any other tool's dot-directory that
 happens to share the name — is not a workspace and must not be mistaken for one.
 

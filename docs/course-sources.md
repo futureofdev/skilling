@@ -84,3 +84,25 @@ resolution must verify any remaining content again.
 On Windows, a plain tree left after invalidation or local replacement has no trusted prior
 mode metadata and therefore cannot be adopted remotely in place. Use a separate cache for the
 remote source. Already-installed workspace course-ID loading remains available offline.
+
+## Local workspace replacement
+
+`skilling start LOCAL_PATH WORKSPACE` stages and validates a portable copy, then journals the
+content/manifest replacement in `.skilling/import.yaml`. A persistent `.workspace.lock`
+serializes starts, discovery and learner CLI reads; its presence is normal after a command
+exits. Recovery prefers a validated new copy, falling back to the validated previous copy
+when the new copy is unavailable. Conflicting metadata or changed bytes refuse without
+removing the surviving copies. Preserve the intent and staging directories when investigating.
+Private intent paths are workspace-relative and before/after manifests preserve exact bytes.
+
+New URL provenance is sanitized before entering the workspace manifest or import intent.
+Historical secret-bearing manifests may remain in exact before-images; this does not migrate
+or scrub existing credential history. Local import identity never substitutes for trusted Git
+executable intent, so Windows remote adoption of plain local replacements still refuses.
+
+A stopped import can be recovered by the next start, course discovery, or learner command,
+even after moving the entire stopped workspace. Library users can bracket content use with
+`workspace_read(path)` or call `recover_workspace(root)` before discovery. Long interactive
+`deliver` sessions hold the workspace lock; competing starts have a bounded wait. A failed
+post-commit skill/entry refresh leaves valid content and can be retried. Scratch left before
+durable intent is unowned by recovery and is preserved rather than deleted speculatively.

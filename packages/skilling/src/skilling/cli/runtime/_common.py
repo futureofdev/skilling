@@ -38,7 +38,7 @@ from ...store import (
     TransitionResult,
     open_store,
 )
-from ...workspace import resolve_course_location, resolve_state_root
+from ...workspace import resolve_course_location, resolve_state_root, workspace_read
 
 SCRATCH_NAME = "scratch.yaml"
 
@@ -168,6 +168,12 @@ def commit_runtime(
 
 
 def load_session_course(course_ref: str) -> Course:
+    """Recover enclosing workspace before consuming content, including direct paths."""
+    with workspace_read(Path(course_ref)):
+        return _load_session_course(course_ref)
+
+
+def _load_session_course(course_ref: str) -> Course:
     """Resolve and validate course content without opening learner state."""
     course_path = Path(course_ref)
     if not course_path.is_dir():

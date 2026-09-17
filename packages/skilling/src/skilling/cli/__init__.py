@@ -13,10 +13,18 @@ statement rather than a side effect of import order.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import wraps
+from inspect import signature
+from pathlib import Path
+from typing import TypeVar
+
 import typer
 
 from .. import __version__
+from ..sources import CacheBusy
 from ..store import NotSupported, RecoveryRequired, StatePathError, StoreBusy
+from ..workspace import ImportRecoveryError, find_workspace, workspace_read
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
@@ -60,7 +68,7 @@ def root(
     pass
 
 
-COMMANDS = (
+COMMANDS: tuple[Callable[..., None], ...] = (
     validate,
     init,
     show,
@@ -81,8 +89,46 @@ COMMANDS = (
     uninstall,
 )
 
+_R = TypeVar("_R")
+
+
+def _workspace_command(function: Callable[..., _R]) -> Callable[..., _R]:
+    """Keep each learner command's content reads inside the workspace recovery barrier."""
+
+    @wraps(function)
+    def guarded(*args: object, **kwargs: object) -> _R:
+        arguments = signature(function).bind(*args, **kwargs).arguments
+        ref = arguments.get("course")
+        path = Path(ref) if isinstance(ref, (str, Path)) else Path.cwd()
+        if not isinstance(ref, Path) and (
+            ref is None
+            or isinstance(ref, str)
+            and not path.is_dir()
+            and "/" not in ref
+            and "\\" not in ref
+        ):
+            path = find_workspace() or path
+        with workspace_read(path):
+            return function(*args, **kwargs)
+
+    return guarded
+
+
 for _command in COMMANDS:
-    app.command()(_command)
+    if _command in (
+        deliver,
+        next,
+        advance,
+        complete,
+        ceremony,
+        answer,
+        courses,
+        progress,
+        telemetry,
+    ):
+        app.command()(_workspace_command(_command))
+    else:
+        app.command()(_command)
 
 GROUPS: tuple[tuple[str, typer.Typer], ...] = (
     ("quiz", quiz),
@@ -98,6 +144,9 @@ for _group in GROUPS:
     # whose (nonexistent) element type is Never — destructuring assignment from it is a
     # type error even though the loop body never runs. Indexing sidesteps it; a real entry
     # in GROUPS makes the whole question moot again.
+    for _registration in _group[1].registered_commands:
+        if _registration.callback is not None:
+            _registration.callback = _workspace_command(_registration.callback)
     app.add_typer(_group[1], name=_group[0])
 
 
@@ -106,6 +155,9 @@ def main() -> None:
 
     try:
         app()
+    except (ImportRecoveryError, CacheBusy) as exc:
+        emit({"ok": False, "error": {"code": "workspace-recovery-required", "message": str(exc)}})
+        raise SystemExit(ExitCode.ERROR) from exc
     except RecoveryRequired as exc:
         emit({"ok": False, "error": {"code": "recovery-required", "message": str(exc)}})
         raise SystemExit(ExitCode.ERROR) from exc

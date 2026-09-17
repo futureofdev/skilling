@@ -42,6 +42,8 @@ def repository(
         manifest.write_text(re.sub(r"(?m)^id:.*$", f"id: {course_id}", manifest.read_text()))
     for args in (
         ["init", "-q", "-b", "main"],
+        # Legacy fixtures copy .git; automatic maintenance must not outlive a commit.
+        ["config", "maintenance.auto", "false"],
         ["config", "core.autocrlf", "false"],
         ["config", "user.name", "Cache fixture"],
         ["config", "user.email", "cache@example.invalid"],
@@ -606,3 +608,30 @@ def test_staging_flushes_through_a_writable_handle_before_restoring_permissions(
     assert len(flushed) == 2
     assert snapshot(source) == snapshot(tmp_path / "staged") == expected
     assert (tmp_path / "staged/run.sh").stat().st_mode == (source / "run.sh").stat().st_mode
+
+
+def test_repository_fixture_does_not_start_maintenance_before_legacy_copy(
+    tmp_path: Path, clean_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Force inherited maintenance on; foreground mode bounds the failing pre-fix experiment.
+    config = tmp_path / "inherited.gitconfig"
+    config.write_text("[maintenance]\n\tauto = true\n\tautoDetach = false\n", encoding="utf-8")
+    trace = tmp_path / "git-trace.jsonl"
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    monkeypatch.setenv("GIT_TRACE2_EVENT", str(trace))
+    remote = repository(clean_dir, tmp_path / "remote")
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-qm", "later fixture commit"],
+        cwd=remote,
+        check=True,
+        capture_output=True,
+    )
+    events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+    children = [event["argv"] for event in events if event.get("event") == "child_start"]
+    assert not any("maintenance" in argv or "gc" in argv for argv in children), children
+    before = snapshot(remote / ".git")
+    copied = legacy_cache(tmp_path / "cache", remote.as_uri(), remote)
+    assert snapshot(copied / ".git") == before
+    assert "index" in before and "HEAD" in before
+    assert any(name.startswith("objects/") for name in before)

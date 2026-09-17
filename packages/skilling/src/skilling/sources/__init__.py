@@ -14,6 +14,7 @@ from ._errors import (
     UnknownRef,
 )
 from ._identity import safe_source_ref
+from ._locking import locked_directory
 from ._resolve import (
     CACHE_ENV,
     GhResolver,
@@ -24,6 +25,7 @@ from ._resolve import (
 )
 
 __all__ = [
+    "locked_directory",
     "CACHE_ENV",
     "CacheBusy",
     "CacheConflict",

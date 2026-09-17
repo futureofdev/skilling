@@ -22,6 +22,20 @@ version-1 completion compatibility. Recovery/replay emits no hooks and may omit 
 after a post-commit death. Old archives/duplicates remain untouched. This changes the current
 draft contract without promoting package or specification versions or claiming host proof.
 
+### Recoverable workspace imports and sanitized provenance — 2026-09-17
+
+[Local imports](workspace.md#recoverable-local-imports) now couple validated content and its
+manifest through a portable prepared intent, persistent workspace lock and exact before/after
+manifest bytes. Starts and learner commands recover before consuming affected content. Recovery
+finishes a proven new copy or restores a proven old copy; inconsistent metadata refuses without
+removing surviving content. Local replacement invalidates remote cache bindings in workspace-then-
+cache lock order, preserving Windows' independent executable-provenance requirements.
+
+New manifest URL provenance omits credentials and query secrets. Historical manifest bytes remain
+unchanged in recovery before-images; this is not a credential migration or release. Folder entry,
+skill and showcase finishing remains idempotently rerunnable after durable publication. The
+contract covers cooperating local process interruption, not physical power loss or network locks.
+
 ### Verified fetched-course identity — 2026-09-16
 
 [Fetched content](workspace.md#fetched-content) now requires verified source/content agreement
