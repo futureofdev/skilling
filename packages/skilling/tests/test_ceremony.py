@@ -207,3 +207,22 @@ def test_counts_come_from_the_record(tmp_path: Path, clean: Course) -> None:
     resolved = cer.values(clean, outcome.record, clean.phases[0])
     assert resolved["completed_count"] == "1"
     assert resolved["lesson_count"] == "3"
+
+
+def test_chronology_selected_phase_copy_ignores_completed_order(clean: Course) -> None:
+    from skilling.course import CompletionEntry, Record
+
+    record = Record.new(clean, LOCAL_LEARNER, now=NOW).model_copy(
+        update={"completed": ["1.1", "0.2"]}
+    )
+    log = [
+        CompletionEntry(
+            coordinate=coordinate, title=coordinate, completed_at=NOW, course_version="0.1.0"
+        )
+        for coordinate in ["0.2", "1.1"]
+    ]
+    coordinate = cer.completed_coordinate(clean, record, log)
+    phase = clean.phase_of(coordinate)
+    resolved = cer.values(clean, record, phase)
+    assert phase is not None and phase.number == 1
+    assert resolved["phase_number"] == "1"

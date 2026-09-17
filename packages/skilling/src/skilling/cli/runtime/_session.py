@@ -56,8 +56,10 @@ from ._common import (
     emit,
     fail,
     now_override,
+    open_chronology_session,
     open_session,
     parse_scratch,
+    select_completed_coordinate,
 )
 
 COURSE_HELP = "Path to the course directory."
@@ -486,19 +488,13 @@ def ceremony(
     course: str = _CourseOption,
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
+    coordinate: str | None = typer.Option(
+        None, "--coordinate", help="Completed phase endpoint; defaults to the final log entry."
+    ),
 ) -> None:
-    """Resolved ceremony facts and copy for the phase the learner just finished.
-
-    Keyed off ``record.completed[-1]`` rather than the record's current position: by the
-    time a ceremony is worth showing, ``complete`` has already moved the position on to the
-    next lesson (or a following phase entirely), so "the position" cannot be where this looks.
-    """
-    session = open_session(course, state, learner)
-
-    if not session.record.completed:
-        fail(ExitCode.ILLEGAL, "not-a-phase-boundary", "no lesson has been completed yet")
-
-    coordinate = session.record.completed[-1]
+    """Resolved ceremony facts and copy for the selected completed phase boundary."""
+    session = open_chronology_session(course, state, learner)
+    coordinate = select_completed_coordinate(session, learner, coordinate)
     finished = session.course.lesson_at(coordinate)
     if finished is None or not session.course.is_last_in_phase(coordinate):
         fail(

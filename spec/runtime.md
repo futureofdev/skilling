@@ -265,6 +265,25 @@ Append-only: one entry per completion event, never rewritten, never reordered.
 
 The record's `completed` set must be reconstructible from the log alone. Where the two disagree, the log is the truth.
 
+**Latest completion selection.** Ceremony and artifact defaults use the final entry in log
+append order, never `completed` array order or a sort by `completed_at`. Clocks may move
+backwards. Validate the entire log and selected record before selecting: entries must have
+valid schema, belong to known course coordinates, and collectively match the record's
+completed set. Historical entry `course_version` values remain valid after a record upgrade;
+they need not equal the selected version. Identical legacy duplicate entries may be read;
+conflicting duplicates must be diagnosed without repair.
+
+When the log is absent or an empty sequence, a sole completed coordinate is unambiguous.
+Otherwise require an explicit coordinate (`coordinate-required`). Existing malformed log
+content (including a non-sequence or empty document), unknown coordinates, conflicting
+entries, or log/record disagreement produce `chronology-invalid` without changing history.
+An explicit `--coordinate` for ceremony or artifact selection must identify a known completed
+lesson and does not bypass history validation. Ceremony additionally requires the selected
+lesson to end its phase. These selection refusals do not initialize a new learner record;
+existing pending durable operations still recover before history is read. This does not
+change completion's separate receipt-based retry identity or repair imported legacy history.
+
+
 ## The streak algorithm
 
 On each completion, with dates evaluated in the record's `timezone`:

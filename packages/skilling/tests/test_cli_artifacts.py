@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner
 
 from skilling.cli import app
-from skilling.course import Position, Record
+from skilling.course import CompletionEntry, Position, Record
 from skilling.store import LOCAL_LEARNER, Conflict, FileProgressStore
 from skilling.workspace import (
     SKILLING_DIR,
@@ -78,7 +78,19 @@ def _write_record(root: Path, course_id: str = "clean-course", **overrides) -> N
         "last_activity": date(2026, 8, 3),
     }
     record = Record(**{**base, **overrides})
-    FileProgressStore(root).put_record(record, None)
+    store = FileProgressStore(root)
+    store.put_record(record, None)
+    for coordinate in record.completed:
+        store.append_completion(
+            LOCAL_LEARNER,
+            course_id,
+            CompletionEntry(
+                coordinate=coordinate,
+                title=coordinate,
+                completed_at=datetime(2026, 8, 3, tzinfo=UTC),
+                course_version=record.course_version,
+            ),
+        )
 
 
 def _write_artifact_file(
@@ -130,7 +142,7 @@ def test_add_records_a_workspace_relative_path_from_a_subdirectory(
     assert body["verb"] == "artifact-add"
     assert body["artifact"]["path"] == "showcase/clean-course/index.html"
     assert body["artifact"]["title"] == "My first page"
-    assert body["artifact"]["coordinate"] == "0.2"  # record.completed[-1], not the position
+    assert body["artifact"]["coordinate"] == "0.2"  # final log entry, not the position
 
     stored = FileProgressStore(state).get_record(LOCAL_LEARNER, "clean-course")
     assert stored is not None
@@ -227,7 +239,7 @@ def test_add_with_a_coordinate_not_in_the_course_is_refused(
         state,
     )
     assert result.exit_code == 2
-    assert json.loads(result.stdout)["error"]["code"] == "coordinate-unknown"
+    assert json.loads(result.stdout)["error"]["code"] == "chronology-invalid"
 
 
 def test_add_with_nothing_completed_and_no_coordinate_is_refused(
@@ -242,7 +254,7 @@ def test_add_with_nothing_completed_and_no_coordinate_is_refused(
         state,
     )
     assert result.exit_code == 2
-    assert json.loads(result.stdout)["error"]["code"] == "coordinate-unknown"
+    assert json.loads(result.stdout)["error"]["code"] == "coordinate-required"
 
 
 def test_add_outside_a_workspace_is_refused(
@@ -556,6 +568,8 @@ def test_omitted_course_uses_manifest_even_with_cwd_decoy(
     manifest = decoy / "course.yaml"
     manifest.write_text(manifest.read_text().replace("id: clean-course", "id: other-course"))
     monkeypatch.chdir(cwd)
+    if not stale:
+        _write_record(state_root(workspace))
     path = _write_artifact_file(workspace)
     args = ["artifact", verb]
     if verb == "add":

@@ -340,8 +340,8 @@ def test_ceremony_refuses_when_not_at_a_phase_boundary(clean_dir: Path, tmp_path
 
 def test_ceremony_refuses_before_anything_has_completed(clean_dir: Path, tmp_path: Path) -> None:
     result = run(["ceremony", "--course", str(clean_dir)], tmp_path)
-    assert result.exit_code == 4
-    assert json.loads(result.stdout)["error"]["code"] == "not-a-phase-boundary"
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "coordinate-required"
 
 
 def test_ceremony_reports_the_finished_phase(clean_dir: Path, tmp_path: Path) -> None:
