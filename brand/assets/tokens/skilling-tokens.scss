@@ -1,0 +1,44 @@
+// Skilling design tokens v2.0
+// Inherited from Future of Dev v1.0 — do not fork these values.
+
+// Core six
+$sk-ink:            #111827;
+$sk-signal:         #4355FF;
+$sk-build:          #C8FF3D;
+$sk-cloud:          #F3F5F8;
+$sk-accent:         #42D7FF;
+$sk-base:           #FFFFFF;
+
+// Inherited extensions
+$sk-graphite:       #6B7280;
+$sk-hairline:       #E2E6EC;
+$sk-signal-700:     #2E3FE0;
+$sk-signal-300:     #8B98FF;
+$sk-signal-050:     #EDEFFF;
+$sk-cyan-700:       #0E7490;
+$sk-void:           #0A0E17;
+$sk-slate:          #1F2937;
+$sk-dark-line:      #2A3444;
+
+// Skilling-owned
+$sk-graphite-deep:  #5F6875;  // secondary type on Cloud — Graphite fails there at 4.43:1
+$sk-verified:       #166534;
+$sk-fault:          #C2313C;
+$sk-verified-300:   #7EE0A0;
+$sk-fault-300:      #FF8A94;
+
+// The mark
+$sk-mark:  $sk-ink;
+$sk-field: $sk-base;   // on dark: $sk-cloud or $sk-build
+
+// Type
+$sk-display: ('Archivo', 'Helvetica Neue', Arial, sans-serif);
+$sk-body:    ('Inter', -apple-system, 'Segoe UI', Arial, sans-serif);
+$sk-mono:    ('JetBrains Mono', Consolas, monospace);
+
+// Geometry
+$sk-u: 4px;
+$sk-radius: 0;
+$sk-channel: $sk-u;
+$sk-tile-pad: $sk-u;
+$sk-clearspace: $sk-u * 2;

@@ -1,0 +1,75 @@
+/* ============================================================
+   Skilling design tokens v2.0
+   Inherited from Future of Dev v1.0. Not one hex value is forked —
+   what differs is what each colour is FOR.
+   Prefixed --sk- so Skilling and Future of Dev tokens can coexist
+   in one stylesheet without either shadowing the other.
+   ============================================================ */
+:root {
+  /* --- inherited core six --- */
+  --sk-ink:            #111827;
+  --sk-signal:         #4355FF;
+  --sk-build:          #C8FF3D;
+  --sk-cloud:          #F3F5F8;
+  --sk-accent:         #42D7FF;
+  --sk-base:           #FFFFFF;
+
+  /* --- inherited extensions --- */
+  --sk-graphite:       #6B7280;
+  --sk-hairline:       #E2E6EC;
+  --sk-signal-700:     #2E3FE0;
+  --sk-signal-300:     #8B98FF;   /* Signal as text on dark */
+  --sk-signal-050:     #EDEFFF;
+  --sk-cyan-700:       #0E7490;
+  --sk-void:           #0A0E17;
+  --sk-slate:          #1F2937;
+  --sk-dark-line:      #2A3444;
+
+  /* --- Skilling-owned --- */
+  --sk-graphite-deep:  #5F6875;   /* secondary type ON CLOUD — see note below */
+  --sk-verified:       #166534;   /* validator pass, light */
+  --sk-fault:          #C2313C;   /* validator failure, light */
+  --sk-verified-300:   #7EE0A0;   /* validator pass, dark */
+  --sk-fault-300:      #FF8A94;   /* validator failure, dark */
+
+  /* --- the mark: never one without the other --- */
+  --sk-mark:  var(--sk-ink);
+  --sk-field: var(--sk-base);
+
+  /* --- type --- */
+  --sk-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --sk-body:    'Inter', -apple-system, 'Segoe UI', Arial, sans-serif;
+  --sk-mono:    'JetBrains Mono', Consolas, monospace;
+  --sk-display-vf: 'wdth' 112, 'wght' 800;
+
+  /* --- geometry: inherited 4px unit --- */
+  --sk-u: 4px;
+  --sk-radius: 0;
+  --sk-rule: 1px solid var(--sk-hairline);
+  --sk-channel:    calc(var(--sk-u) * 1);
+  --sk-tile-pad:   calc(var(--sk-u) * 1);   /* equals the channel */
+  --sk-clearspace: calc(var(--sk-u) * 2);
+}
+
+/* On dark surfaces the mark brings its own light field. There is no
+   reversed mark: a white Cut reads as a mirrored S, tile or no tile. */
+[data-theme="dark"] {
+  --sk-mark:  var(--sk-ink);
+  --sk-field: var(--sk-cloud);
+}
+
+/* --- Two things to know before using the palette ---------------------
+
+   1. --sk-graphite-deep exists because the inherited Graphite FAILS.
+      Graphite on Cloud measures 4.43:1 — below AA for small text. That
+      barely shows in the parent brand and shows constantly in Skilling,
+      where captions sit on Cloud panels all day. Use Graphite Deep
+      (5.16:1 on Cloud, 5.64:1 on white) for secondary type on any
+      Cloud surface. When in doubt, use Graphite Deep: it passes on both.
+
+   2. Build lime marks LEARNER ACTION and completed evidence — nothing
+      else. Not premium, not featured, not new, never conformance. Its
+      one structural job is as the tile field behind the mark. If lime
+      appears on a course card before the learner has done anything,
+      the card is lying.
+   -------------------------------------------------------------------- */

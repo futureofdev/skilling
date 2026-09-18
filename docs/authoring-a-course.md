@@ -1,199 +1,88 @@
-# Authoring a course
+# Author a Skilling course
 
-A walkthrough from empty directory to a course a tutor can deliver. The normative details are in [course format](../spec/course-format.md); this page is the order to do things in.
+This is the shortest path from an empty directory to a course another person can start from a
+stable Git ref. The [course format](../spec/course-format.md) is normative.
 
-## 1. Scaffold
+## 1. Install and scaffold
 
-```bash
-uvx skilling init brewing-basics
-```
-
-You get a manifest, one phase, two lessons, and a phase overview. It validates clean immediately, so anything the validator says from here on is something *you* changed.
-
-Look at the second lesson's frontmatter before you touch anything else — it ships with two declared absences, which is the part of the format people most often get wrong first.
-
-## 2. Plan in the manifest, not in prose
-
-Decide your phases and lessons in `course.yaml` before writing any teaching. The manifest is the only place structure lives, so this is also the moment to get numbering right: lessons restart at 1 in every phase, and nothing may skip.
-
-```yaml
-phases:
-  - number: 1
-    slug: equipment
-    name: Equipment
-    lessons:
-      - { number: 1, slug: the-kettle, title: The Kettle }
-      - { number: 2, slug: grinders, title: Grinders, homework: true }
-  - number: 2
-    slug: technique
-    name: Technique
-    lessons:
-      - { number: 1, slug: water-temperature, title: Water Temperature }
-```
-
-Then create the files at their derived paths — `phases/phase-1-equipment/lesson-02-grinders.md` — and run `skilling show` to check the shape is what you had in mind:
+Install the same persistent CLI learners use:
 
 ```bash
-uvx skilling show ./brewing-basics
+uv tool install 'skilling==0.5.0'
+skilling init my-course
 ```
 
-Everything under **Derived** in that output is computed. If a number there surprises you, the manifest is wrong, not the display.
+The scaffold includes `course.yaml`, one phase, lesson files and an overview. Add a `README.md`
+for learners that says what the course teaches, who it is for, its prerequisites, how to
+start it and where to get help. Include a licence appropriate for the content and assets.
 
-## 3. Write the concept first, the quiz last
+## 2. Establish identity and prerequisites
 
-Within a lesson, `## The Concept` is the load-bearing section. A tutor re-presents it when a learner asks to go deeper and again when they answer a quiz question wrongly, so write it as something that can be read twice — with a second example rather than a louder version of the first.
+Choose a stable lowercase `id` and semantic `version` in `course.yaml`. The id becomes part of
+the durable learner record and showcase path, so do not rename it casually. Describe actual
+prerequisites before the learner starts; a tutor cannot repair a missing operating system tool
+by pretending it exists.
 
-Only then write the quiz, and write it *against* the concept: three questions, four options, and an answer line that gives the reason.
+Version changes preserve learner coordinates:
 
-```markdown
-   **Answer:** b) Talk to your computer with text commands — it's a direct
-   text conversation with the operating system.
-```
-
-The reason after the dash is not decoration. It is what the tutor says as feedback, including to a learner who guessed right and learned nothing.
-
-## 4. Decide every optional section out loud
-
-Three sections are optional, and every one of them needs a decision recorded in `sections`:
-
-```yaml
-sections:
-  key_terms: present
-  exercise:
-    status: none
-    intent: "Project phase: the learner's own build is the exercise."
-  next_up: present
-```
-
-Writing `sections: {}` is invalid even when the sections genuinely aren't there. The test to apply to an `intent` is whether a stranger reading it would agree the absence was deliberate.
-
-## 5. Never write a number down
-
-No lesson counts, no "lesson 3 of 12", no percentages — anywhere, including in the description and in the teaching prose. Write "next we'll look at grinders", and let the tutor work out where that falls.
-
-If you need to *quote* a bad example (as this repository's own example course does), put it in backticks. The validator skips code spans and fenced blocks, because showing a counter-example is exactly what code formatting is for.
-
-## 6. Validate, and read the anchors
-
-```bash
-uvx skilling validate ./brewing-basics
-```
-
-```
-error  phases/phase-1-equipment/lesson-02-grinders.md:61  quiz-answer-no-reason
-       Question 2's answer names the correct option but gives no reason.
-       A learner who guessed right still needs the why.
-       → spec/course-format.md#quick-quiz
-
-1 error, 0 warnings
-```
-
-Follow the anchor when a finding seems wrong. Either the specification convinces you, or you have found a bug worth reporting — both are useful outcomes, and the second one is how the specification improves.
-
-Warnings do not make a course non-conforming. Use `--strict` in CI if you want them to.
-
-## 7. Deliver it yourself before anyone else does
-
-```bash
-uvx skilling deliver ./brewing-basics --state ./.skilling
-```
-
-This walks the real delivery loop with no language model in it, which makes it a blunt but honest reviewer. You will feel every gate, notice every concept that is too thin to re-read, and find out immediately whether your quiz questions are answerable from what you actually wrote.
-
-Sitting through your own course is the cheapest review available.
-
-## 8. Give the tutor facts, not sentences
-
-**Since 1.1**, and entirely optional. If your course belongs to something with a name, a URL, or a social handle, put those in `ceremony.brand` and give each phase a one-clause `highlight`:
-
-```yaml
-ceremony:
-  brand:
-    product: Brewing Basics
-    url: brewing.example
-    hashtags: [Coffee, LearningInPublic]
-phases:
-  - number: 1
-    slug: equipment
-    name: Equipment
-    highlight: dialled in their first shot by taste
-    lessons: [ … ]
-```
-
-That is all most courses need. A tutor writes the celebration itself — fresh, in the learner's register — and the facts are there so it does not have to guess your handle. It will guess, if you make it.
-
-Reach for `phase_completed_template` only when the wording is genuinely fixed: legal copy, a campaign, something signed off. Then use placeholders rather than numbers — `{completed_count}` of `{lesson_count}` is how you get "3 of 9 lessons done" into a share post without maintaining a count, and writing the number yourself is still an `authored-count` error.
-
-## 9. Consider giving objectives ids
-
-**Since 1.1**, also optional. Written as prose, your objectives are the one part of a lesson a tutor cannot act on. Given ids and mapped to quiz questions, they become the thing a tutor names when a learner gets something wrong:
-
-```yaml
-objectives:
-  - id: taste-a-shot
-    kind: knowledge
-    text: Taste a shot and say which way to move the grind
-    about: [1, 3]
-  - id: pull-a-balanced-shot
-    kind: practice
-    text: Pull a shot inside your target ratio and time
-    verify: A shot log shows a pull within the stated ratio and time window
-```
-
-Declaring `objectives:` means dropping the `## Learning Objectives` section — they are mutually exclusive, because two copies of the same sentences is the drift the format refuses everywhere else.
-
-**`kind` is the field that matters.** `knowledge` means a tutor can settle it by hearing the learner explain; `practice` means someone has to go and look. Get it wrong and either a chat tutor claims something it cannot see, or a capability nobody can check sits unsettled forever.
-
-`about` points at the quiz questions that touch an objective. It steers remediation and is **never evidence** — a quiz settles nothing.
-
-`verify` is optional, and only for `practice`. Write one where a runtime could genuinely check ("the repository has an origin remote"); leave it off where the honest answer is judgement ("apply the design system consistently"). The golden example has 171 practice objectives and only 22 verify clauses, which is the right ratio rather than a gap.
-
-## 10. Version it honestly
-
-Once anyone has started your course, the version number is a promise about coordinates:
-
-| Bump | You may |
+| Change | Minimum bump |
 |---|---|
-| Patch | Edit content — wording, examples, fixes |
-| Minor | Append lessons to the end of a phase, or add trailing phases |
-| Major | Move, remove, or renumber anything |
+| Wording, examples or corrections | Patch |
+| Append lessons to a phase, or add trailing phases | Minor |
+| Move, remove or renumber existing coordinates | Major |
 
-`skilling diff` checks you kept the promise:
+Use `skilling diff OLD NEW --strict` before publishing an update.
+
+## 3. Write structure first
+
+Declare phases and lessons in `course.yaml`; do not duplicate counts in prose. Each lesson
+file lives at its derived phase/lesson path. Record whether optional key terms, exercise and
+next-up sections are present or deliberately absent.
+
+Write the concept before the quiz. Every quiz has exactly three questions, four options and an
+answer that explains why. Use structured knowledge objectives for what a learner can explain
+and practice objectives for something observable they do. A `verify` clause is appropriate
+only when a runtime can genuinely check the outcome.
+
+The compact [hello-skilling](../examples/hello-skilling/) course is useful for learning the
+format. [workbench](../examples/workbench/) demonstrates the full authoring surface.
+
+## 4. Validate strictly
 
 ```bash
-uvx skilling diff ./published ./candidate --strict
+skilling validate ./my-course --strict
+skilling show ./my-course
 ```
 
+Remote acquisition refuses warnings as well as errors, so `--strict` is the publication gate.
+Follow each finding's specification anchor. Keep the strict command in CI.
+
+## 5. Preview as a learner
+
+Do not review only the source files. Start a fresh workspace, separate from the course checkout:
+
+```bash
+skilling start ./my-course my-course-preview --json
 ```
-1.0.0 → 1.1.0  (declared: minor)
 
-  • 1.2 was appended
+Open the returned workspace in Claude Code or Codex, invoke `/learn` or `$learn`, and walk the
+course with genuine answers. Check the first-run explanation, waits, remediation, learner work,
+homework review and separate submission confirmation. A mechanical CLI walk checks structure;
+it is not a substitute for editorial review.
 
-  all existing coordinates stable
-  minimum bump required: minor
-  declared minor bump is sufficient
+## 6. Publish a stable source
+
+Commit the course to a Git repository. A course may live at the repository root or, on GitHub,
+in a subdirectory. Tag the reviewed commit and test the exact learner command in a clean
+workspace:
+
+```bash
+skilling start 'gh:owner/repository@v1.0.0#courses/my-course' clean-preview --json
 ```
 
-Put that in CI. It is what lets a runtime roll a learner forward automatically without wondering whether their recorded position still means anything.
+Omit `#courses/my-course` when the course is at the repository root. You may use a full commit
+instead of a tag. Publish the tested command in the course README; do not advertise a moving
+branch as immutable or a direct ZIP URL as a supported source.
 
-## Where authors most often go wrong
-
-| Mistake | What happens |
-|---|---|
-| Silence about a missing exercise | `section-absence-undeclared`. Declare it with a reason instead |
-| An answer line that restates the option | `quiz-answer-no-reason`. Add the why |
-| A stray draft lesson under `phases/` | `lesson-file-orphan`. A tutor could have delivered it |
-| Renumbering a lesson but not the manifest | `frontmatter-manifest-mismatch`. That duplication exists to catch exactly this |
-| "A 9-lesson course" in the description | `authored-count`. The manifest already knows |
-
-The full list is in [error codes](error-codes.md).
-
-## When you want to see every surface in one place
-
-[`examples/workbench`](../examples/workbench/) is a compact practical course that exercises the whole authoring surface. Worth opening when a rule feels abstract:
-
-- **How to word a declared absence** — a skipped glossary and a deliberately quiet final lesson, each with a reason written for the learner's ears.
-- **How to split knowledge from practice** — every lesson carries an observable `practice` objective with a `verify` clause and one carries a literal `check`, while some practice honestly stays a judgement with no `verify` at all. That mix is the point: most real practice cannot be checked from outside, and pretending otherwise is the false confidence the `kind` split removes.
-- **A ceremony block with a real brand in it**, and a share template whose lesson counts are filled by the runtime without any author having written a number.
-
-The format itself was generalised from a real 64-lesson course that has since moved out of this repository. Porting it is what taught the format its sharpest lessons — a validator too strict about Key Terms, a missing `{hashtags}` placeholder, highlight guidance that read wrong in the first person — and [the changelog](../spec/CHANGELOG.md) keeps that record.
+See [Course sources](course-sources.md) for authentication, supported transports, cache
+identity and update behaviour.

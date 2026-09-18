@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="81.3" height="20" viewBox="0 0 81.3 20" role="img" aria-label="pypi: skilling">
+  <title>pypi: skilling</title>
+  <rect width="33.2" height="20" fill="#111827"/>
+  <rect x="33.2" width="48.1" height="20" fill="#4355FF"/>
+  <g font-family="Verdana,'DejaVu Sans',Geneva,sans-serif" font-size="11" text-anchor="middle">
+    <text x="16.6" y="14" fill="#FFFFFF">pypi</text>
+    <text x="57.25" y="14" fill="#FFFFFF">skilling</text>
+  </g>
+</svg>

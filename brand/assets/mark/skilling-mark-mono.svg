@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Inherits currentColor. Use only where the surface is lighter than the text colour. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Skilling">
+  <title>Skilling — The Cut, single colour</title>
+  <path d="M0 4 H28 V12 H8 V16 H28 V32 H0 V24 H20 V20 H0 Z" fill="currentColor"/>
+</svg>

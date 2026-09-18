@@ -1,92 +1,108 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/assets/github/readme-banner-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="brand/assets/github/readme-banner-light.png">
+    <img alt="Skilling — learn one-to-one with Claude Code or Codex" src="brand/assets/github/readme-banner-light.png" width="100%">
+  </picture>
+</p>
+
 # Skilling
 
-**An open format for AI-tutored courses.** Write a course as markdown; any conforming tutor can deliver it, and the learner's record outlives whichever tutor delivered it.
+Learn through a portable course in **Claude Code or Codex**. Skilling keeps the course,
+progress and work in one folder, so you can stop, resume and move your learning workspace
+without tying it to one tutor.
 
-```
-my-course/
-├── course.yaml
-└── phases/
-    └── phase-1-basics/
-        ├── lesson-01-first-steps.md
-        └── lesson-02-going-further.md
-```
+## Start learning
 
-```bash
-uvx skilling validate ./my-course     # is it conforming?
-uvx skilling deliver ./my-course      # teach it, no model required
-```
+Already have [Git](https://git-scm.com/downloads),
+[uv](https://docs.astral.sh/uv/getting-started/installation/) and Claude Code or Codex?
+Paste this prompt into your coding host:
 
-## Why
+> Check that Git and uv are available. If either is missing, stop and show me the matching
+> official installation instructions linked from the Skilling README. Install Skilling
+> persistently with `uv tool install 'skilling==0.5.0'`, then run `skilling --version` in the
+> same environment. Run
+> `skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json`.
+> Use the returned workspace path, read its generated host instructions and installed learn
+> skill and references, run learner commands from that workspace, and start teaching me. Wait
+> for my real replies at every gate. If this host must be reopened to discover the installed
+> skills, tell me the exact workspace to open and to invoke `/learn` in Claude Code or `$learn`
+> in Codex.
 
-In 1984 Benjamin Bloom showed that one-to-one tutoring beats classroom teaching by two standard deviations, and asked how to deliver that at scale. AI tutors are the first credible answer — but a tutor is only as portable as the course it reads and the record it writes. Skilling standardises exactly those two things and nothing else.
+Skilling itself has no language-model dependency. Your chosen host supplies the model and has
+its own account and network requirements.
 
-It is not an LMS, not a UI, not a pedagogy, and not tied to any model vendor.
+### Terminal route
 
-## Where to start
-
-| You want to… | Read |
-|---|---|
-| Write a course | [spec/course-format.md](spec/course-format.md) — the only page you need |
-| Walk through authoring one | [docs/authoring-a-course.md](docs/authoring-a-course.md) |
-| Build a tutor | [spec/runtime.md](spec/runtime.md), then [docs/implementing-a-runtime.md](docs/implementing-a-runtime.md) |
-| Understand a design decision | [docs/concepts/](docs/concepts/) |
-| See every surface in one sitting | [examples/workbench/](examples/workbench/) — files, folders and git, exercising the whole format |
-| Learn the format in ten minutes | [examples/hello-skilling/](examples/hello-skilling/) — learn Skilling by being taught it |
-| Know what conforming means | [spec/README.md#conformance](spec/README.md#conformance) |
-
-## The reference implementation
-
-The `skilling` package is an **LLM-free** core: typed models of the format, a loader, a validator, the delivery state machine as pure functions, and a progress store. Validating a course in CI or loading a manifest in a reporting job must not drag in an agent framework, a model dependency, or an API key.
+Run the same setup yourself:
 
 ```bash
-uvx skilling validate ./my-course     # conformance check, with error codes
-uvx skilling init my-course           # scaffold a conforming skeleton
-uvx skilling show ./my-course         # resolved structure and derived counts
-uvx skilling deliver ./my-course      # walk the loop; a Conforming Runtime
-uvx skilling diff ./v1 ./v2           # classify a version bump
+uv tool install 'skilling==0.5.0'
+skilling --version
+skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json
 ```
 
-`skilling deliver` is a real Conforming Runtime with no language model in it. That is deliberate: if a text walker can conform, then [conformance binds machinery rather than vibes](spec/runtime.md#scope-of-conformance). A model-backed tutor is the next implementation, not the first.
+Then open the returned `workspace` in Claude Code or Codex. Use `/learn` in Claude Code or
+`$learn` in Codex. If the host was already open, reopen that exact folder so it discovers the
+new folder-scoped skills.
 
-The runtime commands (`deliver`, `next`, `advance`, `progress`, `homework`, and `courses`)
-choose progress state in this order: `--state`, `SKILLING_STATE_ROOT`, the nearest enclosing
-workspace's `.skilling/state/`, then `~/.skilling/state/`. Workspace discovery requires
-`.skilling/workspace.yaml`; `SKILLING_WORKSPACE` overrides where the upward search starts.
+> [!NOTE]
+> The pinned public command works after the `v0.5.0` tag and PyPI package are published. Before
+> publication, maintainers test the same flow with the retained candidate wheel and an exact
+> commit ref; that substitution is not the public learner route.
 
-**Recovering older local state:** a bare `.skilling/` directory from an earlier `deliver`
-or runtime session is not a workspace and is no longer selected automatically. Existing
-records stay untouched; no migration or merging occurs. From the original directory, resume
-with explicit state, or set an absolute path to use that same state from other directories:
+Next: [learn how the workspace behaves](docs/learning-a-course.md),
+[choose another course source](docs/course-sources.md), or
+[solve setup problems](docs/troubleshooting.md).
+
+## What stays yours
+
+- **The course:** a validated snapshot is copied into the workspace.
+- **The record:** progress, homework and evidence live under the workspace's `.skilling/`
+  machinery rather than in a chat transcript.
+- **Your work:** visible learner output belongs under `showcase/` and moves with the workspace.
+- **Your choice of tutor:** the same workspace installs instructions for Claude Code and Codex.
+
+After setup, the CLI, cached course content and learner state work locally. A cloud-hosted model
+may still need its normal network access; Skilling does not make the model offline.
+
+## Find a course
+
+The [Welcome to Skilling](examples/welcome-skilling/) course is the shortest orientation.
+The [examples index](examples/README.md) also explains `hello-skilling`, which teaches the
+format, and `workbench`, which gives you practical shell and Git exercises.
+
+Course sources may be a GitHub repository or subdirectory pinned by tag or full commit, a
+generic Git HTTPS/SSH repository root, or a local course directory. Private repositories use
+your existing Git or `gh` credentials. See [Course sources](docs/course-sources.md) for exact
+syntax, caching and update behaviour.
+
+## Write a course
+
+Authors can scaffold a course and validate it with the same persistent CLI:
 
 ```bash
-skilling courses --state ./.skilling
-skilling next --course ./my-course --state ./.skilling
-export SKILLING_STATE_ROOT="/absolute/path/to/original/.skilling"
-skilling deliver /absolute/path/to/my-course
+skilling init my-course
+skilling validate ./my-course --strict
 ```
 
-Inside a workspace, JSON runtime commands also accept an added course id in `--course`;
-an existing directory still takes precedence. `courses` offers a path only when the
-workspace content's manifest loads and matches the entry and recorded version. Stale entries
-keep a cached display title when available, otherwise the id, and omit the unusable path.
-Resolving an unusable workspace course id returns `course-not-found`; restore or re-add the
-workspace content, or supply an explicit directory. Cached content is never selected as an
-automatic replacement.
+Use the [authoring walkthrough](docs/authoring-a-course.md), then preview the result in a fresh
+learner workspace before publishing a stable Git tag and a tested `skilling start` command.
 
-## The exercising example
+## Reference implementation and specification
 
-[`examples/workbench`](examples/workbench/) is a compact practical course — files, folders, and git — that exercises every surface the format has: structured objectives of both kinds with honest `verify` coverage and a literal `check`, declared absences each with a stated reason, badges, ceremony facts and a share template, an asset, and homework at every phase boundary. A test suite asserts that coverage structurally, and the course stays small enough to deliver end to end when testing a runtime or a host.
+The `skilling` package is an **LLM-free** reference implementation: typed models, a loader,
+validator, pure delivery state machine, progress store and learner CLI. It does not include an
+agent framework, model or API key.
 
-The format was originally generalised from a real 64-lesson course, and that course was deliberately the thing that argued back: porting it found a validator too strict about Key Terms, a missing ceremony placeholder, and authoring guidance that produced text reading wrong in the first person. It has since moved out of this repository; [the changelog](spec/CHANGELOG.md) keeps the record of what it taught the format.
+Specification **1.4.0-draft** is normative. Start with the
+[specification index](spec/README.md), [course format](spec/course-format.md),
+[runtime](spec/runtime.md), [workspace](spec/workspace.md), or
+[implementation guide](docs/implementing-a-runtime.md). Known implementations and the limits
+of their claims are listed in [docs/implementations.md](docs/implementations.md).
 
-## Status
+## Contributing and licence
 
-Specification **1.4.0-draft**. See [what 1.0 deliberately leaves out](spec/README.md#what-10-deliberately-leaves-out) — assessed mode, the runtime API, the MCP binding, skill packs, concept-level prerequisites, and lesson guidance each wait for an implementation to exercise them first. Hooks and telemetry cleared that bar at 1.1.
-
-Known implementations are listed in [docs/implementations.md](docs/implementations.md). A one-row registry is an honest registry; until someone we have never met builds the second row, "standard" is a claim under test.
-
-## Licence
-
-Specification text in [`spec/`](spec/): [CC BY 4.0](spec/LICENSE). Everything else, including the library: [Apache-2.0](LICENSE).
-
-Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Specification text under `spec/` is
+[CC BY 4.0](spec/LICENSE); the reference implementation and other repository content are
+[Apache-2.0](LICENSE).

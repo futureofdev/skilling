@@ -9,7 +9,13 @@ promise made forty times over.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+import shutil
+import subprocess
+import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -159,11 +165,16 @@ def test_llms_txt_lists_every_page_it_should() -> None:
         "spec/course-format.md",
         "spec/runtime.md",
         "spec/CHANGELOG.md",
+        "docs/learning-a-course.md",
+        "docs/course-sources.md",
+        "docs/troubleshooting.md",
         "docs/authoring-a-course.md",
         "docs/implementing-a-runtime.md",
         "docs/error-codes.md",
         "docs/implementations.md",
         "examples/hello-skilling/",
+        "examples/welcome-skilling/",
+        "examples/workbench/",
     ]:
         assert expected in text, f"llms.txt does not index {expected}"
 
@@ -222,3 +233,116 @@ def test_every_concept_page_states_its_limits() -> None:
     for path in sorted((REPO_ROOT / "docs" / "concepts").glob("*.md")):
         text = path.read_text(encoding="utf-8")
         assert "## Limits" in text or "## What this costs" in text, path.name
+
+
+# -------------------------------------------------------------------- learner front door
+
+
+def test_readme_banners_are_theme_aware_and_resolve() -> None:
+    root = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    package = (REPO_ROOT / "packages" / "skilling" / "README.md").read_text(encoding="utf-8")
+    for name in ("readme-banner-light.png", "readme-banner-dark.png"):
+        path = REPO_ROOT / "brand" / "assets" / "github" / name
+        assert path.is_file() and path.stat().st_size > 0
+        assert f"brand/assets/github/{name}" in root
+        assert (
+            f"https://raw.githubusercontent.com/futureofdev/skilling/v0.5.0/"
+            f"brand/assets/github/{name}"
+        ) in package
+    for text in (root, package):
+        assert "<picture>" in text
+        assert "prefers-color-scheme: dark" in text
+        assert "prefers-color-scheme: light" in text
+        assert 'alt="Skilling — learn one-to-one with Claude Code or Codex"' in text
+
+    package_picture = re.search(r"<picture>(.*?)</picture>", package, re.DOTALL)
+    assert package_picture is not None
+    fallback = re.search(r'<img [^>]*src="(https://[^"]+)"', package_picture.group(1))
+    assert fallback is not None
+    assert fallback.group(1).endswith("/v0.5.0/brand/assets/github/readme-banner-light.png")
+    # PyPI may remove picture/source; the ordinary absolute img remains a useful fallback.
+    without_picture_sources = re.sub(r"</?picture>|<source[^>]*>", "", package_picture.group(0))
+    assert "<img " in without_picture_sources
+    assert fallback.group(1) in without_picture_sources
+
+
+def test_recorded_public_brand_hashes_match_committed_assets() -> None:
+    record = json.loads((REPO_ROOT / "brand" / "generated-sha256.json").read_text(encoding="utf-8"))
+    assert "brand/build.py --with-browser --zip" in record["generator"]
+    for relative, expected in record["sources"].items():
+        content = (REPO_ROOT / "brand" / relative).read_bytes()
+        assert hashlib.sha256(content).hexdigest() == expected, relative
+    for relative, expected in record["assets"].items():
+        content = (REPO_ROOT / "brand" / relative).read_bytes()
+        assert hashlib.sha256(content).hexdigest() == expected, relative
+
+
+def test_brand_tree_has_no_retired_launch_copy_or_generated_nesting() -> None:
+    brand = REPO_ROOT / "brand"
+    assert not list(brand.rglob(".DS_Store"))
+    assert not (brand / "dist").exists()
+    retired = (
+        "uvx skilling",
+        "skilling deliver",
+        "spec-v10.svg",
+        "implementations-1.svg",
+        "stability-pre-10.svg",
+        "licence-cc-by-sa-40.svg",
+    )
+    for path in brand.rglob("*"):
+        relative = path.relative_to(brand).as_posix()
+        for needle in retired:
+            assert needle not in relative, f"retired path {relative!r}"
+        if path.is_file() and path.suffix.lower() in {
+            ".md",
+            ".py",
+            ".html",
+            ".css",
+            ".scss",
+            ".json",
+            ".svg",
+        }:
+            text = path.read_text(encoding="utf-8")
+            for needle in retired:
+                assert needle not in text, f"{path.relative_to(REPO_ROOT)} contains {needle!r}"
+
+
+def test_generated_brand_zip_excludes_retired_copy_and_nested_dist(tmp_path: Path) -> None:
+    copied = tmp_path / "brand"
+    shutil.copytree(REPO_ROOT / "brand", copied)
+    result = subprocess.run(
+        [sys.executable, str(copied / "build.py"), "--only-report"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    result = subprocess.run(
+        [sys.executable, "-c", "import build; build.build_zip()"],
+        cwd=copied,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    archive = copied / "dist" / "skilling-brand-assets-v2.0.zip"
+    with zipfile.ZipFile(archive) as bundle:
+        names = bundle.namelist()
+        assert names
+        assert not any("/dist/" in name or name.endswith("/.DS_Store") for name in names)
+        for name in names:
+            for needle in (
+                "spec-v10.svg",
+                "implementations-1.svg",
+                "stability-pre-10.svg",
+                "licence-cc-by-sa-40.svg",
+            ):
+                assert needle not in name
+        text = "\n".join(
+            bundle.read(name).decode("utf-8")
+            for name in names
+            if Path(name).suffix.lower()
+            in {".md", ".py", ".html", ".css", ".scss", ".json", ".svg"}
+        )
+    assert "uvx skilling" not in text
+    assert "skilling deliver" not in text

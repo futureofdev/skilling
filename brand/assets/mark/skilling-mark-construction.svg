@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Reference only. Dashed square is the 28x28 origin square at 0,4 — the same square,
+     in the same position, that Future of Dev quarters to build The Shift.
+     Both channels are 4 deep and 20 long. Bars are 8 / 4 / 4 / 4 / 8 = 28. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 40 40" width="400" height="400" role="img" aria-label="Skilling mark construction">
+  <title>Skilling — construction grid</title>
+  <g stroke="#E2E6EC" stroke-width=".25" fill="none">
+    <path d="M0 0V32M4 0V32M8 0V32M12 0V32M16 0V32M20 0V32M24 0V32M28 0V32M32 0V32"/>
+    <path d="M0 0H32M0 4H32M0 8H32M0 12H32M0 16H32M0 20H32M0 24H32M0 28H32M0 32H32"/>
+  </g>
+  <rect x="0" y="4" width="28" height="28" fill="none" stroke="#4355FF" stroke-width=".32" stroke-dasharray="1.1 1.1" stroke-opacity=".7"/>
+  <path d="M0 4 H28 V12 H8 V16 H28 V32 H0 V24 H20 V20 H0 Z" fill="#111827"/>
+  <g stroke="#4355FF" stroke-width=".3" fill="none">
+    <path d="M30 12V16M29.2 12H30.8M29.2 16H30.8"/>
+    <path d="M20 22H24M20 21.2V22.8M24 21.2V22.8"/>
+  </g>
+</svg>

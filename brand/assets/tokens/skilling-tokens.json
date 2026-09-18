@@ -1,0 +1,44 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "meta": {
+    "name": "Skilling",
+    "version": "2.0",
+    "inheritsFrom": "Future of Dev v1.0",
+    "mark": "The Cut",
+    "markRule": "Ink on a light field, always. There is no reversed mark."
+  },
+  "color": {
+    "ink":           { "$value": "#111827", "$type": "color", "$description": "Type, the mark, authority, specification surfaces" },
+    "signal":        { "$value": "#4355FF", "$type": "color", "$description": "Links, navigation, system actions, runtime compatibility" },
+    "build":         { "$value": "#C8FF3D", "$type": "color", "$description": "Learner action and completed evidence only. Plus the tile field." },
+    "cloud":         { "$value": "#F3F5F8", "$type": "color", "$description": "Learning cards, technical panels, the mark's field on dark" },
+    "accent":        { "$value": "#42D7FF", "$type": "color", "$description": "Diagrams only. Never a CTA, never a state." },
+    "base":          { "$value": "#FFFFFF", "$type": "color", "$description": "Reading space, and the mark's default field" },
+    "graphite":      { "$value": "#6B7280", "$type": "color", "$description": "Secondary type on white only — fails AA on Cloud at 4.43:1" },
+    "graphiteDeep":  { "$value": "#5F6875", "$type": "color", "$description": "Skilling-owned. Secondary type on Cloud, 5.16:1" },
+    "hairline":      { "$value": "#E2E6EC", "$type": "color" },
+    "signal700":     { "$value": "#2E3FE0", "$type": "color", "$description": "Hover and pressed" },
+    "signal300":     { "$value": "#8B98FF", "$type": "color", "$description": "Signal as text on dark" },
+    "signal050":     { "$value": "#EDEFFF", "$type": "color" },
+    "cyan700":       { "$value": "#0E7490", "$type": "color" },
+    "void":          { "$value": "#0A0E17", "$type": "color", "$description": "Dark canvas" },
+    "slate":         { "$value": "#1F2937", "$type": "color", "$description": "Dark elevated surface" },
+    "darkLine":      { "$value": "#2A3444", "$type": "color" },
+    "verified":      { "$value": "#166534", "$type": "color", "$description": "Validator pass, light. Validator output only." },
+    "fault":         { "$value": "#C2313C", "$type": "color", "$description": "Validator failure, light" },
+    "verified300":   { "$value": "#7EE0A0", "$type": "color", "$description": "Validator pass, dark" },
+    "fault300":      { "$value": "#FF8A94", "$type": "color", "$description": "Validator failure, dark" }
+  },
+  "geometry": {
+    "unit":        { "$value": "4px", "$type": "dimension" },
+    "radius":      { "$value": "0",   "$type": "dimension", "$description": "Zero everywhere" },
+    "channel":     { "$value": "4px", "$type": "dimension", "$description": "Both channels are 4 deep and 20 long" },
+    "tilePadding": { "$value": "4px", "$type": "dimension", "$description": "Equals the channel" },
+    "clearspace":  { "$value": "8px", "$type": "dimension", "$description": "Twice the channel" }
+  },
+  "font": {
+    "display": { "$value": "Archivo",         "$type": "fontFamily", "$description": "800 at width 112" },
+    "body":    { "$value": "Inter",            "$type": "fontFamily" },
+    "mono":    { "$value": "JetBrains Mono",   "$type": "fontFamily", "$description": "Facts that can be checked. Never claims." }
+  }
+}

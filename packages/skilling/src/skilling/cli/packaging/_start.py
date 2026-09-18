@@ -136,6 +136,6 @@ def start(
     )
     console.print()
     console.print(
-        f'Next: open {workspace} in Claude Code or Codex and say "learn".',
+        f"Next: open {workspace} in Claude Code and run /learn, or in Codex and run $learn.",
         soft_wrap=True,
     )
