@@ -7,7 +7,6 @@ import multiprocessing as mp
 import os
 import subprocess
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -284,19 +283,36 @@ def test_body_exception_releases_ownership(tmp_path: Path) -> None:
 def test_kernel_retries_use_original_deadline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, code: int
 ) -> None:
+    from types import SimpleNamespace
+
+    elapsed = 0.0
     calls = 0
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        nonlocal elapsed
+        sleeps.append(seconds)
+        elapsed += seconds
 
     def busy(fd: int) -> None:
-        nonlocal calls
+        nonlocal calls, elapsed
         calls += 1
+        assert calls <= 8, "retries must not reset the original deadline"
+        elapsed += 0.03125
         raise OSError(code, "busy")
 
+    monkeypatch.setattr(_locking, "time", SimpleNamespace(monotonic=lambda: elapsed, sleep=sleep))
     monkeypatch.setattr(_locking, "_kernel_lock", busy)
-    start = time.monotonic()
-    with pytest.raises(StoreBusy), locked_course(tmp_path, timeout=0.06):
+    with pytest.raises(StoreBusy), locked_course(tmp_path, timeout=0.125):
         pass
-    assert 0.04 <= time.monotonic() - start < 1
-    assert calls >= 2
+    if code == errno.EINTR:
+        assert calls == 4
+        assert elapsed == 0.125
+        assert sleeps == []
+    else:
+        assert calls == 3
+        assert elapsed == 0.15625
+        assert sleeps == pytest.approx([0.05, 0.0125])
 
 
 @pytest.mark.parametrize("operation", ["record", "delete", "archive"])
