@@ -19,7 +19,9 @@ skilling objective show --course <path> [--capability converse] [--capability ob
 
 Read-only. Pass `--capability` for every capability you genuinely hold this session so
 `settleable_now` reflects reality; passing one you do not actually have makes the field lie
-to you, not to `skilling`.
+to you, not to `skilling`. Use the same course path, state root, and learner id as the active
+delivery session. Read objective and verification facts only from this envelope; do not open
+the lesson Markdown to discover them.
 
 ## `kind` decides how it can be settled at all
 

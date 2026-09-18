@@ -31,6 +31,10 @@ means something the format cares about, not a glitch to route around.
   uncertain action. A distinct, newly authorized action gets its own fresh key.
 - `recovery-required` — preserve the state and recovery metadata for inspection. Do not edit
   or delete a journal or guess a missing transition.
+- `store-busy` — another process still holds the learner store lock. Do not edit lock or
+  state files and do not turn the same action into a second, differently keyed action. Wait
+  for the other operation to finish, then inspect with `next`; retry an already authorized
+  keyed action only with its original key and input.
 - `unknown-input` — the input string itself is not one the machine recognises at all, not
   merely illegal here. A bug in your own call, not the learner's.
 - `quiz-finished` — `quiz next` was called with no open question. The quiz already moved on
@@ -40,6 +44,24 @@ means something the format cares about, not a glitch to route around.
 - `not-a-phase-boundary` — `ceremony` was called but the most recently completed lesson was
   not the last one in its phase. Only call `ceremony` when `complete`'s envelope reported
   `phase_completed: true`.
+- `no-workspace` — `artifact add` was called outside a workspace. Artifact registration is
+  optional: skip it and continue. Do not manufacture a workspace or edit state merely to
+  make this optional pointer succeed.
+- `course-not-found` — the requested workspace course id/path cannot be resolved. Run
+  `courses` from the intended workspace again, use its usable emitted `path`, or ask the
+  learner for the actual path/ref. Do not repair the workspace manifest by hand or silently
+  choose another course.
+- `artifact-missing` — the offered artifact path does not exist. Ask for the existing work's
+  actual path or skip registration; never create placeholder work to satisfy the command.
+- `artifact-outside-workspace` — the path is not inside this workspace. Explain the boundary
+  and ask whether the learner has existing work under the returned `showcase`; do not copy or
+  move content merely to bypass the refusal.
+- `coordinate-required` — there is no validated completed coordinate to associate with the
+  ceremony or artifact. Use only the `coordinate` returned by ceremony or
+  `archived.coordinate` returned by the confirmed submission; never substitute the current
+  lesson position or edit completion history.
+- `artifact-invalid` — the title or workspace-relative path is not a valid artifact value.
+  Correct the proposed metadata or skip registration; do not alter learner state directly.
 - `capability-missing`, `no-verify`, `missing-provenance`, `objective-unknown` — see
   `objectives.md`; none are worth retrying with the same arguments.
 - `course-invalid` / `position-invalid` — the `--course` path does not resolve to a valid

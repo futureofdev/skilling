@@ -1,8 +1,11 @@
 # Course resolution — learn
 
 Every verb below needs `--course <path>`: a filesystem directory `skilling` can load a
-manifest and lessons from. Working out that path, for whichever course the learner means,
-happens before you call `next` for the first time.
+manifest and lessons from. Work out that path before calling `next` for the first time. Begin
+in the learner's current directory. When an earlier `skilling start --json` response supplied
+`workspace`, use that exact directory as the working directory for discovery and retain its
+`showcase` fact. Otherwise use the current workspace, if there is one. Do not search the
+filesystem for a plausible course directory.
 
 ## The learner names a course
 
@@ -33,7 +36,8 @@ with the documented invocation — there is no other rendering):
 ```
 skilling courses --state <path>
 # {"ok": true, "verb": "courses", "courses": [
-#   {"id": "...", "title": "...", "last_activity": "2026-08-05"}, ...
+#   {"id": "...", "title": "...", "last_activity": "2026-08-05",
+#    "path": "/workspace/.skilling/courses/example@1.0.0"}, ...
 # ]}
 ```
 
@@ -42,25 +46,24 @@ entries tie on `last_activity`, or when the learner explicitly asks what they ar
 list the candidates by title and ask rather than picking for them.
 
 An empty `courses` list is a normal empty state, not a failure: nothing has ever been
-delivered to this learner. Tell them to name a course or a ref to start.
+delivered to this learner in this state root. Tell them to name a course path or ref to
+start. Do not initialize a guessed course merely to make the list non-empty.
 
-## The gap this leaves you with
+## Use `path` only when it is usable
 
-`skilling courses` reports `id`, `title`, and `last_activity` only — deliberately not a
-path, and not a version. It answers "which course, of the ones I've touched before, is most
-recent," never "where does that course's content live." `skilling` tracks a learner's
-*progress* across many courses from one state root; it does not maintain a registry from a
-course id back to wherever its files are.
+Inside a workspace, a row may also contain `path`. It appears only when the workspace entry,
+course manifest, id, and version agree. Use that emitted path directly for the selected
+course. The key is optional: fetched-cache and bare local courses can still appear without
+it, and a path retained from an older response can later become stale.
 
-So once `courses` tells you *which* id to resume, you still need a path for it:
+For a selected row with no `path`, or when its emitted path is no longer usable:
 
 - If you already resolved that id to a path earlier in this same conversation (through
-  `fetch`), reuse it — no need to ask again.
-- Otherwise, ask the learner where that course lives, or which ref they fetched it from.
-  Do not guess a location, and do not search the filesystem for a directory that happens to
-  share the id's name — a course loaded from a bare local path is never cached under its id
-  at all, so there is nothing reliable to search for.
+  `fetch`) and it is still usable, reuse it.
+- Otherwise, ask the learner for the actual course path or ref. Pass a ref through
+  `skilling fetch <ref> --json` and use its returned `path`.
 
-This is a real limitation of `skilling courses` as it stands, not an oversight in this
-skill: naming a course is currently the only durable way back to it across a fresh
-conversation with no memory of the earlier `fetch`.
+Never substitute another row, guess a location from the id, or search for a same-named
+directory. A missing or stale path is a request for a path/ref, not permission to change
+courses. Keep the same `--state` and `--learner` selection after resolving the course so the
+chosen path resumes the intended record stream.

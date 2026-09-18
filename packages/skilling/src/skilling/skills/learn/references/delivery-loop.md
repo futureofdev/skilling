@@ -39,7 +39,9 @@ envelope:
 present with a null value, simply not a key — use a plain, neutral voice then, never an
 invented one. `beat.content` is exactly what that beat needs to present (objectives text,
 concept body, the open quiz question, and so on) — nothing speculative beyond it, so there is
-nothing to look ahead at even if you wanted to.
+nothing to look ahead at even if you wanted to. Retain any `showcase` returned by the earlier
+`start --json` response or by a later ceremony for optional artifact registration. Never
+invent a showcase path or treat its presence as evidence that learner work already exists.
 
 ## `skilling advance --course <path> --input <input>`
 
@@ -138,7 +140,22 @@ assignment using a previous confirmation.
 When `phase_completed` is true, call `skilling ceremony --course <path>` next for the
 phase-boundary copy — `phase_name`, `phase_highlight`, and (if the course declares a brand)
 `share_text`. State only what the envelope actually gives you; never invent a product name,
-a URL, or a handle the ceremony content did not supply.
+a URL, or a handle the ceremony content did not supply. The ceremony's `beat.content` also
+contains the completed `coordinate` and, inside a workspace, `showcase`.
+
+After presenting the ceremony, you may offer to register work the learner already created.
+This is optional and never delays completion. Only after confirming the file exists under the
+returned showcase directory, call:
+
+```
+skilling artifact add <existing-path> --title <learner-facing-title> \
+  --course <path> --coordinate <ceremony.beat.content.coordinate>
+```
+
+Pass the same `--state`/`--learner` as the teaching session. Use only the ceremony response's
+`showcase` and completed `coordinate`; do not create a placeholder, move work, infer a path,
+or use the record's next-lesson position. If `showcase` is absent, the file does not exist, or
+the learner declines, skip registration and continue.
 
 After completion (and ceremony, when there was one), call `skilling next` again for the
 following lesson's `welcome` beat and keep going, or — when `completed_count` has reached

@@ -27,6 +27,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from skilling.cli import app
+from skilling.skills import skill_dir
 
 runner = CliRunner()
 
@@ -268,3 +269,91 @@ def test_double_completion_is_absorbed_not_reapplied(clean_dir: Path, tmp_path: 
 
     after = _record_bytes(tmp_path)
     assert after == before, "a replayed complete must not write anything further"
+
+
+class PromptContract(NamedTuple):
+    name: str
+    skill: str
+    reference: str
+    required: tuple[str, ...]
+
+
+PROMPT_CONTRACTS: tuple[PromptContract, ...] = (
+    PromptContract(
+        "a stale workspace path requests the actual path or ref",
+        "learn",
+        "course-resolution.md",
+        ("path is no longer usable", "ask the learner", "Never substitute another row"),
+    ),
+    PromptContract(
+        "a recency tie is not silently broken",
+        "learn",
+        "course-resolution.md",
+        ("tie on `last_activity`", "list the candidates by title and ask"),
+    ),
+    PromptContract(
+        "a keyed replay does not authorize another transition",
+        "learn",
+        "delivery-loop.md",
+        ("same key and input", "`replayed: true`", "do not announce another action"),
+    ),
+    PromptContract(
+        "a gate waits for real learner input",
+        "learn",
+        "delivery-loop.md",
+        ("Gates are open waits", "wait for their actual reply", "do not answer for them"),
+    ),
+    PromptContract(
+        "quiz answers remain in CLI custody",
+        "learn",
+        "delivery-loop.md",
+        ("Never read a lesson's quiz section", "collect their chosen label", "returns the verdict"),
+    ),
+    PromptContract(
+        "an uncertain submission reuses its checked token",
+        "homework",
+        "workflows.md",
+        ("same retained token", "Never check again just to replace a retry token"),
+    ),
+    PromptContract(
+        "a ceremony artifact uses returned facts and existing work",
+        "learn",
+        "delivery-loop.md",
+        ("ceremony.beat.content.coordinate", "response's `showcase`", "already created"),
+    ),
+    PromptContract(
+        "a submitted-homework artifact does not expect showcase in submit",
+        "homework",
+        "workflows.md",
+        ("`archived.coordinate`", "no `showcase`", "retained earlier"),
+    ),
+    PromptContract(
+        "artifact refusals preserve the optional boundary and hidden state",
+        "learn",
+        "troubleshooting.md",
+        (
+            "`no-workspace`",
+            "`course-not-found`",
+            "`artifact-missing`",
+            "`artifact-outside-workspace`",
+            "`coordinate-required`",
+            "optional: skip it and continue",
+            "never substitute the current lesson position",
+        ),
+    ),
+)
+
+
+@pytest.mark.parametrize("contract", PROMPT_CONTRACTS, ids=[row.name for row in PROMPT_CONTRACTS])
+def test_bundled_prompt_resists_adversarial_host_shortcuts(contract: PromptContract) -> None:
+    """The runtime refuses illegal calls above; these rows keep the host instructions from
+    recommending shortcuts the CLI cannot detect, such as silently choosing a tied course or
+    inventing an artifact path after submission.
+    """
+    body = " ".join(
+        (skill_dir(contract.skill) / "references" / contract.reference)
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    for phrase in contract.required:
+        assert phrase in body

@@ -10,7 +10,8 @@ there is no other rendering to opt into or out of.
 
 ```json
 {"ok": true, "verb": "courses", "courses": [
-  {"id": "hello-skilling", "title": "Hello, Skilling", "last_activity": "2026-08-05"},
+  {"id": "hello-skilling", "title": "Hello, Skilling", "last_activity": "2026-08-05",
+   "path": "/workspace/.skilling/courses/hello-skilling@1.0.0"},
   {"id": "coding-bootcamp", "title": "coding-bootcamp", "last_activity": "2026-08-03"}
 ]}
 ```
@@ -24,10 +25,12 @@ there is no other rendering to opt into or out of.
 - `last_activity` — a calendar date (not a timestamp), the day the streak algorithm itself
   keys off. Two courses can tie on the same day; that is a genuine tie, not a rounding
   artifact, and it is exactly the case where you should list and ask rather than default.
-- **No `path`, no `version`.** This is the field this skill wishes existed and does not:
-  see `SKILL.md`'s note on enrichment, and `learn`'s `course-resolution.md` for the full
-  reasoning. It means this listing alone cannot drive a `--course <path>` call for a course
-  you have not already resolved a path for.
+- `path` — optional. It appears when the current workspace has a usable course entry whose
+  manifest id and version match this record. Use it directly while it remains usable. Its
+  absence, or a stale emitted path, means this listing alone cannot drive a course call: ask
+  for the actual path or ref instead of searching or substituting another course.
+- There is no `version` field in this summary. Read the version from a course-specific
+  envelope after resolving its path.
 
 An empty `courses` array is a normal empty state — nothing has ever been delivered to this
 learner — not a failure to report as one.

@@ -77,6 +77,21 @@ retained token**: it returns the original archive, including its original timest
 verdicts, even the next day or after another assignment becomes active. It cannot submit
 that next assignment. Never check again just to replace a retry token.
 
+The submit response deliberately has no `showcase`. After a successful confirmed submit,
+you may offer to register work the learner already created, but this is optional and never
+gates submission. Combine only the `archived.coordinate` returned by this submit with the
+workspace and `showcase` fact retained earlier from `start --json` or ceremony. If an
+existing file is under that exact showcase directory, call:
+
+```
+skilling artifact add <existing-path> --title <learner-facing-title> \
+  --course <path> --coordinate <archived.coordinate>
+```
+
+Pass the same `--state`/`--learner`. Do not expect `showcase` in the submit response, create
+placeholder work, infer a location, or make artifact registration a condition of success.
+When no retained workspace/showcase fact or existing file is available, skip it.
+
 `conflict` (exit 3) means the checked slot changed before acceptance, including a verdict
 or queue change. Check and display the new state, then ask for a new, distinct confirmation
 before using its new token. Do not silently refresh the token and submit.
@@ -85,3 +100,5 @@ A missing, malformed, or wrong-stream token produces `invalid-submission-token` 
 before opening learner state. Preserve an uncertain call's token for retry; without it,
 inspect current state and explain the uncertainty rather than guessing which archive or
 assignment the learner intended. Corrupt recovery metadata requires inspection, not edits.
+If the store is `store-busy`, wait for the other operation to finish and inspect again;
+never delete lock/state files or replace the accepted token merely to force progress.

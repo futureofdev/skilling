@@ -19,21 +19,26 @@ check.
 
 ## The two modes
 
-**No course named** — a dashboard across every course the learner has touched. Start with
-`skilling courses --state <path>` (always JSON; see `reading-progress.md`), which lists every
-course this learner has local state for, most-recently-active first. That alone is a
+**No course named** — a dashboard across every course the learner has touched. Start in the
+current workspace, or the exact `workspace` returned by an earlier `skilling start --json`,
+and call `skilling courses --state <path>` (always JSON; see `reading-progress.md`). It lists
+every course this learner has local state for, most-recently-active first. That alone is a
 complete, honest dashboard: id, title, last activity, ordered. Enrich a row with
 `skilling progress --course <path> --state <path>` — completed count, percent complete,
-streak, skills unlocked — only for a course whose path you already have (from earlier this
-session, or because the learner just named it); `courses` itself reports no path, so do not
-guess one for the rest. Document to the learner, in whatever form fits the moment, that some
-rows may be title-and-recency only.
+streak, skills unlocked — when that row supplies a usable optional `path`, or when you
+already resolved its path this session. A missing or stale path means ask for the real path
+or ref; do not guess one and do not search the filesystem. Document that unresolved rows may
+be title-and-recency only.
 
 **A course is named** — resolve it exactly as `learn` does (name it → `skilling fetch <ref>`;
 already resolved this session → reuse the path) and call
 `skilling progress --course <path> --state <path>` directly for today's detail. If the name
 does not resolve to a path you can call `fetch` on and you have not already resolved it this
 session, ask the learner for the path or ref rather than guessing.
+
+Use the same `--state` for `courses` and the same `--state`/`--learner` selection for every
+course-specific detail and telemetry call. Read state only through these CLI envelopes;
+never inspect or edit `.skilling` records to fill in a missing field.
 
 ## Rendering
 

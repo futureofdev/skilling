@@ -59,6 +59,124 @@ def test_bundled_skill_references_are_all_linked(name: str) -> None:
         assert link in body, f"{skill_md} never mentions {link}"
 
 
+def _bundled_text(name: str) -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in skill_files(name))
+
+
+def _compact(text: str) -> str:
+    return " ".join(text.split())
+
+
+@pytest.mark.parametrize("name", SKILL_NAMES)
+def test_skill_triad_uses_workspace_discovery_and_one_record_stream(name: str) -> None:
+    body = _compact(_bundled_text(name))
+    assert "workspace" in body
+    assert "skilling courses" in body
+    assert "`path`" in body
+    assert "--state" in body
+    assert "--learner" in body
+    assert "Do not search" in body or "do not search" in body
+
+
+def test_course_resolution_handles_empty_tied_missing_and_stale_paths() -> None:
+    for name in ("learn", "homework"):
+        body = _compact(_bundled_text(name))
+        assert "tie on `last_activity`" in body or "tie on the same day" in body
+        assert "empty" in body
+        assert "no `path`" in body or "without `path`" in body
+        assert "stale" in body
+        assert "ask the learner" in body
+
+    progress = _compact(_bundled_text("progress"))
+    assert "optional `path`" in progress
+    assert "missing or stale path" in progress
+    assert "title-and-recency only" in progress
+
+
+def test_learn_keeps_transition_gate_quiz_and_state_custody() -> None:
+    body = _compact(_bundled_text("learn"))
+    required = (
+        "fresh `--key <token>`",
+        "same key and input",
+        "`replayed: true`",
+        "`idempotency-key-conflict`",
+        "wait for their actual reply",
+        "Never read a lesson's quiz section",
+        "`skilling quiz next",
+        "`skilling answer",
+        "Only these CLI verbs may mutate learner state",
+        "do not open the lesson Markdown",
+        "`store-busy`",
+    )
+    for phrase in required:
+        assert phrase in body
+
+
+def test_learn_declares_the_bare_cli_and_folder_scoped_start_contract() -> None:
+    body = _compact(_bundled_text("learn"))
+    required = (
+        "already installed bare `skilling` executable",
+        "`skilling start <ref> <workspace> --json`",
+        "`.claude/skills/`",
+        "`.agents/skills/`",
+        "returned workspace",
+    )
+    for phrase in required:
+        assert phrase in body
+
+
+def test_artifact_handoffs_use_runtime_paths_and_completed_coordinates() -> None:
+    learn = _compact(_bundled_text("learn"))
+    homework = _compact(_bundled_text("homework"))
+
+    assert "ceremony.beat.content.coordinate" in learn
+    assert "response's `showcase`" in learn
+    assert "work the learner already created" in learn
+    assert "optional and never delays completion" in learn
+
+    assert "`archived.coordinate`" in homework
+    assert "submit response deliberately has no `showcase`" in homework
+    assert "workspace and `showcase` fact retained earlier" in homework
+    assert "optional and never gates submission" in homework
+
+
+def test_homework_retains_confirmation_and_submission_token_custody() -> None:
+    body = _compact(_bundled_text("homework"))
+    required = (
+        "exact `submission_token`",
+        "own, distinct",
+        "same retained token",
+        "new, distinct confirmation",
+        "`invalid-submission-token`",
+        "`store-busy`",
+    )
+    for phrase in required:
+        assert phrase in body
+
+
+def test_bundled_skills_do_not_expand_the_supported_host_or_install_surface() -> None:
+    body = "\n".join(_bundled_text(name) for name in SKILL_NAMES)
+    for unsupported in ("uvx", "ChatGPT", "Cowork", "--project"):
+        assert unsupported not in body
+
+
+def test_learn_handles_current_artifact_refusals_without_hidden_state_edits() -> None:
+    body = _compact(_bundled_text("learn"))
+    for error_code in (
+        "`no-workspace`",
+        "`course-not-found`",
+        "`artifact-missing`",
+        "`artifact-outside-workspace`",
+        "`coordinate-required`",
+    ):
+        assert error_code in body
+    assert "Do not manufacture a workspace" in body
+    assert "Do not repair the workspace manifest by hand" in body
+    assert "never create placeholder work" in body
+    assert "never substitute the current lesson position" in body
+    assert "`coordinate-unknown`" not in body
+
+
 def test_skill_dir_rejects_an_unknown_name() -> None:
     with pytest.raises(ValueError, match="not one of"):
         skill_dir("not-a-real-skill")
