@@ -30,8 +30,10 @@ distinct reply, never inferred from a passing check, enthusiasm, or silence. Ret
 checked `submission_token` through that pause and all retries; a conflict needs a new check
 and a new confirmation.
 
-Pass the same `--state`/`--learner` on every check, submit, and artifact call. Only the CLI
-may change learner state; never edit `.skilling` records, homework slots, or journals.
+In ordinary workspace use, omit `--state` consistently and use the default learner. If the
+session selected an explicit `--state` or `--learner`, pass the same value on every check,
+submit, and artifact call. Only the CLI may change learner state; never edit `.skilling`
+records, homework slots, or journals.
 
 ## The one rule that matters most
 

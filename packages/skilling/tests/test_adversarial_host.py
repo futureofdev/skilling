@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -28,6 +29,16 @@ from typer.testing import CliRunner, Result
 
 from skilling.cli import app
 from skilling.skills import skill_dir
+from skilling.workspace import (
+    SKILLING_DIR,
+    WORKSPACE_ENV,
+    WorkspaceCourse,
+    WorkspaceManifest,
+    save_manifest,
+    state_root,
+)
+
+from . import fixtures as fx
 
 runner = CliRunner()
 
@@ -271,6 +282,67 @@ def test_double_completion_is_absorbed_not_reapplied(clean_dir: Path, tmp_path: 
     assert after == before, "a replayed complete must not write anything further"
 
 
+def _workspace_with_clean_course(workspace: Path) -> Path:
+    course = fx.build(workspace / SKILLING_DIR / "courses" / "clean-course@1.0.0")
+    entry = WorkspaceCourse(
+        id="clean-course",
+        version="1.0.0",
+        ref="local",
+        path=course.relative_to(workspace / SKILLING_DIR).as_posix(),
+        showcase="showcase/clean-course",
+        added_at=datetime(2026, 8, 3, 14, 31, 7, tzinfo=UTC),
+    )
+    save_manifest(workspace, WorkspaceManifest(courses=[entry]))
+    return course
+
+
+def test_workspace_id_uses_workspace_content_and_implicit_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Model the prompt's preferred CLI calls, not a stock-host interaction: a bare course
+    id from a nested workspace must resolve both content and state without explicit paths.
+    """
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    workspace = tmp_path / "workspace"
+    course = _workspace_with_clean_course(workspace)
+    nested = workspace / "learner-work" / "nested"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    started = runner.invoke(app, ["next", "--course", "clean-course"], catch_exceptions=False)
+    assert started.exit_code == 0, started.output
+    assert json.loads(started.stdout)["course"]["id"] == "clean-course"
+    assert (state_root(workspace) / "clean-course" / "record.yaml").is_file()
+
+    listed = runner.invoke(app, ["courses"], catch_exceptions=False)
+    row = json.loads(listed.stdout)["courses"][0]
+    assert row["id"] == "clean-course"
+    assert Path(row["path"]) == course
+
+    progress = runner.invoke(app, ["progress", "--course", "clean-course"], catch_exceptions=False)
+    assert progress.exit_code == 0, progress.output
+    assert json.loads(progress.stdout)["course"] == {"id": "clean-course", "version": "1.0.0"}
+
+
+def test_unusable_workspace_id_refuses_before_creating_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A host must see the typed refusal before its prose-level path/ref fallback; the CLI
+    does not silently substitute unrelated content or initialize a guessed record.
+    """
+    monkeypatch.delenv(WORKSPACE_ENV, raising=False)
+    workspace = tmp_path / "workspace"
+    course = _workspace_with_clean_course(workspace)
+    (course / "course.yaml").unlink()
+    monkeypatch.chdir(workspace)
+
+    result = runner.invoke(app, ["next", "--course", "clean-course"], catch_exceptions=False)
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["error"]["code"] == "course-not-found"
+    assert not state_root(workspace).exists()
+
+
 class PromptContract(NamedTuple):
     name: str
     skill: str
@@ -283,13 +355,13 @@ PROMPT_CONTRACTS: tuple[PromptContract, ...] = (
         "a stale workspace path requests the actual path or ref",
         "learn",
         "course-resolution.md",
-        ("path is no longer usable", "ask the learner", "Never substitute another row"),
+        ("`course-not-found`", "Only then", "ask the learner", "Do not substitute another row"),
     ),
     PromptContract(
         "a recency tie is not silently broken",
         "learn",
         "course-resolution.md",
-        ("tie on `last_activity`", "list the candidates by title and ask"),
+        ("tie on `last_activity`", "list tied candidates by title and ask"),
     ),
     PromptContract(
         "a keyed replay does not authorize another transition",
@@ -325,7 +397,13 @@ PROMPT_CONTRACTS: tuple[PromptContract, ...] = (
         "a submitted-homework artifact does not expect showcase in submit",
         "homework",
         "workflows.md",
-        ("`archived.coordinate`", "no `showcase`", "retained earlier"),
+        (
+            "Present the real returned `archived` object before doing anything else",
+            "Only after presenting `archived` may you offer",
+            "`archived.coordinate`",
+            "no `showcase`",
+            "retained earlier",
+        ),
     ),
     PromptContract(
         "artifact refusals preserve the optional boundary and hidden state",

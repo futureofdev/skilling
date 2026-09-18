@@ -72,25 +72,44 @@ def test_skill_triad_uses_workspace_discovery_and_one_record_stream(name: str) -
     body = _compact(_bundled_text(name))
     assert "workspace" in body
     assert "skilling courses" in body
+    assert "course id" in body
     assert "`path`" in body
     assert "--state" in body
     assert "--learner" in body
-    assert "Do not search" in body or "do not search" in body
+    assert "ordinary workspace use" in body
+    assert "omit `--state`" in body or "omitting `--state`" in body
+    assert "search the filesystem" in body
 
 
-def test_course_resolution_handles_empty_tied_missing_and_stale_paths() -> None:
+def test_course_resolution_prefers_workspace_ids_before_path_or_fetch_fallbacks() -> None:
     for name in ("learn", "homework"):
         body = _compact(_bundled_text(name))
         assert "tie on `last_activity`" in body or "tie on the same day" in body
         assert "empty" in body
-        assert "no `path`" in body or "without `path`" in body
-        assert "stale" in body
-        assert "ask the learner" in body
+        assert "use the selected" in body and "id" in body
+        assert "even when the row" in body and "`path`" in body
+        assert "`course-not-found`" in body
+        assert "Only then" in body
+        assert "skilling fetch <ref> --json" in body
+        assert "ask" in body and "path" in body and "ref" in body
 
     progress = _compact(_bundled_text("progress"))
-    assert "optional `path`" in progress
-    assert "missing or stale path" in progress
+    assert "first use its id directly" in progress
+    assert "do not replace the id with that internal path" in progress
+    assert "Only when the workspace id/content is unusable" in progress
     assert "title-and-recency only" in progress
+
+
+def test_ordinary_workspace_examples_use_ids_and_implicit_state() -> None:
+    learn = _compact(_bundled_text("learn"))
+    homework = _compact(_bundled_text("homework"))
+    progress = _compact(_bundled_text("progress"))
+
+    assert "skilling next --course example" in learn
+    assert "skilling homework check --course example" in homework
+    assert "`skilling progress --course <course-id>`" in progress
+    for body in (learn, homework, progress):
+        assert "skilling courses --state <path>" not in body
 
 
 def test_learn_keeps_transition_gate_quiz_and_state_custody() -> None:
@@ -138,6 +157,18 @@ def test_artifact_handoffs_use_runtime_paths_and_completed_coordinates() -> None
     assert "submit response deliberately has no `showcase`" in homework
     assert "workspace and `showcase` fact retained earlier" in homework
     assert "optional and never gates submission" in homework
+
+
+def test_homework_presents_the_returned_archive_before_offering_an_artifact() -> None:
+    workflows = _compact(
+        (skill_dir("homework") / "references" / "workflows.md").read_text(encoding="utf-8")
+    )
+    presentation = "Present the real returned `archived` object before doing anything else"
+    artifact_offer = "Only after presenting `archived` may you offer"
+    assert presentation in workflows
+    assert "assignment title and coordinate" in workflows
+    assert "actual `submitted_at`" in workflows
+    assert workflows.index(presentation) < workflows.index(artifact_offer)
 
 
 def test_homework_retains_confirmation_and_submission_token_custody() -> None:

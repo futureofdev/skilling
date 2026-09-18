@@ -21,24 +21,24 @@ check.
 
 **No course named** — a dashboard across every course the learner has touched. Start in the
 current workspace, or the exact `workspace` returned by an earlier `skilling start --json`,
-and call `skilling courses --state <path>` (always JSON; see `reading-progress.md`). It lists
-every course this learner has local state for, most-recently-active first. That alone is a
-complete, honest dashboard: id, title, last activity, ordered. Enrich a row with
-`skilling progress --course <path> --state <path>` — completed count, percent complete,
-streak, skills unlocked — when that row supplies a usable optional `path`, or when you
-already resolved its path this session. A missing or stale path means ask for the real path
-or ref; do not guess one and do not search the filesystem. Document that unresolved rows may
-be title-and-recency only.
+and call bare `skilling courses` (always JSON; see `reading-progress.md`). Omitting `--state`
+selects the workspace's state. The result alone is a complete, honest dashboard: id, title,
+last activity, ordered. To enrich a row, first use its id directly:
+`skilling progress --course <course-id>`. A row's optional `path` confirms that current
+workspace content is usable, but do not replace the id with that internal path in ordinary
+workspace calls. If an id returns `course-not-found`, only then reuse a still-usable explicit
+path or ask for the actual path/ref. Unresolved rows remain title-and-recency only.
 
-**A course is named** — resolve it exactly as `learn` does (name it → `skilling fetch <ref>`;
-already resolved this session → reuse the path) and call
-`skilling progress --course <path> --state <path>` directly for today's detail. If the name
-does not resolve to a path you can call `fetch` on and you have not already resolved it this
-session, ask the learner for the path or ref rather than guessing.
+**A course is named** — from inside the workspace, call `courses`, match its exact id first
+(or a unique title), then call `skilling progress --course <course-id>`. Ask on an ambiguous
+title. Only when the workspace id/content is unusable, or there is no enclosing workspace,
+fall back to an explicit path already resolved this session or to
+`skilling fetch <ref> --json`; use the returned path. Never guess or search the filesystem.
 
-Use the same `--state` for `courses` and the same `--state`/`--learner` selection for every
-course-specific detail and telemetry call. Read state only through these CLI envelopes;
-never inspect or edit `.skilling` records to fill in a missing field.
+In ordinary workspace use, keep omitting `--state` and use the default learner. If the
+session selected an explicit state root, use it for `courses` and pass the same
+`--state`/`--learner` to every course-specific detail and telemetry call. Read state only
+through CLI envelopes; never inspect or edit `.skilling` records to fill in a missing field.
 
 ## Rendering
 
@@ -50,7 +50,7 @@ phase boundaries, so do not invent a per-phase table from a count you were not g
 ## Telemetry, if it comes up
 
 If the learner asks about analytics or opting in/out of usage reporting for a course,
-`skilling telemetry ask --course <path> --state <path>` reads the current answer (`opt_in`:
+`skilling telemetry ask --course <course>` reads the current answer (`opt_in`:
 `null` means never asked) without writing anything; `skilling telemetry on`/`telemetry off`
 (same flags) record their choice. This is a per-course setting, not a global one — it is not
 otherwise part of a progress report.

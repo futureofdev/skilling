@@ -2,8 +2,9 @@
 
 Every learner turn is one `skilling` verb, one JSON envelope back, and — when the envelope
 puts you at a gate — one open wait for the learner before you call anything else. Every
-example below assumes you already resolved `--course <path>` (see
-`course-resolution.md`) and are passing the same `--state`/`--learner` throughout.
+example below assumes you already resolved `--course <course>` (see
+`course-resolution.md`). In ordinary workspace use this is the course id with implicit state;
+if an explicit `--state`/`--learner` was selected, pass it unchanged throughout.
 
 ## The beats, in order
 
@@ -16,7 +17,7 @@ the last in its phase. Never assume this shape yourself — the envelope's `beat
 `legal_inputs` are the only authority on where the learner actually is and what they can do
 next.
 
-## `skilling next --course <path>`
+## `skilling next --course <course>`
 
 Call it when unsure where things stand. It does not advance the lesson. First use may
 initialize a record, and reading after an interrupted transition or completion may finish its already
@@ -43,7 +44,7 @@ nothing to look ahead at even if you wanted to. Retain any `showcase` returned b
 `start --json` response or by a later ceremony for optional artifact registration. Never
 invent a showcase path or treat its presence as evidence that learner work already exists.
 
-## `skilling advance --course <path> --input <input>`
+## `skilling advance --course <course> --input <input>`
 
 Applies exactly one transition and persists the result. `--input` must be one of the
 envelope's own `legal_inputs` — never guess one, and never call `advance` to "help the
@@ -90,14 +91,14 @@ Never read a lesson's quiz section yourself, at any point — the questions, the
 and the correct label are withheld from every other verb precisely so the learner cannot
 see them ahead of time and so you cannot accidentally reveal them. The loop:
 
-1. `skilling quiz next --course <path>` — the open question only:
+1. `skilling quiz next --course <course>` — the open question only:
    ```json
    {"ok": true, "question": {"number": 1, "text": "...", "options": {"a": "...", "b": "..."}}}
    ```
    Nothing here reveals which option is correct, why, or even that the word "correct"
    applies to any of them.
 2. Render it to the learner and collect their chosen label.
-3. `skilling answer <label> --course <path>` — submits it and returns the verdict:
+3. `skilling answer <label> --course <course>` — submits it and returns the verdict:
    ```json
    {"ok": true, "correct": false, "reason": "...",
     "remediation": {"offered": true, "objectives": ["..."]}}
@@ -115,7 +116,7 @@ see them ahead of time and so you cannot accidentally reveal them. The loop:
 
 ## Finishing a lesson
 
-Once the envelope reports the `complete` beat, call `skilling complete --course <path>`. It
+Once the envelope reports the `complete` beat, call `skilling complete --course <course>`. It
 prepares the whole completion write set — log, streak, badges, homework placement or queue,
 and completion scratch reset — before applying it. Reopening recovers a pending prepared
 completion. A retry preserves the original completion time and uses its durable identity,
@@ -137,7 +138,7 @@ submit that token. Retry an uncertain submission with the same token; a conflict
 a new check and confirmation. Never replace the token silently or submit the next queued
 assignment using a previous confirmation.
 
-When `phase_completed` is true, call `skilling ceremony --course <path>` next for the
+When `phase_completed` is true, call `skilling ceremony --course <course>` next for the
 phase-boundary copy — `phase_name`, `phase_highlight`, and (if the course declares a brand)
 `share_text`. State only what the envelope actually gives you; never invent a product name,
 a URL, or a handle the ceremony content did not supply. The ceremony's `beat.content` also
@@ -149,10 +150,11 @@ returned showcase directory, call:
 
 ```
 skilling artifact add <existing-path> --title <learner-facing-title> \
-  --course <path> --coordinate <ceremony.beat.content.coordinate>
+  --course <course> --coordinate <ceremony.beat.content.coordinate>
 ```
 
-Pass the same `--state`/`--learner` as the teaching session. Use only the ceremony response's
+Use the teaching session's same implicit workspace state, or its unchanged explicit
+`--state`/`--learner`. Use only the ceremony response's
 `showcase` and completed `coordinate`; do not create a placeholder, move work, infer a path,
 or use the record's next-lesson position. If `showcase` is absent, the file does not exist, or
 the learner declines, skip registration and continue.

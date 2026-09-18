@@ -48,7 +48,8 @@ means something the format cares about, not a glitch to route around.
   optional: skip it and continue. Do not manufacture a workspace or edit state merely to
   make this optional pointer succeed.
 - `course-not-found` — the requested workspace course id/path cannot be resolved. Run
-  `courses` from the intended workspace again, use its usable emitted `path`, or ask the
+  `courses` from the intended workspace again and retry the selected id. If it still refuses,
+  the workspace content is unusable; only then use a still-usable explicit path or ask the
   learner for the actual path/ref. Do not repair the workspace manifest by hand or silently
   choose another course.
 - `artifact-missing` — the offered artifact path does not exist. Ask for the existing work's
@@ -77,6 +78,6 @@ the call had actually succeeded.
 
 ## When in doubt
 
-Call `skilling next --course <path>` again. It does not advance the lesson; first use may
+Call `skilling next --course <course>` again. It does not advance the lesson; first use may
 initialize state and a pending prepared operation may finish recovery. Consistent existing
 state is read without changing progress.

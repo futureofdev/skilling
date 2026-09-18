@@ -9,7 +9,7 @@ about what you actually checked.
 ## See what is open
 
 ```
-skilling objective show --course <path> [--capability converse] [--capability observe] ...
+skilling objective show --course <course> [--capability converse] [--capability observe] ...
 # {"ok": true, "verb": "show", "course": {"id": "...", "version": "..."},
 #  "objectives": [
 #    {"id": "...", "kind": "knowledge", "verify": null, "check": null, "settleable_now": true},
@@ -19,9 +19,9 @@ skilling objective show --course <path> [--capability converse] [--capability ob
 
 Read-only. Pass `--capability` for every capability you genuinely hold this session so
 `settleable_now` reflects reality; passing one you do not actually have makes the field lie
-to you, not to `skilling`. Use the same course path, state root, and learner id as the active
-delivery session. Read objective and verification facts only from this envelope; do not open
-the lesson Markdown to discover them.
+to you, not to `skilling`. Use the same course selector, implicit or explicit state root, and
+learner id as the active delivery session. Read objective and verification facts only from
+this envelope; do not open the lesson Markdown to discover them.
 
 ## `kind` decides how it can be settled at all
 
@@ -57,7 +57,7 @@ to weigh.
 ## Settling it
 
 ```
-skilling objective settle <objective-id> --course <path> \
+skilling objective settle <objective-id> --course <course> \
   --evidence explained|observed|homework \
   [--attested-by <your-host-name>] [--checked "<what you actually inspected>"] \
   [--capability converse] [--capability observe] [--capability assess]
