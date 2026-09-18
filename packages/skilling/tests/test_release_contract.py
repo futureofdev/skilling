@@ -78,6 +78,17 @@ def test_build_rejects_mutable_or_non_default_branch_input_and_runs_full_gates()
     assert "--evidence source-package-evidence" in commands
     assert "brand/build.py --zip" in commands
     assert "--source-must-not-exist" in commands and 'rm -rf "$unavailable"' in commands
+    assert 'cp tools/release_candidate.py "$release_helper"' in commands
+    assert "export PYTHONDONTWRITEBYTECODE=1" in commands
+    assert 'python -B "$controller"' in commands
+    assert 'python -B "$release_helper" verify --candidate "$CANDIDATE_DIR"' in commands
+    assert "trap 'mkdir -p \"$unavailable\"' EXIT" in commands
+    assert commands.count('mkdir -p "$unavailable"') == 2
+    assert commands.index('rm -rf "$unavailable"') < commands.index('python -B "$controller"')
+    assert commands.index('python -B "$controller"') < commands.index(
+        'python -B "$release_helper" verify'
+    )
+    assert commands.index('python -B "$release_helper" verify') < commands.index("trap - EXIT")
 
 
 def test_build_upload_and_publish_download_one_named_immutable_handoff() -> None:

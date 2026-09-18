@@ -85,16 +85,24 @@ jobs:
           fixture="$CANDIDATE_DIR/verification/welcome-skilling"
           resources="$CANDIDATE_DIR/verification/resources.json"
           dist="$CANDIDATE_DIR/dist"
+          release_helper="$RUNNER_TEMP/release_candidate.py"
           unavailable="$GITHUB_WORKSPACE"
+          cp tools/release_candidate.py "$release_helper"
           cd "$RUNNER_TEMP"
+          trap 'mkdir -p "$unavailable"' EXIT
           rm -rf "$unavailable"
           test ! -e "$unavailable"
-          uv run --no-project python "$controller" \
+          export PYTHONDONTWRITEBYTECODE=1
+          python -B "$controller" \
             --dist "$dist" \
             --fixture "$fixture" \
             --expected-resources "$resources" \
             --source-must-not-exist "$unavailable" \
             --evidence "$RUNNER_TEMP/retained-package-evidence"
+          test ! -e "$unavailable"
+          python -B "$release_helper" verify --candidate "$CANDIDATE_DIR"
+          mkdir -p "$unavailable"
+          trap - EXIT
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: skilling-0.5.0-candidate
