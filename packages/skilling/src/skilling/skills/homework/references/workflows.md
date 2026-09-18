@@ -1,9 +1,10 @@
 # Homework workflows
 
-Every call below assumes you already resolved `--course <path>` (see
-`course-resolution.md`) and pass the same `--state`/`--learner` throughout.
+Every call below assumes you already resolved `--course <course>` (see
+`course-resolution.md`). In ordinary workspace use this is the course id with implicit state;
+if an explicit `--state`/`--learner` was selected, pass it unchanged throughout.
 
-## `skilling homework check --course <path>`
+## `skilling homework check --course <course>`
 
 Inspect the active slot without creating state or changing the assignment. A previously
 accepted interrupted operation may finish recovery before the read. Repeated checks issue
@@ -64,7 +65,7 @@ submit this?") and wait for an actual yes before calling anything.
 On confirmation:
 
 ```
-skilling homework submit --course <path> --token <the-retained-submission_token>
+skilling homework submit --course <course> --token <the-retained-submission_token>
 # {"ok": true, "verb": "homework-submit", "course": {"id": "...", "version": "..."},
 #  "archived": {"coordinate": "...", "title": "...", "requirements": [...],
 #               "stretch_goals": [...], "submitted_at": "..."}}
@@ -77,6 +78,28 @@ retained token**: it returns the original archive, including its original timest
 verdicts, even the next day or after another assignment becomes active. It cannot submit
 that next assignment. Never check again just to replace a retry token.
 
+Present the real returned `archived` object before doing anything else: tell the learner
+which assignment title and coordinate were archived, report its actual `submitted_at`, and
+show the returned requirements/stretch-goal details without inventing verdicts. This visible
+archive result is the durable submission outcome; do not replace it with a generic success
+claim.
+
+The submit response deliberately has no `showcase`. Only after presenting `archived` may you
+offer to register work the learner already created, but this is optional and never gates
+submission. Combine only the `archived.coordinate` returned by this submit with the workspace
+and `showcase` fact retained earlier from `start --json` or ceremony. If an existing file is
+under that exact showcase directory, call:
+
+```
+skilling artifact add <existing-path> --title <learner-facing-title> \
+  --course <course> --coordinate <archived.coordinate>
+```
+
+Use the same implicit workspace state, or the unchanged explicit `--state`/`--learner`. Do
+not expect `showcase` in the submit response, create placeholder work, infer a location, or
+make artifact registration a condition of success. When no retained workspace/showcase fact
+or existing file is available, skip it.
+
 `conflict` (exit 3) means the checked slot changed before acceptance, including a verdict
 or queue change. Check and display the new state, then ask for a new, distinct confirmation
 before using its new token. Do not silently refresh the token and submit.
@@ -85,3 +108,5 @@ A missing, malformed, or wrong-stream token produces `invalid-submission-token` 
 before opening learner state. Preserve an uncertain call's token for retry; without it,
 inspect current state and explain the uncertainty rather than guessing which archive or
 assignment the learner intended. Corrupt recovery metadata requires inspection, not edits.
+If the store is `store-busy`, wait for the other operation to finish and inspect again;
+never delete lock/state files or replace the accepted token merely to force progress.

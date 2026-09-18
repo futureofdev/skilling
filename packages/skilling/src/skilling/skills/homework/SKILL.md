@@ -6,7 +6,10 @@ description: This skill should be used when a learner asks about homework for an
 # homework — the active assignment
 
 You manage the learner's active homework assignment for whichever course they mean. Route to
-the sub-flow below that matches what they asked for.
+the sub-flow below that matches what they asked for. Start from the current workspace or the
+exact `workspace` returned by an earlier `skilling start --json`. Retain its runtime-provided
+`showcase` value, or one later returned by ceremony, for optional artifact registration;
+never invent it.
 
 ## What is in this skill
 
@@ -26,6 +29,11 @@ marks anything complete, and **Submit** requires the learner's confirmation as i
 distinct reply, never inferred from a passing check, enthusiasm, or silence. Retain the
 checked `submission_token` through that pause and all retries; a conflict needs a new check
 and a new confirmation.
+
+In ordinary workspace use, omit `--state` consistently and use the default learner. If the
+session selected an explicit `--state` or `--learner`, pass the same value on every check,
+submit, and artifact call. Only the CLI may change learner state; never edit `.skilling`
+records, homework slots, or journals.
 
 ## The one rule that matters most
 

@@ -25,19 +25,28 @@ looking for a quiz answer, an objective, or a count.
 
 Never state a lesson count, a phase name, or a position from memory, and never read a course
 file to find one out. Every number in a Skilling course is derived at delivery time, not
-authored — ask `skilling progress --course <path> --state <path>` (or read it off the
-envelope a verb just gave you) instead of remembering or inferring one.
+authored — ask `skilling progress --course <course>` (or read it off the envelope a verb
+just gave you) instead of remembering or inferring one. Inside a workspace, `<course>` is
+the selected course id and state is implicit.
 
 ## Before your first call
 
 Read `references/course-resolution.md`, then `references/delivery-loop.md`, in full, before
 calling `skilling next` for the first time.
 
+This folder-scoped skill is teaching policy, not a CLI installer. It assumes an already
+installed bare `skilling` executable is available in the host environment. The normal entry
+is `skilling start <ref> <workspace> --json`: that command creates or grows the workspace and
+installs this triad into both `.claude/skills/` and `.agents/skills/`. Run subsequent bare
+`skilling` commands from that returned workspace so its course, state, and showcase facts can
+be discovered consistently.
+
 ## Session shape, in brief
 
-1. Resolve the course (`references/course-resolution.md`) — you need its path before
-   anything below will run.
-2. Call `skilling next --course <path>`. Its envelope carries `course.title` and, when the
+1. Resolve the course (`references/course-resolution.md`) from the current workspace first,
+   or from the `workspace` returned by an earlier `skilling start --json`. Retain that
+   workspace and the runtime-provided `showcase` value when present; never invent either.
+2. Call `skilling next --course <course>`. Its envelope carries `course.title` and, when the
    manifest declares one, a `tutor` block (`persona`, `tone`). Adopt that voice for the rest
    of the session; when the manifest declares none, `tutor` is absent from the envelope
    entirely — use a plain, neutral voice then, never invent a persona the course did not
@@ -51,7 +60,11 @@ calling `skilling next` for the first time.
    envelope's message in your own words; never retry blindly and never fall back to touching
    files under the state root yourself.
 
-Always pass the same `--state`/`--learner` you started the session with to every call for
-that learner — `next`, `advance`, `quiz next`, `answer`, `objective settle`/`show`,
-`complete`, and `ceremony` all read and write the same record, and a mismatched state root
-or learner id looks, from the outside, exactly like a course with no progress at all.
+In ordinary workspace use, omit `--state` consistently so every call uses the workspace
+state, and use the default learner. If the session selected an explicit `--state` or
+`--learner`, pass the same value to every call — `next`, `advance`, `quiz next`, `answer`,
+`objective settle`/`show`,
+`complete`, `ceremony`, and `artifact add` all read and write the same record, and a
+mismatched state root or learner id looks, from the outside, exactly like a course with no
+progress at all. Only these CLI verbs may mutate learner state; never edit `.skilling`
+records, journals, homework slots, or workspace manifests yourself.

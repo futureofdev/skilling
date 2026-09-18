@@ -1,47 +1,59 @@
 # Course resolution — homework
 
-`skilling homework check`/`submit` need `--course <path>`, exactly like every other verb.
-Resolving that path works the same way it does for `learn` — restated here in full, since
-skills share no code, only prose, and this one should stand on its own.
+`skilling homework check`/`submit` accept `--course <course>` as either a course id resolved
+through the enclosing workspace or an explicit filesystem directory. Begin in the current
+workspace, or in the exact `workspace` returned by an earlier `skilling start --json`.
+Retain that response's `course.id` and `showcase` facts. Do not search the filesystem for a
+plausible course.
 
-## The learner names a course
+## Start with the enclosing workspace
 
-Treat what they said as a ref and call `skilling fetch <ref> --json`. A ref is a local path,
-`gh:owner/repo[@tag-or-sha][#subdir]`, or a `https://`/`git+ssh://` URL:
+In ordinary workspace use, omit `--state`:
+
+```
+skilling courses
+# {"ok": true, "verb": "courses", "courses": [
+#   {"id": "example", "title": "Example", "last_activity": "2026-08-05",
+#    "path": "/workspace/.skilling/courses/example@1.0.0"}, ...
+# ]}
+```
+
+This selects the workspace's `.skilling/state`. If the session already selected an explicit
+state root, use `skilling courses --state <state>` and keep that state choice, plus the same
+`--learner` on course-specific verbs, throughout.
+
+Match a named course by exact id first; use a unique title only when it identifies one row.
+With no name, choose the most-recently-active row unless two or more tie on
+`last_activity`; list tied candidates and ask. An empty list is normal, so ask for a path or
+ref rather than initializing a guessed course.
+
+Inside a workspace, use the selected id directly, even when the row has an optional `path`:
+
+```
+skilling homework check --course example
+```
+
+The runtime resolves that id and the implicit workspace state together. The optional path
+confirms usable matching workspace content; it is not a path the host must repeat for every
+ordinary call.
+
+## Fall back only when workspace resolution cannot work
+
+If a selected workspace id returns `course-not-found`, its content is missing, stale, or
+otherwise unusable. Do not choose another row, guess from the id, edit the manifest, or
+search for a same-named directory. Only then reuse a still-usable explicit path already
+resolved this conversation or ask for the actual path/ref.
+
+Outside a workspace, or for a supplied path/ref that is not a usable workspace course, run:
 
 ```
 skilling fetch <ref> --json
 # {"id": "...", "version": "...", "path": "...", "ref": "...", "pinned": null}
 ```
 
-Use the printed `path` for the rest of the session.
+Use the returned `path` as the explicit `--course` value. If it is not a recognised ref or
+local directory, ask for the real path/ref; a title is not a registry lookup.
 
-If `fetch` refuses with "not a recognised ref, and no local directory" (exit 1), the name
-given is neither a path nor a fetchable ref. Ask the learner for the actual path or ref they
-used before, rather than guessing one.
-
-## The learner does not name one
-
-Call `skilling courses --state <path>` (always JSON):
-
-```
-# {"ok": true, "verb": "courses", "courses": [
-#   {"id": "...", "title": "...", "last_activity": "2026-08-05"}, ...
-# ]}
-```
-
-Default to the first entry (most recently active). List and ask when two or more tie on
-`last_activity`, or when the learner asks what they are even taking. An empty list is a
-normal empty state — nothing has been delivered to this learner yet — not a failure.
-
-## The gap this leaves you with
-
-`courses` reports `id`, `title`, and `last_activity` only — never a path, never a version.
-It tells you *which* course to resume, never *where* its content lives; `skilling` tracks
-progress across many courses from one state root, but keeps no registry from a course id
-back to a filesystem location.
-
-So once you know which id to use, you still need a path: reuse one you already resolved
-earlier this same conversation, or ask the learner for the path or ref again. Do not guess a
-location by searching the filesystem for a directory that happens to match the id — a course
-loaded from a bare local path was never cached under its id at all.
+Keep the selected course and record stream unchanged. In ordinary workspace use, continue
+omitting `--state` and use the default learner. If an explicit `--state` or `--learner` was
+selected, pass the same value on every check, submit, and artifact call.
