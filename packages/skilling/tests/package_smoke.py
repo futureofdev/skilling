@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 SUMMARY = "Learner CLI and LLM-free reference implementation for the open Skilling course format."
 PROJECT_URLS = {
@@ -58,8 +58,32 @@ class ExpectedManifest(TypedDict):
     skill_resources: list[str]
 
 
+class RetainedResources(TypedDict):
+    format_version: int
+    source: dict[str, object]
+    package: dict[str, object]
+    artifacts: list[dict[str, object]]
+    controllers: dict[str, str]
+    fixture: dict[str, str]
+
+
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def retained_fixture_hashes(root: Path) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for current, directories, files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        for name in [*directories, *files]:
+            path = current_path / name
+            assert not path.is_symlink(), path
+        for name in files:
+            path = current_path / name
+            relative = path.relative_to(root).as_posix()
+            assert ".." not in Path(relative).parts and not Path(relative).is_absolute(), relative
+            hashes[relative] = sha256(path.read_bytes())
+    return dict(sorted(hashes.items()))
 
 
 def clean_environment(overrides: dict[str, str] | None = None) -> dict[str, str]:
@@ -139,9 +163,15 @@ def installed_executable(argv: list[str], environment: dict[str, str]) -> str | 
 
 
 class Commands:
-    def __init__(self, evidence: Path, forbidden: Path | None = None) -> None:
+    def __init__(
+        self,
+        evidence: Path,
+        forbidden: Path | None = None,
+        allow_forbidden_arguments: bool = False,
+    ) -> None:
         self.evidence = evidence
         self.forbidden = str(forbidden.resolve()) if forbidden is not None else None
+        self.allow_forbidden_arguments = allow_forbidden_arguments
         self.count = 0
 
     def run(
@@ -151,7 +181,7 @@ class Commands:
         env: dict[str, str] | None = None,
         expected_exit: int = 0,
     ) -> str:
-        if self.forbidden is not None:
+        if self.forbidden is not None and not self.allow_forbidden_arguments:
             exposed = [value for value in [*argv, str(cwd)] if self.forbidden in value]
             assert not exposed, f"installed command exposed checkout path: {exposed}"
         self.count += 1
@@ -363,6 +393,65 @@ def inspect_artifact(artifact: Path, source: Path) -> dict[str, object]:
     }
 
 
+def _retained_metadata_facts(metadata_bytes: bytes, expected: dict[str, object]) -> None:
+    message = BytesParser(policy=policy.default).parsebytes(metadata_bytes)
+    assert tuple(int(part) for part in message["Metadata-Version"].split(".")) >= (2, 4)
+    assert message["Name"] == expected["name"]
+    assert message["Version"] == expected["version"]
+    assert message["Summary"] == expected["summary"]
+    assert message["Requires-Python"] == expected["requires_python"]
+    assert message["License-Expression"] == expected["license_expression"]
+    assert message.get_all("License-File") == ["LICENSE"]
+    urls = dict(row.split(", ", 1) for row in message.get_all("Project-URL", []))
+    assert urls == expected["project_urls"]
+    assert message.get_all("Classifier", []) == expected["classifiers"]
+    dependencies = sorted(_dependency_name(value) for value in message.get_all("Requires-Dist", []))
+    assert dependencies == expected["dependencies"]
+    separator = b"\r\n\r\n" if b"\r\n\r\n" in metadata_bytes else b"\n\n"
+    description = metadata_bytes.split(separator, 1)[1]
+    assert sha256(description) == expected["readme_sha256"]
+
+
+def inspect_retained_artifact(artifact: Path, expected: dict[str, object]) -> None:
+    """Inspect an artifact using only the retained resource contract."""
+    expected_files = expected["files"]
+    assert isinstance(expected_files, dict)
+    if artifact.suffix == ".whl":
+        with zipfile.ZipFile(artifact) as archive:
+            names = archive.namelist()
+            metadata_path = next(name for name in names if name.endswith(".dist-info/METADATA"))
+            license_path = next(
+                name for name in names if name.endswith(".dist-info/licenses/LICENSE")
+            )
+            entry_path = next(
+                name for name in names if name.endswith(".dist-info/entry_points.txt")
+            )
+            for relative, digest in expected_files.items():
+                assert sha256(archive.read(relative)) == digest, (artifact, relative)
+            assert sha256(archive.read(license_path)) == expected["license_sha256"]
+            assert str(expected["entry_point"]) in archive.read(entry_path).decode("utf-8")
+            _retained_metadata_facts(archive.read(metadata_path), expected)
+    else:
+        with tarfile.open(artifact) as archive:
+            names = archive.getnames()
+            prefix = artifact.name.removesuffix(".tar.gz")
+            for relative, digest in expected_files.items():
+                member = archive.extractfile(f"{prefix}/src/{relative}")
+                assert member is not None, relative
+                assert sha256(member.read()) == digest, (artifact, relative)
+            license_member = archive.extractfile(f"{prefix}/LICENSE")
+            assert license_member is not None
+            assert sha256(license_member.read()) == expected["license_sha256"]
+            metadata_member = archive.extractfile(f"{prefix}/PKG-INFO")
+            assert metadata_member is not None
+            _retained_metadata_facts(metadata_member.read(), expected)
+            project_member = archive.extractfile(f"{prefix}/pyproject.toml")
+            assert project_member is not None
+            project = tomllib.loads(project_member.read().decode("utf-8"))
+            assert project["project"]["scripts"] == {"skilling": "skilling.cli:main"}
+    assert not [name for name in names if "/examples/" in name or "/spec/" in name], names
+
+
 def source_identity(source: Path) -> dict[str, object]:
     def output(*arguments: str) -> str:
         return subprocess.run(
@@ -385,14 +474,17 @@ def source_identity(source: Path) -> dict[str, object]:
 
 
 def stage_inputs(
-    source: Path, dist: Path, root: Path, scripts: list[Path]
+    fixture: Path,
+    dist: Path,
+    root: Path,
+    scripts: list[Path],
+    manifest: ExpectedManifest,
 ) -> tuple[Path, list[Path]]:
     stage = root / "stage"
     stage.mkdir()
-    shutil.copytree(source / "examples/welcome-skilling", stage / "course")
+    shutil.copytree(fixture, stage / "course")
     for script in scripts:
         shutil.copy2(script, stage / script.name)
-    manifest = expected_manifest(source)
     (stage / "expected.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     artifacts = [
         dist / f"skilling-{manifest['version']}-py3-none-any.whl",
@@ -640,23 +732,75 @@ def check_submission(
     )
 
 
-def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None:
+def retained_manifest(resources: RetainedResources) -> ExpectedManifest:
+    package = resources["package"]
+    files = cast(dict[str, object], package["files"])
+    skills = cast(list[object], package["skill_resources"])
+    return {
+        "name": str(package["name"]),
+        "version": str(package["version"]),
+        "license_sha256": str(package["license_sha256"]),
+        "files": {str(name): str(digest) for name, digest in files.items()},
+        "skill_resources": [str(name) for name in skills],
+    }
+
+
+def smoke(
+    source: Path | None,
+    dist: Path,
+    evidence: Path,
+    python_version: str,
+    fixture: Path | None = None,
+    expected_resources_path: Path | None = None,
+    source_must_not_exist: Path | None = None,
+) -> None:
     assert f"{sys.version_info.major}.{sys.version_info.minor}" == python_version, sys.version
     evidence.mkdir(parents=True, exist_ok=False)
-    manifest = expected_manifest(source)
-    source_artifacts = [
-        dist / f"skilling-{manifest['version']}-py3-none-any.whl",
-        dist / f"skilling-{manifest['version']}.tar.gz",
-    ]
-    inspections = [inspect_artifact(artifact, source) for artifact in source_artifacts]
+    resources: RetainedResources | None = None
+    if expected_resources_path is None:
+        assert source is not None
+        manifest = expected_manifest(source)
+        source_artifacts = [
+            dist / f"skilling-{manifest['version']}-py3-none-any.whl",
+            dist / f"skilling-{manifest['version']}.tar.gz",
+        ]
+        inspections = [inspect_artifact(artifact, source) for artifact in source_artifacts]
+        identity = source_identity(source)
+        fixture = fixture or source / "examples/welcome-skilling"
+    else:
+        resources = json.loads(expected_resources_path.read_text(encoding="utf-8"))
+        assert resources is not None
+        assert resources["format_version"] == 1
+        manifest = retained_manifest(resources)
+        source_artifacts = [dist / str(row["file"]) for row in resources["artifacts"]]
+        assert sorted(path.name for path in source_artifacts) == sorted(
+            [
+                f"skilling-{manifest['version']}-py3-none-any.whl",
+                f"skilling-{manifest['version']}.tar.gz",
+            ]
+        )
+        for artifact, row in zip(source_artifacts, resources["artifacts"], strict=True):
+            assert artifact.stat().st_size == row["size"], artifact
+            assert sha256(artifact.read_bytes()) == row["sha256"], artifact
+            inspect_retained_artifact(artifact, resources["package"])
+        inspections = resources["artifacts"]
+        identity = resources["source"]
+        assert fixture is not None, "--fixture is required with --expected-resources"
+    assert fixture.is_dir(), fixture
+    if expected_resources_path is not None:
+        assert resources is not None
+        assert retained_fixture_hashes(fixture) == resources["fixture"]
+    if source_must_not_exist is not None:
+        assert not source_must_not_exist.exists(), source_must_not_exist
     (evidence / "artifacts.json").write_text(json.dumps(inspections, indent=2), encoding="utf-8")
     root = Path(tempfile.mkdtemp(prefix="skilling-package-smoke-"))
-    assert not root.resolve().is_relative_to(source)
-    stage, artifacts = stage_inputs(source, dist, root, [Path(__file__)])
+    if source is not None:
+        assert not root.resolve().is_relative_to(source)
+    stage, artifacts = stage_inputs(fixture, dist, root, [Path(__file__)], manifest)
     (evidence / "environment.json").write_text(
         json.dumps(
             {
-                "source_identity": source_identity(source),
+                "source_identity": identity,
                 "temporary_root": str(root),
                 "controller_python": sys.version,
                 "expected_python": python_version,
@@ -668,14 +812,18 @@ def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None
         ),
         encoding="utf-8",
     )
-    commands = Commands(evidence, forbidden=source)
+    commands = Commands(
+        evidence,
+        forbidden=source or source_must_not_exist,
+        allow_forbidden_arguments=source is None and source_must_not_exist is not None,
+    )
     succeeded = False
     try:
         for kind, artifact in zip(("wheel", "sdist"), artifacts, strict=True):
             case = root / kind
             case.mkdir()
             env, python, tool_dir = install_tool(commands, artifact, case, python_version)
-            checkout_sentinel = case / "checkout-unavailable"
+            checkout_sentinel = source_must_not_exist or case / "checkout-unavailable"
             assert not checkout_sentinel.exists()
             version_output = commands.run(["skilling", "--version"], case, env)
             assert manifest["version"] in version_output
@@ -772,6 +920,9 @@ def main() -> None:
     parser.add_argument("--source", type=Path)
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--evidence", type=Path)
+    parser.add_argument("--fixture", type=Path)
+    parser.add_argument("--expected-resources", type=Path)
+    parser.add_argument("--source-must-not-exist", type=Path)
     parser.add_argument(
         "--python-version", default=f"{sys.version_info.major}.{sys.version_info.minor}"
     )
@@ -811,12 +962,30 @@ def main() -> None:
             args.python_version,
         )
     else:
-        if args.source is None or args.dist is None:
-            parser.error("--source and --dist are required")
+        if args.dist is None:
+            parser.error("--dist is required")
+        if args.expected_resources is None and args.source is None:
+            parser.error("--source or --expected-resources is required")
+        if args.expected_resources is not None and args.fixture is None:
+            parser.error("--fixture is required with --expected-resources")
         evidence = args.evidence or Path(tempfile.gettempdir()) / (
             "skilling-package-evidence-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
         )
-        smoke(args.source.resolve(), args.dist.resolve(), evidence.resolve(), args.python_version)
+        smoke(
+            args.source.resolve() if args.source is not None else None,
+            args.dist.resolve(),
+            evidence.resolve(),
+            args.python_version,
+            fixture=args.fixture.resolve() if args.fixture is not None else None,
+            expected_resources_path=(
+                args.expected_resources.resolve() if args.expected_resources is not None else None
+            ),
+            source_must_not_exist=(
+                args.source_must_not_exist.resolve()
+                if args.source_must_not_exist is not None
+                else None
+            ),
+        )
 
 
 if __name__ == "__main__":

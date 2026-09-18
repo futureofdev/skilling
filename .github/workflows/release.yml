@@ -1,0 +1,146 @@
+name: Release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact commit on the default main branch to build and publish
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-0.5.0
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "1"
+  UV_FROZEN: "1"
+  CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.5.0-candidate
+
+jobs:
+  build:
+    name: Build immutable candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify immutable default-branch source
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$DEFAULT_BRANCH" = main
+          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
+          test "$DISPATCH_SHA" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse "origin/$DEFAULT_BRANCH")" = "$CANDIDATE_SHA"
+          git merge-base --is-ancestor "$CANDIDATE_SHA" "origin/$DEFAULT_BRANCH"
+          git diff-index --quiet HEAD --
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.13"
+      - uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
+        with:
+          version: 3.x
+          repo-token: ${{ github.token }}
+      - name: Verify lock, release identity, and source gates
+        run: |
+          env -u UV_FROZEN uv lock --check
+          uv sync
+          uv run pytest packages/skilling/tests/test_versioning.py packages/skilling/tests/test_release_contract.py -q
+          task check
+      - name: Build Python distributions once
+        run: uv build --package skilling --out-dir dist
+      - name: Inspect built distributions
+        run: uv run python packages/skilling/tests/package_smoke.py --source . --dist dist --evidence package-evidence
+      - name: Inspect installed source behavior
+        run: uv run python packages/skilling/tests/source_package_smoke.py --source . --dist dist --evidence source-package-evidence
+      - name: Build the GitHub release attachment from reviewed sources
+        run: |
+          test -f brand/build.py
+          uv run --with pillow brand/build.py --zip
+          test -f brand/dist/skilling-brand-assets-v2.0.zip
+      - name: Assemble and verify retained candidate
+        run: >-
+          uv run python tools/release_candidate.py assemble
+          --source .
+          --dist dist
+          --brand-zip brand/dist/skilling-brand-assets-v2.0.zip
+          --output "$CANDIDATE_DIR"
+      - name: Prove installed artifacts without the checkout
+        run: |
+          set -euo pipefail
+          controller="$CANDIDATE_DIR/verification/package_smoke.py"
+          fixture="$CANDIDATE_DIR/verification/welcome-skilling"
+          resources="$CANDIDATE_DIR/verification/resources.json"
+          dist="$CANDIDATE_DIR/dist"
+          release_helper="$RUNNER_TEMP/release_candidate.py"
+          unavailable="$GITHUB_WORKSPACE"
+          cp tools/release_candidate.py "$release_helper"
+          cd "$RUNNER_TEMP"
+          trap 'mkdir -p "$unavailable"' EXIT
+          rm -rf "$unavailable"
+          test ! -e "$unavailable"
+          export PYTHONDONTWRITEBYTECODE=1
+          python -B "$controller" \
+            --dist "$dist" \
+            --fixture "$fixture" \
+            --expected-resources "$resources" \
+            --source-must-not-exist "$unavailable" \
+            --evidence "$RUNNER_TEMP/retained-package-evidence"
+          test ! -e "$unavailable"
+          python -B "$release_helper" verify --candidate "$CANDIDATE_DIR"
+          mkdir -p "$unavailable"
+          trap - EXIT
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: skilling-0.5.0-candidate
+          path: ${{ runner.temp }}/skilling-0.5.0-candidate
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  publish:
+    name: Publish retained distributions
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: skilling-0.5.0-candidate
+          path: candidate
+      - name: Verify retained bytes and immutable release tag
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          python tools/release_candidate.py verify \
+            --candidate candidate \
+            --source . \
+            --require-tag 0.5.0
+      - name: Publish only the retained Python distributions
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: candidate/dist

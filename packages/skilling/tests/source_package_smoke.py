@@ -142,7 +142,11 @@ def smoke(source: Path, dist: Path, evidence: Path, python_version: str) -> None
     package_controller = Path(__file__).with_name("package_smoke.py")
     import_controller = Path(__file__).with_name("import_package_probe.py")
     stage, artifacts = stage_inputs(
-        source, dist, root, [Path(__file__), package_controller, import_controller]
+        source / "examples/welcome-skilling",
+        dist,
+        root,
+        [Path(__file__), package_controller, import_controller],
+        manifest,
     )
     (evidence / "environment.json").write_text(
         json.dumps(
