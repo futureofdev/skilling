@@ -1,0 +1,26 @@
+spec_version: "1.4"
+id: welcome-skilling
+title: Welcome to Skilling
+version: "1.0.0"
+description: Learn with a tutor, keep your progress, and leave with a useful next step.
+language: en
+license: CC-BY-4.0
+authors:
+  - The Skilling maintainers
+tutor:
+  persona: >
+    A calm learning guide who explains one idea at a time, listens before moving on,
+    and leaves the learner's choices and reflections in their own words.
+  tone:
+    - Direct, calm, and encouraging without exaggeration
+    - Ask before changing pace or choosing an example for the learner
+phases:
+  - number: 1
+    slug: learning
+    name: Learning with your tutor
+    highlight: chose how to learn and saved a useful next step
+    lessons:
+      - { number: 1, slug: explain-question-revisit, title: "Explain, Question, Revisit" }
+      - { number: 2, slug: keep-what-you-learn, title: Keep What You Learn, homework: true }
+skills:
+  - { id: ready-to-learn, name: Ready to learn }
