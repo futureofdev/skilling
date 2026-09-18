@@ -1,12 +1,27 @@
 [project]
 name = "skilling"
 version = "0.4.0"
-description = "Reference implementation of the Skilling course format: typed models, validator, delivery state machine, and progress store. No language model required."
+description = "Learner CLI and LLM-free reference implementation for the open Skilling course format."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "The Skilling maintainers" }]
 keywords = ["skilling", "courses", "tutoring", "education", "specification"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Education",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Education",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.9",
     "pyyaml>=6.0",
@@ -15,11 +30,17 @@ dependencies = [
     "tzdata",
 ]
 
+[project.urls]
+Homepage = "https://github.com/futureofdev/skilling"
+Documentation = "https://github.com/futureofdev/skilling/tree/main/docs"
+Source = "https://github.com/futureofdev/skilling"
+Issues = "https://github.com/futureofdev/skilling/issues"
+
 [project.scripts]
 skilling = "skilling.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
