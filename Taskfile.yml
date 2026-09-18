@@ -55,6 +55,7 @@ tasks:
     cmds:
       - uv run skilling validate examples/hello-skilling
       - uv run skilling validate examples/workbench
+      - uv run skilling validate examples/welcome-skilling --strict
 
   package:smoke:
     desc: "Build and test installed wheel/sdist outside checkout; extra args after --"
