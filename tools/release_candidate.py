@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tarfile
@@ -17,7 +18,7 @@ import tomllib
 import zipfile
 from email import policy
 from email.parser import BytesParser
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import NoReturn
 
 VERSION = "0.5.0"
@@ -29,7 +30,7 @@ CHECKSUM_PATHS = (
     f"dist/skilling-{VERSION}.tar.gz",
     f"github-release/{BRAND_ARCHIVE}",
 )
-CONTROLLERS = ("package_smoke.py", "source_package_smoke.py")
+CONTROLLERS = ("package_smoke.py", "source_package_smoke.py", "import_package_probe.py")
 
 
 def fail(message: str) -> NoReturn:
@@ -38,6 +39,45 @@ def fail(message: str) -> NoReturn:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def manifest_relative_path(value: object, context: str) -> str:
+    """Return one canonical candidate-relative POSIX path or fail closed."""
+    if not isinstance(value, str) or not value or "\\" in value:
+        fail(f"unsafe {context} path: {value!r}")
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts or path.as_posix() != value:
+        fail(f"unsafe {context} path: {value!r}")
+    return value
+
+
+def regular_file_hashes(root: Path) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for current, directories, files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        for name in [*directories, *files]:
+            path = current_path / name
+            if path.is_symlink():
+                fail(f"source input contains a symlink: {path}")
+        for name in files:
+            path = current_path / name
+            relative = path.relative_to(root).as_posix()
+            manifest_relative_path(relative, "source resource")
+            hashes[relative] = sha256(path)
+    return dict(sorted(hashes.items()))
+
+
+def reject_candidate_symlinks(root: Path) -> None:
+    if root.is_symlink():
+        fail(f"candidate contains a symlink: {root}")
+    if not root.is_dir():
+        fail(f"candidate is not a directory: {root}")
+    for current, directories, files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        for name in [*directories, *files]:
+            path = current_path / name
+            if path.is_symlink():
+                fail(f"candidate contains a symlink: {path.relative_to(root).as_posix()}")
 
 
 def git(source: Path, *arguments: str) -> str:
@@ -138,6 +178,8 @@ def expected_resources(source: Path, artifacts: list[Path]) -> dict[str, object]
     expected_readme = sha256(source / "packages/skilling/README.md")
     if readme_hashes != {expected_readme}:
         fail("built long description does not match packages/skilling/README.md")
+    fixture = regular_file_hashes(source / "examples/welcome-skilling")
+    controllers = {name: sha256(source / "packages/skilling/tests" / name) for name in CONTROLLERS}
     return {
         "format_version": 1,
         "source": source_identity(source),
@@ -152,6 +194,8 @@ def expected_resources(source: Path, artifacts: list[Path]) -> dict[str, object]
             {"file": artifact.name, "size": artifact.stat().st_size, "sha256": sha256(artifact)}
             for artifact in artifacts
         ],
+        "controllers": controllers,
+        "fixture": fixture,
     }
 
 
@@ -220,6 +264,7 @@ def parse_checksums(path: Path) -> dict[str, str]:
         digest, separator, relative = line.partition("  ")
         if separator != "  " or len(digest) != 64 or digest != digest.lower():
             fail(f"invalid SHA256SUMS row: {line!r}")
+        manifest_relative_path(relative, "checksum")
         if relative in parsed:
             fail(f"duplicate SHA256SUMS path: {relative}")
         parsed[relative] = digest
@@ -238,6 +283,7 @@ def check_tag(source: Path, candidate_sha: str, version: str) -> None:
 
 
 def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -> None:
+    reject_candidate_symlinks(candidate_root)
     expected_top = {"SHA256SUMS", "candidate.json", "dist", "github-release", "verification"}
     actual_top = {path.name for path in candidate_root.iterdir()}
     if actual_top != expected_top:
@@ -263,6 +309,20 @@ def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -
     resources = json.loads(
         (candidate_root / "verification/resources.json").read_text(encoding="utf-8")
     )
+    package_files = resources["package"]["files"]
+    if not isinstance(package_files, dict):
+        fail("package resource manifest is not an object")
+    for relative in package_files:
+        safe = manifest_relative_path(relative, "package resource")
+        if not safe.startswith("skilling/"):
+            fail(f"package resource is outside skilling/: {safe}")
+    fixture = resources.get("fixture")
+    controllers = resources.get("controllers")
+    if not isinstance(fixture, dict) or not isinstance(controllers, dict):
+        fail("retained verification manifests are missing")
+    fixture_paths = {manifest_relative_path(relative, "fixture") for relative in fixture}
+    if set(controllers) != set(CONTROLLERS):
+        fail("retained controller manifest mismatch")
     if candidate["artifact_name"] != CANDIDATE_ARTIFACT:
         fail("candidate artifact name mismatch")
     if (
@@ -277,6 +337,8 @@ def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -
     if candidate["tree"] != resources["source"]["tree"]:
         fail("candidate/resources tree mismatch")
     artifact_rows = {row["file"]: row for row in resources["artifacts"]}
+    if set(artifact_rows) != expected_dist or len(resources["artifacts"]) != len(expected_dist):
+        fail("resource artifact manifest mismatch")
     for relative in CHECKSUM_PATHS[:2]:
         path = candidate_root / relative
         row = artifact_rows.get(path.name)
@@ -287,10 +349,43 @@ def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -
     if {path.name for path in verification.iterdir()} != expected_verification:
         fail("candidate verification layout mismatch")
     for controller in CONTROLLERS:
-        if not (verification / controller).is_file():
+        controller_path = verification / controller
+        if not controller_path.is_file():
             fail(f"missing retained controller: {controller}")
-    if not (verification / "welcome-skilling/course.yaml").is_file():
-        fail("missing retained welcome fixture")
+        if sha256(controller_path) != controllers[controller]:
+            fail(f"retained controller hash mismatch: {controller}")
+    fixture_root = verification / "welcome-skilling"
+    for relative, digest in fixture.items():
+        path = fixture_root / manifest_relative_path(relative, "fixture")
+        if not path.is_file() or sha256(path) != digest:
+            fail(f"retained fixture hash mismatch: {relative}")
+
+    expected_files = {
+        "SHA256SUMS",
+        "candidate.json",
+        *CHECKSUM_PATHS,
+        "verification/resources.json",
+        *(f"verification/{name}" for name in CONTROLLERS),
+        *(f"verification/welcome-skilling/{name}" for name in fixture_paths),
+    }
+    expected_directories = {
+        "dist",
+        "github-release",
+        "verification",
+        "verification/welcome-skilling",
+    }
+    for relative in fixture_paths:
+        parent = PurePosixPath("verification/welcome-skilling") / PurePosixPath(relative).parent
+        while parent.as_posix() != ".":
+            expected_directories.add(parent.as_posix())
+            parent = parent.parent
+    actual_files: set[str] = set()
+    actual_directories: set[str] = set()
+    for path in candidate_root.rglob("*"):
+        relative = path.relative_to(candidate_root).as_posix()
+        (actual_directories if path.is_dir() else actual_files).add(relative)
+    if actual_files != expected_files or actual_directories != expected_directories:
+        fail("candidate recursive layout mismatch")
     if source is not None:
         commit = git(source, "rev-parse", "HEAD")
         tree = git(source, "rev-parse", "HEAD^{tree}")
@@ -329,7 +424,7 @@ def main() -> None:
         if args.require_tag and args.source is None:
             parser.error("--require-tag requires --source")
         verify(
-            args.candidate.resolve(),
+            args.candidate.absolute(),
             args.source.resolve() if args.source is not None else None,
             args.require_tag,
         )

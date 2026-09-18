@@ -52,6 +52,7 @@ SHA256SUMS
 candidate.json
 verification/package_smoke.py
 verification/source_package_smoke.py
+verification/import_package_probe.py
 verification/resources.json
 verification/welcome-skilling/
 ```
@@ -60,7 +61,9 @@ verification/welcome-skilling/
 path, with lowercase SHA-256 and two spaces before each path. `candidate.json` binds the
 package and specification versions to the full commit and tree. `resources.json` additionally
 binds package metadata, console entry point, README and licence hashes, every installed
-resource, skill/reference resources, distribution names, sizes and hashes.
+resource, skill/reference resources, distribution names, sizes and hashes, the three retained
+controllers, and every Welcome fixture file. Verification rejects symlinks, path traversal or
+any file or directory outside this fixed layout.
 
 Before continuing, extract into an empty directory and run:
 

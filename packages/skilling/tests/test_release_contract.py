@@ -10,6 +10,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pytest
 import yaml
 
 from .conftest import REPO_ROOT
@@ -47,14 +48,14 @@ def step_runs(job: dict[str, Any]) -> str:
     return "\n".join(str(step.get("run", "")) for step in steps)
 
 
-def test_release_has_only_manual_trigger_and_read_only_default_permissions() -> None:
+def test_release_has_only_manual_trigger_and_deny_all_default_permissions() -> None:
     data = workflow()
     triggers = data.get("on", data.get(True))
 
     assert isinstance(triggers, dict)
     assert set(triggers) == {"workflow_dispatch"}
     assert triggers["workflow_dispatch"]["inputs"]["candidate_sha"]["required"] is True
-    assert data["permissions"] == {"contents": "read"}
+    assert data["permissions"] == {}
     assert "pull_request" not in WORKFLOW_PATH.read_text(encoding="utf-8")
 
 
@@ -73,6 +74,8 @@ def test_build_rejects_mutable_or_non_default_branch_input_and_runs_full_gates()
         assert gate in commands
     assert commands.count("uv build --package skilling") == 1
     assert "package_smoke.py --source . --dist dist" in commands
+    assert "source_package_smoke.py --source . --dist dist" in commands
+    assert "--evidence source-package-evidence" in commands
     assert "brand/build.py --zip" in commands
     assert "--source-must-not-exist" in commands and 'rm -rf "$unavailable"' in commands
 
@@ -125,6 +128,10 @@ def test_all_release_actions_are_bound_to_reviewed_commits() -> None:
     found = dict(re.findall(r"uses:\s+([^@\s]+)@([0-9a-f]{40})", text))
 
     assert found == ACTION_PINS
+    assert (
+        f"pypa/gh-action-pypi-publish@{ACTION_PINS['pypa/gh-action-pypi-publish']} # v1.14.2"
+        in text
+    )
 
 
 def test_candidate_layout_and_checksum_contract_are_exact() -> None:
@@ -143,11 +150,47 @@ def test_candidate_layout_and_checksum_contract_are_exact() -> None:
         "verification/resources.json",
         "package_smoke.py",
         "source_package_smoke.py",
+        "import_package_probe.py",
         "welcome-skilling",
     ):
         assert retained in helper_text or retained in RUNBOOK_PATH.read_text(encoding="utf-8")
     assert '"\\n".join(sorted(checksum_lines))' in helper_text
     assert 'f"{sha256(output / relative)}  {relative}"' in helper_text
+
+
+def test_verifier_rejects_an_unexpected_directory(tmp_path: Path) -> None:
+    helper = release_helper()
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    (candidate / "unexpected").mkdir()
+
+    with pytest.raises(SystemExit, match="candidate layout mismatch"):
+        helper.verify(candidate, source=None, require_tag=None)
+
+
+def test_verifier_rejects_a_symlinked_wheel(tmp_path: Path) -> None:
+    helper = release_helper()
+    candidate = tmp_path / "candidate"
+    dist = candidate / "dist"
+    dist.mkdir(parents=True)
+    outside = tmp_path / "outside.whl"
+    outside.write_bytes(b"not a wheel")
+    wheel = dist / "skilling-0.5.0-py3-none-any.whl"
+    try:
+        wheel.symlink_to(outside)
+    except OSError as error:
+        pytest.skip(f"symlink creation unavailable: {error}")
+
+    with pytest.raises(SystemExit, match="candidate contains a symlink"):
+        helper.verify(candidate, source=None, require_tag=None)
+
+
+@pytest.mark.parametrize("unsafe", ["../escape", "/absolute", "nested//file", "nested\\file"])
+def test_manifest_paths_cannot_traverse_the_candidate(unsafe: str) -> None:
+    helper = release_helper()
+
+    with pytest.raises(SystemExit, match="unsafe fixture path"):
+        helper.manifest_relative_path(unsafe, "fixture")
 
 
 def git(repo: Path, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:

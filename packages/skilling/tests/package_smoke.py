@@ -63,10 +63,27 @@ class RetainedResources(TypedDict):
     source: dict[str, object]
     package: dict[str, object]
     artifacts: list[dict[str, object]]
+    controllers: dict[str, str]
+    fixture: dict[str, str]
 
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def retained_fixture_hashes(root: Path) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for current, directories, files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        for name in [*directories, *files]:
+            path = current_path / name
+            assert not path.is_symlink(), path
+        for name in files:
+            path = current_path / name
+            relative = path.relative_to(root).as_posix()
+            assert ".." not in Path(relative).parts and not Path(relative).is_absolute(), relative
+            hashes[relative] = sha256(path.read_bytes())
+    return dict(sorted(hashes.items()))
 
 
 def clean_environment(overrides: dict[str, str] | None = None) -> dict[str, str]:
@@ -739,6 +756,7 @@ def smoke(
 ) -> None:
     assert f"{sys.version_info.major}.{sys.version_info.minor}" == python_version, sys.version
     evidence.mkdir(parents=True, exist_ok=False)
+    resources: RetainedResources | None = None
     if expected_resources_path is None:
         assert source is not None
         manifest = expected_manifest(source)
@@ -750,9 +768,8 @@ def smoke(
         identity = source_identity(source)
         fixture = fixture or source / "examples/welcome-skilling"
     else:
-        resources: RetainedResources = json.loads(
-            expected_resources_path.read_text(encoding="utf-8")
-        )
+        resources = json.loads(expected_resources_path.read_text(encoding="utf-8"))
+        assert resources is not None
         assert resources["format_version"] == 1
         manifest = retained_manifest(resources)
         source_artifacts = [dist / str(row["file"]) for row in resources["artifacts"]]
@@ -770,6 +787,9 @@ def smoke(
         identity = resources["source"]
         assert fixture is not None, "--fixture is required with --expected-resources"
     assert fixture.is_dir(), fixture
+    if expected_resources_path is not None:
+        assert resources is not None
+        assert retained_fixture_hashes(fixture) == resources["fixture"]
     if source_must_not_exist is not None:
         assert not source_must_not_exist.exists(), source_must_not_exist
     (evidence / "artifacts.json").write_text(json.dumps(inspections, indent=2), encoding="utf-8")
