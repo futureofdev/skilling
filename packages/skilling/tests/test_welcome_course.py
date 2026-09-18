@@ -166,8 +166,8 @@ def test_lesson_contracts_keep_the_learner_in_control() -> None:
     }
     practice = next(o for o in second_frontmatter.objectives if o.kind == "practice")
     knowledge = next(o for o in second_frontmatter.objectives if o.kind == "knowledge")
-    assert knowledge.about == [1, 2, 3]
-    assert practice.about == []
+    assert knowledge.about == [1, 3]
+    assert practice.about == [2]
     assert practice.verify and "learner-authored" in practice.verify
     assert all(word in practice.verify.lower() for word in ("goal", "takeaway", "next action"))
     assert getattr(second_frontmatter.declaration("next_up"), "status", None) == "none"

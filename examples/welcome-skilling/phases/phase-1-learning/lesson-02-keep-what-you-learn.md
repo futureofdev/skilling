@@ -11,13 +11,14 @@ objectives:
     text: >
       Explain how a Skilling workspace lets a learner return to their saved place and why
       lesson completion is separate from homework submission
-    about: [1, 2, 3]
+    about: [1, 3]
   - id: preserve-a-next-step
     kind: practice
     text: Save a personal learning goal, takeaway, and next action in the course showcase
     verify: >
       Meaningful learner-authored content for a goal, takeaway, and next action exists at
       showcase/welcome-skilling/goal.md
+    about: [2]
 sections:
   key_terms: present
   exercise: present
@@ -78,23 +79,24 @@ replace your words.
    **Answer:** a) Which course position the learner should continue from — durable position
    is enough to resume without depending on the old conversation.
 
-2. What does completing this declared homework-bearing boundary lesson do?
-   - a) It submits the homework automatically
-   - b) It records every detail from the conversation
-   - c) It saves course progress and makes the authored homework available without submitting it
-   - d) It confirms that every homework requirement has been met
+2. Where should the learner keep the goal, takeaway, and next action from this course?
+   - a) Only in the current conversation
+   - b) In any location the tutor guesses
+   - c) In `showcase/welcome-skilling/goal.md` inside the learning workspace
+   - d) In a tutor-written summary that replaces the learner's words
 
-   **Answer:** c) It saves course progress and makes the authored homework available without
-   submitting it — completion and homework submission are separate learner actions.
+   **Answer:** c) In `showcase/welcome-skilling/goal.md` inside the learning workspace — that
+   visible course path keeps learner-authored work available when the learner returns.
 
 3. What must happen before the tutor submits the homework?
    - a) The learner mentions that the work exists
    - b) The learner shows the work, reviews feedback, then confirms submission separately
    - c) The tutor decides that the learner probably agrees
-   - d) The course lesson completes
+   - d) The lesson completes, which also submits the homework
 
    **Answer:** b) The learner shows the work, reviews feedback, then confirms submission
-   separately — sharing work or discussing feedback alone is not permission to submit.
+   separately — sharing work or discussing feedback alone is not permission to submit, and
+   lesson completion only makes this lesson's homework available.
 
 ## Homework Assignment
 
