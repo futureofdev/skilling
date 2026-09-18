@@ -11,14 +11,13 @@ objectives:
     text: >
       Explain how a Skilling workspace lets a learner return to their saved place and why
       lesson completion is separate from homework submission
-    about: [1, 2]
+    about: [1, 2, 3]
   - id: preserve-a-next-step
     kind: practice
     text: Save a personal learning goal, takeaway, and next action in the course showcase
     verify: >
       Meaningful learner-authored content for a goal, takeaway, and next action exists at
       showcase/welcome-skilling/goal.md
-    about: [3]
 sections:
   key_terms: present
   exercise: present
@@ -41,7 +40,8 @@ The distinction matters: the progress record says *where you are*, while your ow
 *what matters to you*. A short goal, a takeaway in your words, and a concrete next action are
 enough to turn a good conversation into something you can use later.
 
-Completing a lesson saves your course position and makes its homework available. It does not
+Because this is the declared final lesson of its phase and carries homework, completing it
+saves your course position and makes that authored homework available. Completion does not
 submit the homework. Submission happens separately, after you show the work to your tutor,
 review feedback on each requirement, and explicitly confirm that you want to submit.
 
@@ -53,17 +53,19 @@ review feedback on each requirement, and explicitly confirm that you want to sub
 
 ## Hands-On Exercise
 
-Create `showcase/welcome-skilling/goal.md` in the learning workspace. Write the content
-yourself, using these labels:
+Create `showcase/welcome-skilling/goal.md` in the learning workspace. Use an editor yourself,
+or dictate your exact wording and ask your tutor to save those words verbatim. Use these
+labels:
 
 - **Goal:** a subject or ability you want to develop
 - **Takeaway:** something from this course that you can explain in your own words
 - **Next action:** a small action you will take when you next learn
 
-Make each entry specific enough that it will still be useful when you return. Ask your tutor
-to verify that the file exists at that exact workspace-relative path and that all entries
-contain meaningful content. The tutor may ask you to make an entry clearer, but should not
-write or replace your words.
+Make each entry specific enough that it will still be useful when you return. The ideas and
+wording must remain yours whichever way the file is saved. Ask your tutor to verify that the
+file exists at that exact workspace-relative path and that all entries contain meaningful
+content. The tutor may ask you to make an entry clearer, but must not invent, rewrite, or
+replace your words.
 
 ## Quick Quiz
 
@@ -76,23 +78,23 @@ write or replace your words.
    **Answer:** a) Which course position the learner should continue from — durable position
    is enough to resume without depending on the old conversation.
 
-2. Why keep learner work in the showcase folder?
-   - a) It hides the work from the learner
-   - b) It replaces the course progress record
-   - c) It keeps chosen work visible and portable with the workspace
-   - d) It publishes the work automatically
+2. What does completing this declared homework-bearing boundary lesson do?
+   - a) It submits the homework automatically
+   - b) It records every detail from the conversation
+   - c) It saves course progress and makes the authored homework available without submitting it
+   - d) It confirms that every homework requirement has been met
 
-   **Answer:** c) It keeps chosen work visible and portable with the workspace — the learner
-   can read, change, and carry it with the rest of the workspace.
+   **Answer:** c) It saves course progress and makes the authored homework available without
+   submitting it — completion and homework submission are separate learner actions.
 
-3. What makes the saved next action useful?
-   - a) It uses the tutor's words instead of the learner's
-   - b) It is specific enough to act on after returning
-   - c) It describes every future learning session
-   - d) It stays only in the current conversation
+3. What must happen before the tutor submits the homework?
+   - a) The learner mentions that the work exists
+   - b) The learner shows the work, reviews feedback, then confirms submission separately
+   - c) The tutor decides that the learner probably agrees
+   - d) The course lesson completes
 
-   **Answer:** b) It is specific enough to act on after returning — a concrete learner-written
-   step turns the saved goal into a practical place to continue.
+   **Answer:** b) The learner shows the work, reviews feedback, then confirms submission
+   separately — sharing work or discussing feedback alone is not permission to submit.
 
 ## Homework Assignment
 

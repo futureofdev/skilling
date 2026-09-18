@@ -33,6 +33,42 @@ def body(args: list[str], home: Path) -> dict:
     return json.loads(result.stdout)
 
 
+def state_snapshot(workspace: Path) -> dict[str, bytes]:
+    root = workspace / ".skilling" / "state"
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file() and path.name != ".skilling.lock"
+    }
+
+
+def assert_current_beat_is_read_only(workspace: Path, home: Path, expected_beat: str) -> dict:
+    before = state_snapshot(workspace)
+    envelope = body(["next", "--course", "welcome-skilling"], home)
+    assert envelope["beat"]["name"] == expected_beat
+    assert state_snapshot(workspace) == before
+    return envelope
+
+
+def answer_quiz(workspace: Path, home: Path, labels: list[str]) -> None:
+    for number, label in enumerate(labels, start=1):
+        before = state_snapshot(workspace)
+        first = body(["quiz", "next", "--course", "welcome-skilling"], home)
+        question = first["question"]
+        assert set(question) == {"number", "text", "options"}
+        assert question["number"] == number
+        assert set(question["options"]) == {"a", "b", "c", "d"}
+        assert state_snapshot(workspace) == before
+
+        repeated = body(["quiz", "next", "--course", "welcome-skilling"], home)
+        assert repeated == first, "only the open question may be served before an answer"
+        assert state_snapshot(workspace) == before
+
+        verdict = body(["answer", label, "--course", "welcome-skilling"], home)
+        assert verdict["correct"] is True
+        assert verdict["reason"]
+
+
 def test_welcome_course_validates_with_zero_findings() -> None:
     report = validate_course(WELCOME)
     assert report.findings == [], [finding.as_dict() for finding in report.findings]
@@ -98,9 +134,12 @@ def test_lesson_contracts_keep_the_learner_in_control() -> None:
     for phrase in (
         "explain → question → revisit",
         "everyday subject",
+        "notice one gap",
+        "ask a specific question",
         "different example",
         "change of pace",
         "should not supply the reflection",
+        "waits for the learner's explicit reply",
     ):
         assert phrase in first_text
 
@@ -114,8 +153,11 @@ def test_lesson_contracts_keep_the_learner_in_control() -> None:
     for phrase in (
         "return to their saved place",
         "lesson completion is separate from homework submission",
-        "completing a lesson saves your course position",
-        "it does not submit the homework",
+        "declared final lesson of its phase and carries homework",
+        "completion does not submit the homework",
+        "dictate your exact wording",
+        "save those words verbatim",
+        "must not invent, rewrite, or replace your words",
     ):
         assert phrase in second_text
     assert {objective.kind for objective in second_frontmatter.objectives} == {
@@ -123,6 +165,9 @@ def test_lesson_contracts_keep_the_learner_in_control() -> None:
         "practice",
     }
     practice = next(o for o in second_frontmatter.objectives if o.kind == "practice")
+    knowledge = next(o for o in second_frontmatter.objectives if o.kind == "knowledge")
+    assert knowledge.about == [1, 2, 3]
+    assert practice.about == []
     assert practice.verify and "learner-authored" in practice.verify
     assert all(word in practice.verify.lower() for word in ("goal", "takeaway", "next action"))
     assert getattr(second_frontmatter.declaration("next_up"), "status", None) == "none"
@@ -173,23 +218,24 @@ def test_mechanical_walk_submission_artifact_and_relocation(tmp_path: Path, monk
     assert started["showcase"] == "showcase/welcome-skilling"
 
     monkeypatch.chdir(workspace)
-    path_with_exercise = [
-        "next",
-        "next",
-        "next",
-        "proceed",
-        "next",
-        "attempted",
-        "answer-correct",
-        "answer-correct",
-        "answer-correct",
-    ]
+    answers = {"1.1": ["b", "c", "b"], "1.2": ["a", "c", "b"]}
     for coordinate in ("1.1", "1.2"):
-        for learner_input in path_with_exercise:
+        for learner_input in ("next", "next", "next"):
             result = invoke(
                 ["advance", "--course", "welcome-skilling", "--input", learner_input], home
             )
             assert result.exit_code == 0, f"{coordinate}/{learner_input}: {result.output}"
+
+        gate = assert_current_beat_is_read_only(workspace, home, "gate-concept")
+        assert set(gate["legal_inputs"]) == {"go-deeper", "proceed"}
+        body(
+            ["advance", "--course", "welcome-skilling", "--input", "proceed"],
+            home,
+        )
+        body(["advance", "--course", "welcome-skilling", "--input", "next"], home)
+        gate = assert_current_beat_is_read_only(workspace, home, "gate-exercise")
+        assert set(gate["legal_inputs"]) == {"hint", "attempted"}
+
         if coordinate == "1.2":
             goal = workspace / GOAL_PATH
             goal.write_text(
@@ -199,6 +245,13 @@ def test_mechanical_walk_submission_artifact_and_relocation(tmp_path: Path, monk
                 "**Next action:** Choose a sunny patch and list what already grows there.\n",
                 encoding="utf-8",
             )
+            saved = goal.read_text(encoding="utf-8")
+            labels = ("**Goal:**", "**Takeaway:**", "**Next action:**")
+            assert all(label in saved for label in labels)
+            assert "vegetable garden" in saved and "sunny patch" in saved
+
+        body(["advance", "--course", "welcome-skilling", "--input", "attempted"], home)
+        answer_quiz(workspace, home, answers[coordinate])
         completed = body(["complete", "--course", "welcome-skilling"], home)
 
     assert completed["phase_completed"] == 1

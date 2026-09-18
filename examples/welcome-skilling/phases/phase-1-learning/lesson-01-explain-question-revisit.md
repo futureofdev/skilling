@@ -9,11 +9,11 @@ objectives:
   - id: describe-the-learning-loop
     kind: knowledge
     text: Explain how an explanation, a question, and a revisit work together in tutoring
-    about: [1, 2]
+    about: [1, 3]
   - id: choose-a-helpful-adjustment
     kind: knowledge
     text: Choose a different example or pace when an explanation does not yet make sense
-    about: [3]
+    about: [2]
 sections:
   key_terms: present
   exercise: present
@@ -48,9 +48,10 @@ Choose an everyday subject you know something about: making tea, caring for a pl
 a journey, or anything else familiar to you.
 
 Ask your tutor to explain one small part of it. Answer the tutor's question in your own words.
-Then request either a different example or a change of pace, even if the first explanation
-made sense. Say what the change helped you notice. Keep that reflection in your own words;
-your tutor may ask a follow-up, but should not supply the reflection for you.
+Notice one gap, uncertainty, or surprising part in your understanding and ask a specific
+question about it. Then request either a different example or a change of pace. Say what the
+change helped you notice. Keep that reflection in your own words; your tutor may ask a
+follow-up, but should not supply the reflection for you.
 
 ## Quick Quiz
 
@@ -63,23 +64,23 @@ your tutor may ask a follow-up, but should not supply the reflection for you.
    **Answer:** b) To reveal what is clear and what may need another look — the answer gives
    the tutor evidence for choosing a useful revisit.
 
-2. Why should a learner answer in their own words?
-   - a) It gives the tutor useful evidence of the learner's understanding
-   - b) It guarantees that every answer is correct
-   - c) It lets the tutor skip the revisit
-   - d) It makes the subject more formal
+2. Your answer reveals a gap and the explanation still feels too abstract. What is useful?
+   - a) Pretend it made sense so the lesson keeps moving
+   - b) Ask the tutor to decide what you meant
+   - c) Name the gap, ask a specific question, and request a different example or pace
+   - d) Repeat the tutor's explanation without saying what is unclear
 
-   **Answer:** a) It gives the tutor useful evidence of the learner's understanding — copied
-   wording can hide a gap that an original explanation makes visible.
+   **Answer:** c) Name the gap, ask a specific question, and request a different example or
+   pace — a precise question gives the revisit a useful target while you control its form.
 
-3. An explanation feels too abstract. What is a useful next move?
-   - a) Pretend it made sense and move on
-   - b) Ask the tutor to write your reflection for you
-   - c) Ask for a different example or a slower pace
-   - d) Abandon the subject completely
+3. The tutor reaches a learning gate, but the learner has not replied. What happens next?
+   - a) The tutor treats silence as agreement and continues
+   - b) The tutor waits for the learner's explicit reply before continuing
+   - c) The tutor answers on the learner's behalf
+   - d) The tutor skips directly to the end of the lesson
 
-   **Answer:** c) Ask for a different example or a slower pace — changing the route can make
-   the same idea clearer while keeping you in control of the conversation.
+   **Answer:** b) The tutor waits for the learner's explicit reply before continuing — the
+   gate exists to hold the learner's real choice, so silence or enthusiasm is not consent.
 
 ## Next Up
 
