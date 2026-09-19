@@ -14,6 +14,7 @@ triad's names are fixed, and every learner gets the same three skills.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import typer
@@ -55,17 +56,20 @@ def install(
     """Install the bundled learn/progress/homework skill triad into one or both Agent-Skills
     host conventions. Reinstalling upgrades any already-installed copy in place."""
     target_dir = _target_dir(home)
+    tracked: list[Path] = []
     for chosen in platform or ALL_PLATFORMS:
         target = HostTarget(chosen)
         result = _install(target, project=target_dir, home=Path.home())
+        tracked.append(result.skill_dirs[0].parent.parent)
         for name, skill_dir in zip(SKILL_NAMES, result.skill_dirs, strict=True):
             invocation = target.invocation(name)
             render.console.print(f"[bold green]installed[/] {skill_dir}  ({invocation})")
 
     if target_dir is not None:
-        render.console.print(
-            "[dim]run[/] git add .claude .agents [dim]to track the installed skills.[/]"
+        paths = " ".join(
+            Path(os.path.relpath(directory, Path.cwd())).as_posix() for directory in tracked
         )
+        render.console.print(f"[dim]run[/] git add {paths} [dim]to track the installed skills.[/]")
 
 
 def uninstall(

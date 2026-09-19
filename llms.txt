@@ -1,44 +1,41 @@
 # Skilling
 
-> An open format for AI-tutored, skill-based courses. A course is a directory of markdown lessons plus one manifest; any conforming tutor can deliver it, and the learner's progress record outlives whichever tutor delivered it. Specification version 1.4.0-draft.
+> An open format for AI-tutored courses. Learners use a local workspace through Claude Code or
+> Codex; authors publish portable course directories. Specification version 1.4.0-draft.
 
-Skilling specifies four things: what course authors write, what a tutor must do to deliver a course, what is durably true about a learner afterwards, and where an adopter attaches its own policy. It is not an LMS, not a UI, not a pedagogy, and not tied to a model vendor. Conformance binds observable state transitions and record writes, never the tutor's prose — which is why a text walker with no language model can be a Conforming Runtime.
+## Learners
 
-The format is AI-first in a specific sense: wherever it addresses the tutor it supplies facts rather than scripts. Ceremony copy is brand facts a tutor may not invent, not sentences to fill in. Declared absences carry an author's reason rather than replacement text. Objectives are addressable so remediation can name what went wrong.
+- [Start learning](README.md#start-learning): Persistent 0.5.0 installation and the pinned Welcome course.
+- [Learn with Skilling](docs/learning-a-course.md): First lesson, resume, progress, homework, learner work and moving a workspace.
+- [Course sources](docs/course-sources.md): Supported GitHub, Git and local refs, credentials, snapshots and offline limits.
+- [Troubleshooting](docs/troubleshooting.md): Installation, PATH, skill discovery, source and recovery help.
+- [Examples](examples/README.md): Welcome, hello-skilling and workbench.
 
-## Specification
+## Authors
 
-- [Specification index](spec/README.md): What Skilling is, the four conformance classes (Course, Runtime, Store, Producer), versioning, what the current version deliberately leaves out, and why each constraint exists.
-- [Course format](spec/course-format.md): Everything a course author needs — directory structure, the `course.yaml` manifest, numbering rules, derived counts, lesson frontmatter, the section registry, declared absence, structured objectives, the Quick Quiz grammar, homework, ceremony facts and templates, assets, and course-version semantics.
-- [Runtime](spec/runtime.md): Everything a tutor implementer needs — the delivery loop and its beats, gates as open waits, quiz delivery, remediation, idempotent completion, phase ceremony and how ceremony copy resolves, resume, the progress record, objectives and evidence, the completion log, the streak algorithm, the homework mailbox, the hook registry, telemetry's three non-negotiables, the store interface, and the single-learner file layout.
-- [Skill pack](spec/skill-pack.md): How a course reaches a learner through a host's own Agent Skills mechanism instead of a bespoke integration — installed once per learner, course identity and persona resolved at invocation time rather than baked in, the Agent Skills frontmatter floor, the two host conventions, and install/uninstall as one atomic receipt-based unit.
-- [Workspace](spec/workspace.md): One folder a learner opens in any host — the machinery hidden under `.skilling/` (the workspace manifest, a state root per the runtime file layout, fetched course content), discovery by walking up to the manifest, the visible `showcase/` directory per course, artifacts on the record written only through the CLI, entry files as marked blocks, and folder-scoped skill installs.
-- [Course sources](docs/course-sources.md): Git acquisition, verified cache snapshots and conflicts, legacy adoption, interruption recovery, and the cache invalidation seam.
-- [Changelog](spec/CHANGELOG.md): Every specification change, including errata.
+- [Author a course](docs/authoring-a-course.md): Scaffold, write, validate, preview, tag and publish.
+- [Course format](spec/course-format.md): Normative author-facing format.
+- [Error codes](docs/error-codes.md): Validator finding catalogue.
+- [Specification changelog](spec/CHANGELOG.md): Normative changes and errata.
 
-## Guides
+## Implementers and specification
 
-- [Authoring a course](docs/authoring-a-course.md): A walkthrough from empty directory to a validating course.
-- [Implementing a runtime](docs/implementing-a-runtime.md): How to build a conforming tutor on the core library's state machine and store.
-- [Error codes](docs/error-codes.md): The validator's catalogue — every code, what triggers it, and which part of the specification it enforces.
-- [Implementations](docs/implementations.md): The registry of known Skilling implementations and their conformance claims.
+- [Specification index](spec/README.md): Scope, versions and conformance classes.
+- [Runtime](spec/runtime.md): Normative delivery and persistence behaviour.
+- [Workspace](spec/workspace.md): Normative learner workspace layout and discovery.
+- [Skill pack](spec/skill-pack.md): Normative host skill conventions.
+- [Implement a runtime](docs/implementing-a-runtime.md): Reference implementation guide.
+- [Known implementations](docs/implementations.md): Registry and claim limits.
+- [Delivery loop](docs/concepts/the-delivery-loop.md): Explanatory concept.
+- [Open gates](docs/concepts/open-gates.md): Explanatory concept.
+- [Learner record](docs/concepts/the-learner-record.md): Explanatory concept.
+- [What the record knows](docs/concepts/what-the-record-knows.md): Capabilities and evidence.
+- [Homework mailbox](docs/concepts/the-homework-mailbox.md): Review and submission mechanics.
+- [Telemetry sink](docs/concepts/the-telemetry-sink.md): Opt-in trace constraints.
+- [Mechanism and policy](docs/concepts/mechanism-and-policy.md): What adopters decide.
 
-## Concepts
+## Example source trees
 
-- [The delivery loop](docs/concepts/the-delivery-loop.md): Why a lesson has a fixed anatomy and why the beats are not pluggable.
-- [Open gates](docs/concepts/open-gates.md): Why a gate has no timeout, and what breaks when one is removed.
-- [The learner record](docs/concepts/the-learner-record.md): Why the record is transcript-independent and why counts are derived rather than stored.
-- [What the record knows](docs/concepts/what-the-record-knows.md): Why a badge marks completion and an objective claims a capability, why objectives are addressable, and what the record still does not know.
-- [The homework mailbox](docs/concepts/the-homework-mailbox.md): Why there is exactly one slot, and why checking can never complete anything.
-- [The telemetry sink](docs/concepts/the-telemetry-sink.md): Opt-in, content-free, pseudonymous — and an honest account of the behavioural trace an opted-in learner leaves.
-- [Mechanism and policy](docs/concepts/mechanism-and-policy.md): The line between what Skilling specifies and what an adopter decides.
-
-## Examples
-
-- [Examples index](examples/README.md): What each example course is for, and which one the docs quote.
-- [workbench](examples/workbench/): The exercising example — a compact practical course (files, folders, git) touching every authoring surface: structured objectives of both kinds with honest verify coverage, a literal check, declared absences with reasons, badges, ceremony facts and a share template, an asset reference, homework at each phase boundary. Small enough to deliver end to end when testing; a test suite asserts the coverage.
-- [hello-skilling](examples/hello-skilling/): A three-lesson course that teaches Skilling by being one. Small enough to hold in your head; the docs quote it for snippets.
-
-## Reference implementation
-
-- [skilling package](packages/skilling/): The LLM-free core — typed models, loader, validator, the delivery state machine as pure functions, and the progress store with a file backend. CLI: `validate`, `init`, `show`, `deliver`, `diff`.
+- [Welcome course](examples/welcome-skilling/): Learner orientation.
+- [Hello Skilling](examples/hello-skilling/): Small format example.
+- [Workbench](examples/workbench/): Full-surface practical example.

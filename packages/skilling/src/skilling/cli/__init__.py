@@ -47,7 +47,7 @@ from .runtime import (
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Tooling for the Skilling course format: validate, scaffold, inspect, deliver.",
+    help="Start and continue portable courses; authoring tools follow.",
 )
 
 
@@ -69,6 +69,7 @@ def root(
 
 
 COMMANDS: tuple[Callable[..., None], ...] = (
+    start,
     validate,
     init,
     show,
@@ -85,7 +86,6 @@ COMMANDS: tuple[Callable[..., None], ...] = (
     telemetry,
     fetch,
     install,
-    start,
     uninstall,
 )
 

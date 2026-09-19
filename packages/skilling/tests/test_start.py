@@ -166,7 +166,9 @@ def test_human_output_matches_the_documented_format(tmp_path: Path) -> None:
     assert ".claude/skills/ + .agents/skills/ (learn, progress, homework)" in out
     for host in ("Claude Code", "Codex"):
         assert host in out
-    assert 'say "learn"' in out
+    assert f"open {ws.resolve()}" in out
+    assert "Claude Code and run /learn" in out
+    assert "Codex and run $learn" in out
 
 
 # --------------------------------------------------------------------------------- idempotent

@@ -1,0 +1,13 @@
+{
+  "generator": "uv run --with pillow --with playwright brand/build.py --with-browser --zip",
+  "sources": {
+    "build.py": "c77a341e7fb8b3aa0ebc7684ddc334bcac0349962071ef28289386b99de6ea02"
+  },
+  "assets": {
+    "assets/github/avatar-460-cloud.png": "4d77e6e753e3f58b32b78ff2f341e6c571821a756481ef674c12aa127f6ace1f",
+    "assets/github/avatar-460.png": "58fef49c3c91be172ea277c6a5dd10f152dfad46817b8661431634efb7e18ead",
+    "assets/github/readme-banner-dark.png": "90517c51c9fda98edb9c0b77c482659df7ef73cfbbbaf13e4bb2c3671ba5721a",
+    "assets/github/readme-banner-light.png": "d0e7643db92a74f71c0b59255d14c02f830d4becb24a873580e3fbfaffbfe017",
+    "assets/github/social-preview-1280x640.png": "725410007ff78972544e487716db5cebab2754d60ae47811569fb9449468db9f"
+  }
+}

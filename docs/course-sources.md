@@ -1,108 +1,77 @@
-# Course sources and cached snapshots
+# Course sources
 
-`skilling start REF WORKSPACE` accepts an existing local course directory, a Git URL, or
-`gh:owner/repository[@branch-or-tag-or-full-commit][#course/subdirectory]`. Git uses your
-configured authentication. A local directory is loaded directly by the resolver; remote
-courses are fetched, validated, and copied into the cache before they are returned.
+`skilling start REF WORKSPACE` accepts a local course directory or a Git repository. It
+validates the course, copies a portable snapshot into the learner workspace and records where
+the snapshot came from.
 
-A remote ref is a **cached snapshot**. The first successful resolution records the requested
-pin/subdirectory and full resolved Git commit. Repeating that exact ref verifies the local
-payload and uses it without contacting the remote. Moving a branch upstream does not update
-an existing snapshot. Use a separate workspace/cache to try a different revision of the same
-course version; authors should change the course version when changing its content.
+## GitHub shorthand
 
-The standalone resolver uses `~/.skilling/courses`, or `SKILLING_CACHE_DIR` when set. Workspace
-acquisition uses `.skilling/courses`. Both retain the portable `<id>@<version>` directory
-layout. Returned course, phase, lesson and resource paths all point into durable content.
+Use GitHub shorthand for a repository root, optional tag/full commit, and optional course
+subdirectory:
 
-## Content identity and conflicts
+```text
+gh:owner/repository
+gh:owner/repository@v1.0.0
+gh:owner/repository@0123456789abcdef0123456789abcdef01234567
+gh:owner/repository@v1.0.0#courses/my-course
+```
 
-An id/version identifies a directory, not proof that two repositories contain the same
-course. The resolver compares sorted relative paths, directory/file kinds, executable intent
-from Git, and file bytes. Empty files and directories contribute to identity; Git administrative
-files do not. Equivalent payloads may share a directory with distinct verified source records.
-Different payloads claiming the same id/version raise `CacheConflict` without replacing the
-existing content or remembering the conflicting ref.
+A release tag is readable and repeatable; a full commit is the strongest immutable pin.
+An unpinned branch/default ref is allowed, but an existing cached snapshot does not update
+automatically when that branch moves.
 
-Every cache hit verifies its payload digest and loaded course id/version. Missing or modified
-content, corrupt metadata, and symlink/reparse/special-file payloads refuse with `CacheInvalid`.
-Preserve the old cache and use a separate one when investigating. Executable intent is stored
-independently of Windows checkout mode bits. POSIX caches also check actual executable bits;
-a transfer that loses them refuses instead of silently accepting changed intent.
+## Generic Git URLs
 
-The private `.index.json` is versioned metadata, not a public interchange format. It stores
-SHA-256 digests of exact input refs as lookup keys and sanitized display provenance: URL
-credentials and query values are omitted, while ordinary SSH usernames remain. The cached
-payload excludes `.git`, including clone configuration. Resolver diagnostics omit transport
-credentials. `ResolvedSource.ref` still returns the exact input to its caller. These cache
-guarantees do not rewrite existing workspace manifests or other caller-owned copies of refs.
+Generic URLs name a course at the repository root:
 
-## Interrupted and concurrent acquisition
+```text
+https://example.com/team/course.git
+ssh://git@example.com/team/course.git
+git+ssh://git@example.com/team/course.git
+```
 
-Network fetches happen outside one persistent `.cache.lock`. Cooperating publishers serialize
-the final comparison, content publication and atomic index replacement. A busy cache produces
-`CacheBusy` after a bounded wait; the lock file's existence is not evidence of ownership.
+Git also understands `file://` and `git://` transports. Generic URLs do **not** support the
+GitHub shorthand's `@pin` or `#subdirectory` grammar. SCP-style `git@example.com:repo.git`
+does not contain `://` and is not a supported Skilling ref.
 
-The resolver stages a validated copy beside the cache on the same filesystem. Under the lock
-it first reserves content identity in the index, then renames the directory, then binds the
-requested ref in a second atomic index write. Reserving identity before rename preserves Git
-executable intent if the process dies on Windows. An unbound reservation without a directory
-is never a hit and may be replaced by the next successful publisher. A directory without a
-final ref binding is an orphan: a fresh fetch must match its reserved identity before adoption.
-Interrupted index writes preserve prior source mappings. Retries do not implicitly replace an
-existing verified directory.
+## Local directories and downloaded archives
 
-These guarantees cover cooperating processes on a local filesystem and caught I/O failures
-or process death. They do not promise safety against hostile concurrent path replacement,
-moving a live cache, network filesystems, or power loss. Stop all writers before relocating
-a cache; preserve file bytes and executable intent when moving between platforms.
+A local directory containing `course.yaml` is supported:
 
-## Legacy caches and deliberate replacement
+```bash
+skilling start ../my-course my-learning --json
+```
 
-Older indexes mapped raw refs directly to id/version directories. Those mappings have no
-verified provenance. The first request for a legacy ref fetches that exact source and compares
-its payload before adopting it. If the remote is unavailable, retry online or use the already
-installed workspace course ID offline. A failed verification leaves old content intact.
-Successful migration removes Git metadata from the adopted tree and hashes remaining legacy
-lookup keys; each remaining ref still requires its own verification.
-The verified content identity is reserved durably before old Git metadata is removed, so an
-interruption during cleanup does not erase the only recoverable executable-intent evidence.
+Skilling does not download ZIP archives directly. Download and safely extract an archive
+yourself, then pass the extracted course directory as a local source.
 
-On Windows, an unversioned tree needs retained plain Git metadata to establish its previous
-executable intent independently. Its index must contain stage-zero entries covering every
-regular payload file. Without that evidence, remote adoption refuses with a
-separate-cache remedy even when the visible bytes appear equivalent. POSIX can compare the
-existing executable bits. A legacy checkout whose line endings differ from a fresh Git fetch
-also conflicts: migration does not rewrite its files to make the comparison pass.
+## Private repositories
 
-The Python `invalidate_cached_course(cache, course_id, version)` context manager is the narrow
-integration seam for deliberate replacement. It forgets every verified binding, pending legacy
-binding and content reservation for that key while holding the cache lock. A caller that also
-needs a workspace lock must acquire the workspace lock first and replace content inside the
-context. The helper never changes course files, manifests, or learner state; subsequent remote
-resolution must verify any remaining content again.
-On Windows, a plain tree left after invalidation or local replacement has no trusted prior
-mode metadata and therefore cannot be adopted remotely in place. Use a separate cache for the
-remote source. Already-installed workspace course-ID loading remains available offline.
+Remote acquisition uses Git and therefore the credentials already configured for the same
+URL: for example the Git credential manager, an SSH agent, or authenticated `gh` setup.
+Skilling does not define a second login flow. Do not put passwords or access tokens in course
+refs; sanitized provenance deliberately removes URL credentials and query values.
 
-## Local workspace replacement
+## Snapshots, identity and updates
 
-`skilling start LOCAL_PATH WORKSPACE` stages and validates a portable copy, then journals the
-content/manifest replacement in `.skilling/import.yaml`. A persistent `.workspace.lock`
-serializes starts, discovery and learner CLI reads; its presence is normal after a command
-exits. Recovery prefers a validated new copy, falling back to the validated previous copy
-when the new copy is unavailable. Conflicting metadata or changed bytes refuse without
-removing the surviving copies. Preserve the intent and staging directories when investigating.
-Private intent paths are workspace-relative and before/after manifests preserve exact bytes.
+The first successful remote resolution records the requested ref, resolved Git commit and
+course payload. Repeating the exact ref verifies and reuses that cached snapshot without
+contacting the remote. Course content lives under a portable `<id>@<version>` directory.
 
-New URL provenance is sanitized before entering the workspace manifest or import intent.
-Historical secret-bearing manifests may remain in exact before-images; this does not migrate
-or scrub existing credential history. Local import identity never substitutes for trusted Git
-executable intent, so Windows remote adoption of plain local replacements still refuses.
+Course id and version identify a directory, but are not proof that two repositories contain
+the same bytes. If different payloads claim the same id/version, Skilling refuses the conflict
+without overwriting the existing content. Missing or modified cached files are also refused.
 
-A stopped import can be recovered by the next start, course discovery, or learner command,
-even after moving the entire stopped workspace. Library users can bracket content use with
-`workspace_read(path)` or call `recover_workspace(root)` before discovery. Long interactive
-`deliver` sessions hold the workspace lock; competing starts have a bounded wait. A failed
-post-commit skill/entry refresh leaves valid content and can be retried. Scratch left before
-durable intent is unowned by recovery and is preserved rather than deleted speculatively.
+There is no automatic update service. To use changed content, authors publish an appropriate
+course version and learners start that new ref. Use a separate workspace/cache when comparing
+different revisions that claim the same course version.
+
+## Copies and offline use
+
+`start` copies validated content into the workspace; later teaching does not read the author's
+checkout. An installed workspace course remains available to local CLI commands when the
+remote is unavailable. This means local tooling and state can work offline after setup. It
+does not promise that a cloud-hosted tutor model works without network access.
+
+Move the whole workspace to retain course content, state, installed skills and learner work.
+For the learner workflow, see [Learn with Skilling](learning-a-course.md).

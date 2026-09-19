@@ -266,7 +266,8 @@ def test_cli_install_inside_a_workspace_lands_at_the_root_even_from_a_subdirecto
     assert result.exit_code == 0, result.output
     assert (workspace_root / ".claude" / "skills" / "learn" / "SKILL.md").is_file()
     assert not (subdir / ".claude").exists()
-    assert "git add" in result.stdout
+    assert "git add ../../../.claude" in result.stdout
+    assert ".agents" not in result.stdout
 
 
 def test_cli_install_home_flag_reproduces_todays_home_profile_behavior(

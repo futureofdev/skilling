@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="105.0" height="20" viewBox="0 0 105.0 20" role="img" aria-label="spec: 1.4.0-draft">
+  <title>spec: 1.4.0-draft</title>
+  <rect width="34.9" height="20" fill="#111827"/>
+  <rect x="34.9" width="70.1" height="20" fill="#4355FF"/>
+  <g font-family="Verdana,'DejaVu Sans',Geneva,sans-serif" font-size="11" text-anchor="middle">
+    <text x="17.45" y="14" fill="#FFFFFF">spec</text>
+    <text x="69.94999999999999" y="14" fill="#FFFFFF">1.4.0-draft</text>
+  </g>
+</svg>

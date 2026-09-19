@@ -1,0 +1,9 @@
+# Only the distributable archive is ignored.
+#
+# The derived rasters ARE committed, deliberately. README banners, badges, the avatar and
+# the social preview are referenced by URL from README.md and from GitHub settings — if they
+# are not in the tree, every one of those references 404s. The whole assets/ tree is ~270 KB
+# and changes only when the brand changes, which is not churn worth optimising away.
+#
+# Regenerate with: uv run --with pillow --with playwright brand/build.py --with-browser
+dist/

@@ -1,41 +1,36 @@
-# Examples
+# Example courses
 
-Two courses, doing different jobs.
+## Start here: `welcome-skilling`
 
-## [`workbench`](workbench/) — every surface, one sitting
+[Welcome to Skilling](welcome-skilling/) is a short learner orientation. It teaches the
+explain → question → revisit loop and helps the learner preserve a goal, takeaway and next
+action in their showcase.
 
-A hands-on course — files, folders, and git — built to exercise every surface the format has while staying quick enough to deliver end to end when testing a runtime or a host. Open a terminal, and it is real practice from the first minute.
-
-| | |
-|---|---|
-| Structured objectives | Both kinds; every lesson carries an observable `practice` objective with a `verify` clause, one carries a literal `check`, and some practice honestly stays a judgement |
-| Declared absences | A key-terms absence and a quiet final lesson, each with a stated reason |
-| Badges | Registered in the manifest, every one reachable |
-| Ceremony | Brand facts, per-phase highlights, and a literal share template with derived counts |
-| Homework | At every phase boundary, with per-requirement checkboxes and stretch goals |
-| Assets | A relative-path image reference that must resolve |
+After package and tag publication, start it with:
 
 ```bash
-uvx skilling validate examples/workbench     # zero findings
-uvx skilling show examples/workbench         # every count derived
-uvx skilling deliver examples/workbench      # the whole loop, quickly
+skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json
 ```
 
-`packages/skilling/tests/test_examples.py` asserts all of the above structurally, so the course cannot quietly stop covering a surface it exists to cover.
+## Learn the format: `hello-skilling`
 
-The 64-lesson course the format was generalised from — `coding-bootcamp`, nine phases from nothing installed to a deployed portfolio — has moved out of this repository. [The changelog](../spec/CHANGELOG.md) still records what porting it taught the format; arguing back is what a course at scale is for.
-
-## [`hello-skilling`](hello-skilling/) — learn the format in ten minutes
-
-Three lessons that teach Skilling by being a Skilling course: what a course is, the anatomy of a lesson, the delivery loop. Its homework is to author a conforming course of your own.
-
-Read this one first, and copy from it when you are starting out. It is small enough to hold in your head.
+[hello-skilling](hello-skilling/) is a small course about the Skilling format itself. Authors
+can read it alongside the [authoring guide](../docs/authoring-a-course.md).
 
 ```bash
-uvx skilling validate examples/hello-skilling
-uvx skilling deliver examples/hello-skilling
+skilling validate examples/hello-skilling --strict
 ```
 
-## Which one do the docs use?
+## Exercise every surface: `workbench`
 
-The [guides](../docs/authoring-a-course.md) quote `hello-skilling` for snippets, because a three-lesson course makes a legible example. They point at `workbench` when the question is "what does the whole surface look like in one place?"
+[workbench](workbench/) is a practical files, folders and Git course. It assumes the learner
+can use a local shell and Git. It covers structured objectives, declared absences, badges,
+ceremony, assets, homework and observable practice in a compact course.
+
+```bash
+skilling validate examples/workbench --strict
+```
+
+Repository tests keep all three examples conforming. `welcome-skilling` is the learner front
+door, `hello-skilling` is the readable format example, and `workbench` is the exercising
+fixture; none is a bundled catalogue inside the PyPI package.

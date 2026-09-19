@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="220.6" height="20" viewBox="0 0 220.6 20" role="img" aria-label="reference runtime: no model required">
+  <title>reference runtime: no model required</title>
+  <rect width="109.2" height="20" fill="#111827"/>
+  <rect x="109.2" width="111.4" height="20" fill="#4355FF"/>
+  <g font-family="Verdana,'DejaVu Sans',Geneva,sans-serif" font-size="11" text-anchor="middle">
+    <text x="54.6" y="14" fill="#FFFFFF">reference runtime</text>
+    <text x="164.9" y="14" fill="#FFFFFF">no model required</text>
+  </g>
+</svg>
