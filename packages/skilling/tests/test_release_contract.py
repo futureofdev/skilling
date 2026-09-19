@@ -59,6 +59,20 @@ def test_release_has_only_manual_trigger_and_deny_all_default_permissions() -> N
     assert "pull_request" not in WORKFLOW_PATH.read_text(encoding="utf-8")
 
 
+def test_runner_scoped_candidate_directory_is_only_in_step_environments() -> None:
+    data = workflow()
+    build = data["jobs"]["build"]
+    candidate_directory = "${{ runner.temp }}/skilling-0.5.0-candidate"
+
+    assert "runner." not in str(data.get("env", {}))
+    assert "runner." not in str(build.get("env", {}))
+    assert [
+        step["env"]["CANDIDATE_DIR"]
+        for step in build["steps"]
+        if "CANDIDATE_DIR" in step.get("env", {})
+    ] == [candidate_directory, candidate_directory]
+
+
 def test_build_rejects_mutable_or_non_default_branch_input_and_runs_full_gates() -> None:
     data = workflow()
     build = data["jobs"]["build"]

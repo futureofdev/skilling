@@ -17,7 +17,6 @@ concurrency:
 env:
   FORCE_COLOR: "1"
   UV_FROZEN: "1"
-  CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.5.0-candidate
 
 jobs:
   build:
@@ -72,6 +71,8 @@ jobs:
           uv run --with pillow brand/build.py --zip
           test -f brand/dist/skilling-brand-assets-v2.0.zip
       - name: Assemble and verify retained candidate
+        env:
+          CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.5.0-candidate
         run: >-
           uv run python tools/release_candidate.py assemble
           --source .
@@ -79,6 +80,8 @@ jobs:
           --brand-zip brand/dist/skilling-brand-assets-v2.0.zip
           --output "$CANDIDATE_DIR"
       - name: Prove installed artifacts without the checkout
+        env:
+          CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.5.0-candidate
         run: |
           set -euo pipefail
           controller="$CANDIDATE_DIR/verification/package_smoke.py"
