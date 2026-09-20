@@ -105,7 +105,8 @@ def test_build_rejects_mutable_or_non_default_branch_input_and_runs_full_gates()
     assert '--dist "$RUNNER_TEMP/skilling-dist"' in assemble
     assert "--dist dist" not in assemble
     assert "--evidence source-package-evidence" in commands
-    assert "brand/build.py --zip" in commands
+    assert "brand/build.py --zip-only" in commands
+    assert "--with pillow brand/build.py" not in commands
     assert "--source-must-not-exist" in commands and 'rm -rf "$unavailable"' in commands
     assert 'cp tools/release_candidate.py "$release_helper"' in commands
     assert "export PYTHONDONTWRITEBYTECODE=1" in commands

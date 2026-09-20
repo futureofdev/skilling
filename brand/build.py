@@ -17,7 +17,7 @@ Two stages, because they have different dependencies:
         real Archivo, and because badge padding is measured rather than estimated.
         First run also needs: uv run --with playwright playwright install chromium
 
-    uv run --with pillow brand/build.py --zip
+    uv run brand/build.py --zip-only
         Assemble dist/skilling-brand-assets-v2.0.zip from whatever is present.
 
 Pillow and Playwright are build-time tooling. They belong in a dependency group, never in
@@ -480,11 +480,20 @@ def main() -> None:
     ap.add_argument("--with-browser", action="store_true",
                     help="also render banners, social preview, masthead and badges")
     ap.add_argument("--zip", action="store_true", help="assemble the distributable zip")
+    ap.add_argument("--zip-only", action="store_true",
+                    help="assemble the distributable zip without regenerating reviewed sources")
     ap.add_argument("--only-report", action="store_true",
                     help="regenerate the contrast report and nothing else (stdlib only)")
     args = ap.parse_args()
 
+    if args.zip_only and (args.with_browser or args.zip or args.only_report):
+        ap.error("--zip-only cannot be combined with generation options")
+
     print("Skilling brand pack")
+    if args.zip_only:
+        build_zip()
+        return
+
     report = write_contrast_report()
     print(f"  contrast report  -> {report.relative_to(ROOT)} (self-check passed)")
     if args.only_report:

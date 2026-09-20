@@ -348,3 +348,30 @@ def test_generated_brand_zip_excludes_retired_copy_and_nested_dist(tmp_path: Pat
         )
     assert "uvx skilling" not in text
     assert "skilling deliver" not in text
+
+
+def test_brand_zip_only_preserves_reviewed_source_bytes(tmp_path: Path) -> None:
+    copied = tmp_path / "brand"
+    shutil.copytree(REPO_ROOT / "brand", copied)
+    before = {
+        path.relative_to(copied): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in copied.rglob("*")
+        if path.is_file()
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(copied / "build.py"), "--zip-only"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    archive = copied / "dist" / "skilling-brand-assets-v2.0.zip"
+    assert archive.is_file()
+    after = {
+        path.relative_to(copied): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in copied.rglob("*")
+        if path.is_file() and copied / "dist" not in path.parents
+    }
+    assert after == before
