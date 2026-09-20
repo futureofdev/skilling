@@ -471,7 +471,7 @@ def build_zip() -> Path:
     with zipfile.ZipFile(target) as z:
         if z.testzip() is not None:
             raise SystemExit("zip integrity check failed")
-    print(f"  {target.relative_to(ROOT.parent)} — {n} files, {target.stat().st_size / 1024:.0f} KB")
+    print(f"  {target.relative_to(ROOT.parent)} - {n} files, {target.stat().st_size / 1024:.0f} KB")
     return target
 
 
@@ -486,15 +486,15 @@ def main() -> None:
 
     print("Skilling brand pack")
     report = write_contrast_report()
-    print(f"  contrast report  → {report.relative_to(ROOT)} (self-check passed)")
+    print(f"  contrast report  -> {report.relative_to(ROOT)} (self-check passed)")
     if args.only_report:
         return
 
-    print(f"  geometry rasters → {build_rasters()} files")
+    print(f"  geometry rasters -> {build_rasters()} files")
     if args.with_browser:
-        print(f"  browser assets   → {build_browser_assets()} files")
+        print(f"  browser assets   -> {build_browser_assets()} files")
     else:
-        print("  browser assets   → skipped (pass --with-browser)")
+        print("  browser assets   -> skipped (pass --with-browser)")
     if args.zip:
         build_zip()
 
