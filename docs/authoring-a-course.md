@@ -70,7 +70,25 @@ course with genuine answers. Check the first-run explanation, waits, remediation
 homework review and separate submission confirmation. A mechanical CLI walk checks structure;
 it is not a substitute for editorial review.
 
-## 6. Publish a stable source
+## 6. Write exercises for a tutor, not a text editor
+
+An Agent Skills host can keep most exercise work inside the tutoring conversation. Write the
+exercise around the outcome, the decisions the learner must make, and the evidence that would
+show success. Avoid making manual transcription, switching to an editor, or opening another
+terminal part of the learning objective when the tutor can perform that mechanical work.
+
+For conceptual work, ask the learner to classify, predict, justify, or critique; let the tutor
+turn that reasoning into a durable artifact and show it back for review. For code and command
+work, put the important decision before the action, then let the tutor edit, run, and display
+the relevant result through the host's permission model. Reserve learner-only steps for things
+the host genuinely cannot or must not do, such as entering credentials, authenticating an
+account, approving a consequential action, or manipulating physical equipment.
+
+This is delivery guidance, not a new course-format requirement. A plain text runtime still
+conforms, and the exercise must remain self-contained even when no model-backed tutor is
+available.
+
+## 7. Publish a stable source
 
 Commit the course to a Git repository. A course may live at the repository root or, on GitHub,
 in a subdirectory. Tag the reviewed commit and test the exact learner command in a clean

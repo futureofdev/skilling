@@ -208,6 +208,19 @@ def test_learn_handles_current_artifact_refusals_without_hidden_state_edits() ->
     assert "`coordinate-unknown`" not in body
 
 
+def test_learn_skill_carries_the_harness_native_exercise_contract() -> None:
+    learn = skill_dir("learn")
+    skill = (learn / "SKILL.md").read_text(encoding="utf-8")
+    delivery = (learn / "references" / "delivery-loop.md").read_text(encoding="utf-8")
+    facilitation = (learn / "references" / "exercise-facilitation.md").read_text(encoding="utf-8")
+
+    assert "references/exercise-facilitation.md" in skill
+    assert "Every course-state transition" in delivery
+    assert "The learner decides; the tutor operates." in facilitation
+    assert "not, by itself, a learner attempt" in facilitation
+    assert "Do not ask the learner to copy text into a file" in facilitation
+
+
 def test_skill_dir_rejects_an_unknown_name() -> None:
     with pytest.raises(ValueError, match="not one of"):
         skill_dir("not-a-real-skill")
