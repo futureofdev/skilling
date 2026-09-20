@@ -60,11 +60,21 @@ jobs:
           uv run pytest packages/skilling/tests/test_versioning.py packages/skilling/tests/test_release_contract.py -q
           task check
       - name: Build Python distributions once
-        run: uv build --package skilling --out-dir dist
+        run: |
+          uv build --package skilling --out-dir "$RUNNER_TEMP/skilling-dist"
+          rm -f "$RUNNER_TEMP/skilling-dist/.gitignore"
       - name: Inspect built distributions
-        run: uv run python packages/skilling/tests/package_smoke.py --source . --dist dist --evidence package-evidence
+        run: >-
+          uv run python packages/skilling/tests/package_smoke.py
+          --source .
+          --dist "$RUNNER_TEMP/skilling-dist"
+          --evidence package-evidence
       - name: Inspect installed source behavior
-        run: uv run python packages/skilling/tests/source_package_smoke.py --source . --dist dist --evidence source-package-evidence
+        run: >-
+          uv run python packages/skilling/tests/source_package_smoke.py
+          --source .
+          --dist "$RUNNER_TEMP/skilling-dist"
+          --evidence source-package-evidence
       - name: Build the GitHub release attachment from reviewed sources
         run: |
           test -f brand/build.py
@@ -76,7 +86,7 @@ jobs:
         run: >-
           uv run python tools/release_candidate.py assemble
           --source .
-          --dist dist
+          --dist "$RUNNER_TEMP/skilling-dist"
           --brand-zip brand/dist/skilling-brand-assets-v2.0.zip
           --output "$CANDIDATE_DIR"
       - name: Prove installed artifacts without the checkout
