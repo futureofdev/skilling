@@ -78,7 +78,7 @@ jobs:
       - name: Build the GitHub release attachment from reviewed sources
         run: |
           test -f brand/build.py
-          uv run --with pillow brand/build.py --zip
+          uv run python brand/build.py --zip-only
           test -f brand/dist/skilling-brand-assets-v2.0.zip
       - name: Assemble and verify retained candidate
         env:
