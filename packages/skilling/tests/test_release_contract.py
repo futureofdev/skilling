@@ -87,8 +87,23 @@ def test_build_rejects_mutable_or_non_default_branch_input_and_runs_full_gates()
     for gate in ("uv lock --check", "uv sync", "task check", "test_versioning.py"):
         assert gate in commands
     assert commands.count("uv build --package skilling") == 1
-    assert "package_smoke.py --source . --dist dist" in commands
-    assert "source_package_smoke.py --source . --dist dist" in commands
+    assert '--out-dir "$RUNNER_TEMP/skilling-dist"' in commands
+    assert "--out-dir dist" not in commands
+    assert 'rm -f "$RUNNER_TEMP/skilling-dist/.gitignore"' in commands
+    assert (
+        commands.index("uv build --package skilling")
+        < commands.index('rm -f "$RUNNER_TEMP/skilling-dist/.gitignore"')
+        < commands.index("package_smoke.py")
+    )
+    assert 'package_smoke.py --source . --dist "$RUNNER_TEMP/skilling-dist"' in commands
+    assert 'source_package_smoke.py --source . --dist "$RUNNER_TEMP/skilling-dist"' in commands
+    assemble = next(
+        step["run"]
+        for step in build["steps"]
+        if step.get("name") == "Assemble and verify retained candidate"
+    )
+    assert '--dist "$RUNNER_TEMP/skilling-dist"' in assemble
+    assert "--dist dist" not in assemble
     assert "--evidence source-package-evidence" in commands
     assert "brand/build.py --zip" in commands
     assert "--source-must-not-exist" in commands and 'rm -rf "$unavailable"' in commands
