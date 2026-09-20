@@ -267,6 +267,8 @@ def test_readme_banners_are_theme_aware_and_resolve() -> None:
 
 
 def test_recorded_public_brand_hashes_match_committed_assets() -> None:
+    attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
+    assert "brand/build.py text eol=lf" in attributes
     record = json.loads((REPO_ROOT / "brand" / "generated-sha256.json").read_text(encoding="utf-8"))
     assert "brand/build.py --with-browser --zip" in record["generator"]
     for relative, expected in record["sources"].items():

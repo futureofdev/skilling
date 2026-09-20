@@ -121,6 +121,9 @@ def test_workspace_resume_survives_nested_execution_and_relocation(
 
     destination = tmp_path / "moved" / "learning"
     destination.parent.mkdir()
+    # Windows locks the process' current directory, so leave the workspace before
+    # simulating its relocation.
+    monkeypatch.chdir(tmp_path)
     shutil.move(original, destination)
     monkeypatch.chdir(destination / "showcase" / "welcome-skilling" / "notes")
 

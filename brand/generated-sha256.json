@@ -1,7 +1,7 @@
 {
   "generator": "uv run --with pillow --with playwright brand/build.py --with-browser --zip",
   "sources": {
-    "build.py": "c77a341e7fb8b3aa0ebc7684ddc334bcac0349962071ef28289386b99de6ea02"
+    "build.py": "0f99ca4ba77b45b039c2c85404b4cd2aac6f87c24480ee886c87b806041cd9ee"
   },
   "assets": {
     "assets/github/avatar-460-cloud.png": "4d77e6e753e3f58b32b78ff2f341e6c571821a756481ef674c12aa127f6ace1f",
