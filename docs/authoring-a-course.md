@@ -8,7 +8,7 @@ stable Git ref. The [course format](../spec/course-format.md) is normative.
 Install the same persistent CLI learners use:
 
 ```bash
-uv tool install 'skilling==0.5.0'
+uv tool install skilling
 skilling init my-course
 ```
 

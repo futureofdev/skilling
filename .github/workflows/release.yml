@@ -11,7 +11,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: release-0.5.0
+  group: release-0.6.0
   cancel-in-progress: false
 
 env:
@@ -82,7 +82,7 @@ jobs:
           test -f brand/dist/skilling-brand-assets-v2.0.zip
       - name: Assemble and verify retained candidate
         env:
-          CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.5.0-candidate
+          CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.6.0-candidate
         run: >-
           uv run python tools/release_candidate.py assemble
           --source .
@@ -91,7 +91,7 @@ jobs:
           --output "$CANDIDATE_DIR"
       - name: Prove installed artifacts without the checkout
         env:
-          CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.5.0-candidate
+          CANDIDATE_DIR: ${{ runner.temp }}/skilling-0.6.0-candidate
         run: |
           set -euo pipefail
           controller="$CANDIDATE_DIR/verification/package_smoke.py"
@@ -118,8 +118,8 @@ jobs:
           trap - EXIT
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: skilling-0.5.0-candidate
-          path: ${{ runner.temp }}/skilling-0.5.0-candidate
+          name: skilling-0.6.0-candidate
+          path: ${{ runner.temp }}/skilling-0.6.0-candidate
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
@@ -141,7 +141,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: skilling-0.5.0-candidate
+          name: skilling-0.6.0-candidate
           path: candidate
       - name: Verify retained bytes and immutable release tag
         env:
@@ -152,7 +152,7 @@ jobs:
           python tools/release_candidate.py verify \
             --candidate candidate \
             --source . \
-            --require-tag 0.5.0
+            --require-tag 0.6.0
       - name: Publish only the retained Python distributions
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:

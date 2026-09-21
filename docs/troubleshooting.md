@@ -18,7 +18,7 @@ Restart the terminal or coding host after installation, then verify `git --versi
 Install the persistent tool and verify the bare command:
 
 ```bash
-uv tool install 'skilling==0.5.0'
+uv tool install skilling
 skilling --version
 ```
 

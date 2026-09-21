@@ -42,6 +42,7 @@ jobs:
       - run: task typecheck
       - run: task schemas:check
       - run: task docs:check
+      - run: task version:sync:check
 
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python-version }})

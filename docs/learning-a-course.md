@@ -14,14 +14,14 @@ Install Skilling persistently so the generated tutor instructions can call the s
 later:
 
 ```bash
-uv tool install 'skilling==0.5.0'
+uv tool install skilling
 skilling --version
 ```
 
 ## Create your first workspace
 
 ```bash
-skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json
+skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json
 ```
 
 `start` prints a JSON object containing an absolute `workspace` path. Open that exact folder

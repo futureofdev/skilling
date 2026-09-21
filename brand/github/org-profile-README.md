@@ -24,8 +24,8 @@ Take a course in Claude Code or Codex. The course and the record you earn stay y
 whichever of those tutors delivered them:
 
 ```bash
-uv tool install 'skilling==0.5.0'
-skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json
+uv tool install skilling
+skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json
 ```
 
 Writing courses is the other half. Author in markdown, and any conforming tutor can deliver
