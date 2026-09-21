@@ -246,7 +246,7 @@ def test_readme_banners_are_theme_aware_and_resolve() -> None:
         assert path.is_file() and path.stat().st_size > 0
         assert f"brand/assets/github/{name}" in root
         assert (
-            f"https://raw.githubusercontent.com/futureofdev/skilling/v0.5.0/"
+            f"https://raw.githubusercontent.com/futureofdev/skilling/v0.6.0/"
             f"brand/assets/github/{name}"
         ) in package
     for text in (root, package):
@@ -259,7 +259,7 @@ def test_readme_banners_are_theme_aware_and_resolve() -> None:
     assert package_picture is not None
     fallback = re.search(r'<img [^>]*src="(https://[^"]+)"', package_picture.group(1))
     assert fallback is not None
-    assert fallback.group(1).endswith("/v0.5.0/brand/assets/github/readme-banner-light.png")
+    assert fallback.group(1).endswith("/v0.6.0/brand/assets/github/readme-banner-light.png")
     # PyPI may remove picture/source; the ordinary absolute img remains a useful fallback.
     without_picture_sources = re.sub(r"</?picture>|<source[^>]*>", "", package_picture.group(0))
     assert "<img " in without_picture_sources

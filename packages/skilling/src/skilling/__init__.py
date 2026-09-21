@@ -26,7 +26,7 @@ from .delivery import Beat, IllegalTransition, Input, LessonShape, LessonState, 
 from .store import Conflict, FileProgressStore, ProgressStore
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 """The independently released reference-package version.
 
 ``SPEC_VERSION`` reports the separate normative format version implemented by this package.

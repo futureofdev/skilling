@@ -9,7 +9,7 @@ action in their showcase.
 After package and tag publication, start it with:
 
 ```bash
-skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json
+skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json
 ```
 
 ## Learn the format: `hello-skilling`

@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/futureofdev/skilling/v0.5.0/brand/assets/github/readme-banner-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/futureofdev/skilling/v0.5.0/brand/assets/github/readme-banner-light.png">
-    <img alt="Skilling — learn one-to-one with Claude Code or Codex" src="https://raw.githubusercontent.com/futureofdev/skilling/v0.5.0/brand/assets/github/readme-banner-light.png" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/futureofdev/skilling/v0.6.0/brand/assets/github/readme-banner-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/futureofdev/skilling/v0.6.0/brand/assets/github/readme-banner-light.png">
+    <img alt="Skilling — learn one-to-one with Claude Code or Codex" src="https://raw.githubusercontent.com/futureofdev/skilling/v0.6.0/brand/assets/github/readme-banner-light.png" width="100%">
   </picture>
 </p>
 
@@ -16,9 +16,9 @@ your visible work share one folder, independent of the host delivering it.
 Install the CLI persistently, verify it, then create the Welcome workspace:
 
 ```bash
-uv tool install 'skilling==0.5.0'
+uv tool install 'skilling==0.6.0'
 skilling --version
-skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json
+skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json
 ```
 
 Open the returned `workspace` in Claude Code or Codex. Read the generated host instructions,
@@ -30,13 +30,13 @@ You need [Git](https://git-scm.com/downloads),
 Skilling has no model dependency; the host supplies the model and its own account and network
 requirements.
 
-The pinned route becomes available when package `0.5.0` and repository tag `v0.5.0` are
+The pinned route becomes available when package `0.6.0` and repository tag `v0.6.0` are
 published. Until then it documents the release candidate rather than an available public
 install.
 
-Read the full [learner guide](https://github.com/futureofdev/skilling/blob/v0.5.0/docs/learning-a-course.md),
-[course source guide](https://github.com/futureofdev/skilling/blob/v0.5.0/docs/course-sources.md),
-or [troubleshooting guide](https://github.com/futureofdev/skilling/blob/v0.5.0/docs/troubleshooting.md).
+Read the full [learner guide](https://github.com/futureofdev/skilling/blob/v0.6.0/docs/learning-a-course.md),
+[course source guide](https://github.com/futureofdev/skilling/blob/v0.6.0/docs/course-sources.md),
+or [troubleshooting guide](https://github.com/futureofdev/skilling/blob/v0.6.0/docs/troubleshooting.md).
 
 ## For course authors
 
@@ -45,13 +45,13 @@ skilling init my-course
 skilling validate ./my-course --strict
 ```
 
-The [authoring walkthrough](https://github.com/futureofdev/skilling/blob/v0.5.0/docs/authoring-a-course.md)
+The [authoring walkthrough](https://github.com/futureofdev/skilling/blob/v0.6.0/docs/authoring-a-course.md)
 covers course identity, writing, strict validation, fresh-workspace preview and publication.
 
 ## Library
 
 The package is the LLM-free reference implementation of the
-[Skilling course format](https://github.com/futureofdev/skilling/tree/v0.5.0/spec): typed
+[Skilling course format](https://github.com/futureofdev/skilling/tree/v0.6.0/spec): typed
 models, a loader, validator, pure delivery state machine and file-backed progress store.
 
 ```python
@@ -65,6 +65,6 @@ if report.ok:
     print(course.id, course.version)
 ```
 
-Specification version: **1.4.0-draft**. Package version: **0.5.0**.
+Specification version: **1.4.0-draft**. Package version: **0.6.0**.
 
-Licence: [Apache-2.0](https://github.com/futureofdev/skilling/blob/v0.5.0/LICENSE).
+Licence: [Apache-2.0](https://github.com/futureofdev/skilling/blob/v0.6.0/LICENSE).

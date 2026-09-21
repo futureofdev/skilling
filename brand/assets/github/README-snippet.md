@@ -13,7 +13,7 @@ The repository README uses the version-2 light/dark banners directly from this t
 </p>
 ```
 
-The package README uses the same paths as absolute raw-GitHub URLs pinned to `v0.5.0`, because
+The package README uses the same paths as absolute raw-GitHub URLs pinned to `v0.6.0`, because
 PyPI renders it outside the repository. The `<img>` light banner is the fallback when a
 renderer ignores `<picture>` or `<source>`.
 

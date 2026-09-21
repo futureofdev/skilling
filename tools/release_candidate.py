@@ -21,9 +21,9 @@ from email.parser import BytesParser
 from pathlib import Path, PurePosixPath
 from typing import NoReturn
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 SPEC_VERSION = "1.4.0-draft"
-CANDIDATE_ARTIFACT = "skilling-0.5.0-candidate"
+CANDIDATE_ARTIFACT = "skilling-0.6.0-candidate"
 BRAND_ARCHIVE = "skilling-brand-assets-v2.0.zip"
 CHECKSUM_PATHS = (
     f"dist/skilling-{VERSION}-py3-none-any.whl",
@@ -213,7 +213,7 @@ def assert_expected_inputs(source: Path, dist: Path, brand_zip: Path) -> list[Pa
     if actual != sorted(path.name for path in artifacts) or not all(
         path.is_file() for path in artifacts
     ):
-        fail(f"dist must contain exactly the 0.5.0 wheel and sdist; found {actual}")
+        fail(f"dist must contain exactly the {VERSION} wheel and sdist; found {actual}")
     return artifacts
 
 

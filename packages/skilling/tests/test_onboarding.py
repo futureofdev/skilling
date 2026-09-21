@@ -18,16 +18,16 @@ from .conftest import REPO_ROOT
 WELCOME = REPO_ROOT / "examples" / "welcome-skilling"
 ROOT_README = REPO_ROOT / "README.md"
 PACKAGE_README = REPO_ROOT / "packages" / "skilling" / "README.md"
-INSTALL = "uv tool install 'skilling==0.5.0'"
+INSTALL = "uv tool install 'skilling==0.6.0'"
 START = (
-    "skilling start 'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json"
+    "skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json"
 )
 CANONICAL_PROMPT = (
     "Check that Git and uv are available. If either is missing, stop and show me the matching "
     "official installation instructions linked from the Skilling README. Install Skilling "
-    "persistently with `uv tool install 'skilling==0.5.0'`, then run `skilling --version` in "
+    "persistently with `uv tool install 'skilling==0.6.0'`, then run `skilling --version` in "
     "the same environment. Run `skilling start "
-    "'gh:futureofdev/skilling@v0.5.0#examples/welcome-skilling' my-learning --json`. Use the "
+    "'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json`. Use the "
     "returned workspace path, read its generated host instructions and installed learn skill "
     "and references, run learner commands from that workspace, and start teaching me. Wait "
     "for my real replies at every gate. If this host must be reopened to discover the "
@@ -82,7 +82,7 @@ def test_documented_pinned_github_route_executes_through_local_git_redirect(
         ["config", "user.email", "test@example.invalid"],
         ["add", "."],
         ["commit", "-qm", "candidate"],
-        ["tag", "v0.5.0"],
+        ["tag", "v0.6.0"],
     ):
         subprocess.run(["git", *args], cwd=repository, check=True, capture_output=True)
 

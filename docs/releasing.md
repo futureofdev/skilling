@@ -2,7 +2,7 @@
 
 This runbook prepares and publishes the `skilling` Python package and its companion brand
 archive. A release owner and a different environment reviewer carry out the steps. The
-workflow builds once, retains the result as `skilling-0.5.0-candidate`, and publishes those
+workflow builds once, retains the result as `skilling-0.6.0-candidate`, and publishes those
 same bytes after approval.
 
 ## Current release blockers
@@ -25,7 +25,7 @@ before recording it as ready.
 ## Preconditions and owners
 
 The release owner selects an exact commit already at `main`. The candidate must contain
-package version `0.5.0`, specification version `1.4.0-draft`, the reviewed
+package version `0.6.0`, specification version `1.4.0-draft`, the reviewed
 `examples/welcome-skilling` fixture, and the final brand source. Required CI must be green at
 that commit and the tree must match the independently reviewed implementation head.
 
@@ -42,11 +42,11 @@ any input that differs from the dispatch commit, and any commit that is not the 
 `origin/main` tip. It verifies a clean tree, the frozen lock, all source gates, package
 identity and both built distributions before assembling the handoff.
 
-Download `skilling-0.5.0-candidate` from the completed build job. It has this fixed layout:
+Download `skilling-0.6.0-candidate` from the completed build job. It has this fixed layout:
 
 ```text
-dist/skilling-0.5.0-py3-none-any.whl
-dist/skilling-0.5.0.tar.gz
+dist/skilling-0.6.0-py3-none-any.whl
+dist/skilling-0.6.0.tar.gz
 github-release/skilling-brand-assets-v2.0.zip
 SHA256SUMS
 candidate.json
@@ -80,7 +80,7 @@ authorise publication.
 ## Tag and approve publication
 
 While the publish job waits at the protected `pypi` environment, create annotated tag
-`v0.5.0` at the exact candidate commit using the repository's protected release process.
+`v0.6.0` at the exact candidate commit using the repository's protected release process.
 Read it back from the remote and compare the peeled commit with `candidate.json`. A missing,
 wrong-version or differently pointed tag makes the publish job fail before it requests a PyPI
 token.
@@ -92,8 +92,8 @@ The job does not execute a script downloaded in the candidate and never rebuilds
 
 ## Create the GitHub release
 
-After PyPI succeeds, create the immutable GitHub release for existing tag `v0.5.0` using
-[the 0.5.0 notes](releases/0.5.0.md). Attach the exact retained file
+After PyPI succeeds, create the immutable GitHub release for existing tag `v0.6.0` using
+[the 0.6.0 notes](releases/0.6.0.md). Attach the exact retained file
 `github-release/skilling-brand-assets-v2.0.zip`; do not run the brand generator again. Verify
 the file against its `SHA256SUMS` row immediately before upload. Download the published
 attachment into a new directory, hash it again, and compare it byte-for-byte with the retained
@@ -102,7 +102,7 @@ candidate. Record the GitHub release URL and readback hash.
 ## Read back the public release
 
 Use a clean environment and read the package metadata from PyPI. Install exactly
-`skilling==0.5.0`, verify `skilling --version`, and run the retained installed-package probe.
+`skilling==0.6.0`, verify `skilling --version`, and run the retained installed-package probe.
 Confirm the PyPI wheel and sdist hashes match the retained candidate. Then verify the GitHub
 tag, release attachment and a tag-pinned learner start command from two supported hosts.
 
@@ -117,4 +117,4 @@ A transient failure before publication may rerun the failed build only if it pro
 candidate that is re-inspected and re-recorded. A transient publish failure may retry only
 with the same retained artifact and after confirming PyPI does not already contain either
 filename. PyPI filenames and versions are immutable; if partial publication occurred, stop
-and follow PyPI recovery guidance rather than rebuilding `0.5.0`.
+and follow PyPI recovery guidance rather than rebuilding `0.6.0`.

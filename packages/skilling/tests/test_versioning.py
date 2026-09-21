@@ -18,9 +18,9 @@ def test_package_versions_agree() -> None:
     lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
     locked = next(package for package in lock["package"] if package["name"] == "skilling")
 
-    assert project["project"]["version"] == "0.5.0"
-    assert skilling.__version__ == metadata.version("skilling") == "0.5.0"
-    assert locked["version"] == "0.5.0"
+    assert project["project"]["version"] == "0.6.0"
+    assert skilling.__version__ == metadata.version("skilling") == "0.6.0"
+    assert locked["version"] == "0.6.0"
 
 
 def test_specification_version_remains_independent() -> None:
