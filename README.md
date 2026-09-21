@@ -20,7 +20,7 @@ Paste this prompt into your coding host:
 
 > Check that Git and uv are available. If either is missing, stop and show me the matching
 > official installation instructions linked from the Skilling README. Install Skilling
-> persistently with `uv tool install 'skilling==0.6.0'`, then run `skilling --version` in the
+> persistently with `uv tool install skilling`, then run `skilling --version` in the
 > same environment. Run
 > `skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json`.
 > Use the returned workspace path, read its generated host instructions and installed learn
@@ -37,7 +37,7 @@ its own account and network requirements.
 Run the same setup yourself:
 
 ```bash
-uv tool install 'skilling==0.6.0'
+uv tool install skilling
 skilling --version
 skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json
 ```
@@ -47,9 +47,9 @@ Then open the returned `workspace` in Claude Code or Codex. Use `/learn` in Clau
 new folder-scoped skills.
 
 > [!NOTE]
-> The pinned public command works after the `v0.6.0` tag and PyPI package are published. Before
-> publication, maintainers test the same flow with the retained candidate wheel and an exact
-> commit ref; that substitution is not the public learner route.
+> The pinned example command works once the `v0.6.0` tag is published. Before then, maintainers
+> test the same flow with the retained candidate wheel and an exact commit ref; that
+> substitution is not the public learner route.
 
 Next: [learn how the workspace behaves](docs/learning-a-course.md),
 [choose another course source](docs/course-sources.md), or

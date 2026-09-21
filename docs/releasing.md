@@ -22,6 +22,21 @@ Repository settings are outside this workflow. Do not weaken the checks when a p
 is absent. Obtain separate authorisation for a settings change and read the setting back
 before recording it as ready.
 
+## Bumping the version
+
+`packages/skilling/pyproject.toml`'s `version` is the one field a release owner edits by hand.
+Everything else that names the release — this runbook, `release.yml`, `tools/release_candidate.py`,
+the learner-facing READMEs and docs, and the reviewed example's tag — is a derived reference and
+is rewritten by a generator, the same way `docs/error-codes.md` and `schemas/` are:
+
+1. Edit `packages/skilling/pyproject.toml`'s `version`.
+2. Run `task version:sync` to rewrite every derived reference, then `uv lock`.
+3. Add `docs/releases/<version>.md` (there is no generator for release notes; write them).
+4. Run `task check`; `task version:sync:check` (and the equivalent test) fail closed on drift.
+
+The learner-facing `uv tool install skilling` command is deliberately **not** version-pinned,
+so it needs no edit on a bump; only the reviewed example's Git tag stays pinned.
+
 ## Preconditions and owners
 
 The release owner selects an exact commit already at `main`. The candidate must contain

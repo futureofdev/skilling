@@ -14,7 +14,7 @@ Install Skilling persistently so the generated tutor instructions can call the s
 later:
 
 ```bash
-uv tool install 'skilling==0.6.0'
+uv tool install skilling
 skilling --version
 ```
 

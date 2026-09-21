@@ -62,7 +62,7 @@ def test_release_has_only_manual_trigger_and_deny_all_default_permissions() -> N
 def test_runner_scoped_candidate_directory_is_only_in_step_environments() -> None:
     data = workflow()
     build = data["jobs"]["build"]
-    candidate_directory = "${{ runner.temp }}/skilling-0.6.0-candidate"
+    candidate_directory = f"${{{{ runner.temp }}}}/{release_helper().CANDIDATE_ARTIFACT}"
 
     assert "runner." not in str(data.get("env", {}))
     assert "runner." not in str(build.get("env", {}))
@@ -139,7 +139,7 @@ def test_build_upload_and_publish_download_one_named_immutable_handoff() -> None
 
     assert len(uploads) == len(downloads) == 1
     assert uploads[0]["with"]["name"] == downloads[0]["with"]["name"]
-    assert uploads[0]["with"]["name"] == "skilling-0.6.0-candidate"
+    assert uploads[0]["with"]["name"] == release_helper().CANDIDATE_ARTIFACT
     assert uploads[0]["with"]["if-no-files-found"] == "error"
     assert publish["needs"] == "build"
     assert publish["environment"] == "pypi"
@@ -158,7 +158,7 @@ def test_publish_verifies_complete_handoff_and_exposes_only_dist_to_pypi() -> No
     )
 
     assert "release_candidate.py verify" in commands
-    assert "--require-tag 0.6.0" in commands
+    assert f"--require-tag {release_helper().VERSION}" in commands
     assert "uv build" not in commands and "brand/build.py" not in commands
     assert "candidate/verification" not in commands
     assert pypi["with"] == {"packages-dir": "candidate/dist"}
@@ -178,12 +178,12 @@ def test_all_release_actions_are_bound_to_reviewed_commits() -> None:
 def test_candidate_layout_and_checksum_contract_are_exact() -> None:
     helper = release_helper()
 
-    assert helper.CANDIDATE_ARTIFACT == "skilling-0.6.0-candidate"
-    assert helper.CHECKSUM_PATHS == (
-        "dist/skilling-0.6.0-py3-none-any.whl",
-        "dist/skilling-0.6.0.tar.gz",
+    assert f"skilling-{helper.VERSION}-candidate" == helper.CANDIDATE_ARTIFACT
+    assert (
+        f"dist/skilling-{helper.VERSION}-py3-none-any.whl",
+        f"dist/skilling-{helper.VERSION}.tar.gz",
         "github-release/skilling-brand-assets-v2.0.zip",
-    )
+    ) == helper.CHECKSUM_PATHS
     helper_text = HELPER_PATH.read_text(encoding="utf-8")
     for retained in (
         "candidate.json",
@@ -216,7 +216,7 @@ def test_verifier_rejects_a_symlinked_wheel(tmp_path: Path) -> None:
     dist.mkdir(parents=True)
     outside = tmp_path / "outside.whl"
     outside.write_bytes(b"not a wheel")
-    wheel = dist / "skilling-0.6.0-py3-none-any.whl"
+    wheel = dist / f"skilling-{helper.VERSION}-py3-none-any.whl"
     try:
         wheel.symlink_to(outside)
     except OSError as error:
@@ -265,6 +265,7 @@ def tag_check(repo: Path, sha: str, version: str) -> subprocess.CompletedProcess
 
 
 def test_disposable_tag_rehearsals_reject_wrong_version_and_history(tmp_path: Path) -> None:
+    helper = release_helper()
     repo = tmp_path / "repo"
     repo.mkdir()
     git(repo, "init", "-q")
@@ -279,15 +280,15 @@ def test_disposable_tag_rehearsals_reject_wrong_version_and_history(tmp_path: Pa
     git(repo, "commit", "-qam", "second")
     candidate = git(repo, "rev-parse", "HEAD").stdout.strip()
 
-    git(repo, "tag", "v0.6.0", candidate)
-    assert tag_check(repo, candidate, "0.6.0").returncode == 0
+    git(repo, "tag", f"v{helper.VERSION}", candidate)
+    assert tag_check(repo, candidate, helper.VERSION).returncode == 0
 
-    wrong_version = tag_check(repo, candidate, "0.5.1")
+    wrong_version = tag_check(repo, candidate, f"{helper.VERSION}-wrong")
     assert wrong_version.returncode != 0
-    assert "expected '0.6.0'" in wrong_version.stderr
+    assert f"expected {helper.VERSION!r}" in wrong_version.stderr
 
-    git(repo, "tag", "-f", "v0.6.0", previous)
-    wrong_history = tag_check(repo, candidate, "0.6.0")
+    git(repo, "tag", "-f", f"v{helper.VERSION}", previous)
+    wrong_history = tag_check(repo, candidate, helper.VERSION)
     assert wrong_history.returncode != 0
     assert f"points to {previous}" in wrong_history.stderr
 

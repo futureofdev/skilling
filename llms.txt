@@ -5,7 +5,7 @@
 
 ## Learners
 
-- [Start learning](README.md#start-learning): Persistent 0.6.0 installation and the pinned Welcome course.
+- [Start learning](README.md#start-learning): Persistent installation and the pinned Welcome course.
 - [Learn with Skilling](docs/learning-a-course.md): First lesson, resume, progress, homework, learner work and moving a workspace.
 - [Course sources](docs/course-sources.md): Supported GitHub, Git and local refs, credentials, snapshots and offline limits.
 - [Troubleshooting](docs/troubleshooting.md): Installation, PATH, skill discovery, source and recovery help.

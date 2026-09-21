@@ -16,7 +16,7 @@ your visible work share one folder, independent of the host delivering it.
 Install the CLI persistently, verify it, then create the Welcome workspace:
 
 ```bash
-uv tool install 'skilling==0.6.0'
+uv tool install skilling
 skilling --version
 skilling start 'gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling' my-learning --json
 ```
@@ -30,9 +30,8 @@ You need [Git](https://git-scm.com/downloads),
 Skilling has no model dependency; the host supplies the model and its own account and network
 requirements.
 
-The pinned route becomes available when package `0.6.0` and repository tag `v0.6.0` are
-published. Until then it documents the release candidate rather than an available public
-install.
+The pinned example route becomes available once repository tag `v0.6.0` is published. Until
+then it documents the release candidate rather than an available public install.
 
 Read the full [learner guide](https://github.com/futureofdev/skilling/blob/v0.6.0/docs/learning-a-course.md),
 [course source guide](https://github.com/futureofdev/skilling/blob/v0.6.0/docs/course-sources.md),

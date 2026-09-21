@@ -50,6 +50,18 @@ tasks:
     cmds:
       - uv run python -m skilling.codegen.docs --check docs/error-codes.md
 
+  version:sync:
+    desc: >-
+      After editing packages/skilling/pyproject.toml's version, rewrite every pinned
+      reference to it (release workflow, runbook, READMEs, docs) — then run `uv lock`
+    cmds:
+      - uv run python -m skilling.codegen.version_refs .
+
+  version:sync:check:
+    desc: Fail if any pinned version reference is stale
+    cmds:
+      - uv run python -m skilling.codegen.version_refs --check .
+
   validate:examples:
     desc: Validate every example course — each expects zero findings
     cmds:
@@ -71,4 +83,5 @@ tasks:
       - task: test
       - task: schemas:check
       - task: docs:check
+      - task: version:sync:check
       - task: validate:examples
