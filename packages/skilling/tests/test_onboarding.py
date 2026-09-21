@@ -195,7 +195,7 @@ def test_guides_keep_required_learner_source_troubleshooting_and_author_topics()
             "licence",
             "## 4. Validate strictly",
             "## 5. Preview as a learner",
-            "## 6. Publish a stable source",
+            "## 7. Publish a stable source",
             "Publish the tested command",
         ),
     }
