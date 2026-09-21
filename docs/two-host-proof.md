@@ -21,6 +21,14 @@ exactly the failure mode this specification's provenance rules
 everywhere else, and this document would be a poor advertisement for that principle if it broke
 the same rule about itself.
 
+**0.4.1 harness-native facilitation spot check (2026-09-20).** In a disposable workspace
+paused at an existing course's exercise gate, a stock Codex session read the installed skill,
+used the legal `hint` transition to recover the exercise, returned to the same gate without
+recording an attempt, and asked one focused learner question without requesting an editor or
+second terminal. The equivalent Claude Code run could not start because the available account
+had reached its weekly limit, so this is a Codex-only direct attestation and does not complete
+the two-host proof.
+
 ## Falsifiability criteria
 
 Decided here, before any run, so a favourable-looking transcript cannot retroactively redefine
@@ -40,6 +48,11 @@ what counts as passing:
   `objective settle`, `homework submit`. A record that changed between two checks with no
   matching command in the transcript means something wrote state outside the CLI, which is a
   failure independent of whether the resulting record looks correct.
+- **An avoidable handoff to an editor or second terminal fails exercise facilitation.** If the
+  host can create the artifact, run the command, or manage the process but instead tells the
+  learner to leave the session and do it manually, the harness-native tutoring claim has
+  failed. The transcript must also show a real learner decision or prediction before the host
+  performs material exercise work; silent automation is not tutoring.
 - **A private-repo fetch that succeeds with no usable credentials present fails it.** The
   negative half of the credential-boundary check (below) must actually fail closed. If it
   succeeds anyway, something other than the runner's own git/gh authentication did the work,
@@ -96,6 +109,9 @@ Watch for, across the whole lesson:
 - Both gates (`gate-concept`, `gate-exercise`) waiting for an actual reply — try answering a
   concept-gate follow-up ("go deeper") at least once before proceeding, to confirm position
   does not move.
+- The exercise conducted inside the session: supply the substantive decision or explanation,
+  let the host perform the mechanical edit or command, review the displayed result, and
+  confirm that the gate advances only after your explicit acceptance.
 - The quiz delivered one question at a time, with at least one deliberately wrong answer, to
   confirm remediation is offered and the reason given is real.
 - A completion, and — since `hello-skilling` is three lessons in one phase — a ceremony at the

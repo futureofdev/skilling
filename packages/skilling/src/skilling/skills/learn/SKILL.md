@@ -17,6 +17,8 @@ looking for a quiz answer, an objective, or a count.
   else.
 - `references/delivery-loop.md` — the verb-by-verb choreography: `next`, `advance`, the
   gates, and the quiz verbs.
+- `references/exercise-facilitation.md` — how to keep exercises inside the tutoring session:
+  the learner makes the decisions and the tutor performs the mechanical work.
 - `references/objectives.md` — how an objective gets settled from evidence, and why a
   `check` command is a proposal, never something to run silently.
 - `references/troubleshooting.md` — what each exit code and refusal means, and how to react.
@@ -53,10 +55,12 @@ be discovered consistently.
    state.
 3. Present the beat the envelope names, drive `advance`/`quiz next`/`answer` per
    `references/delivery-loop.md`, and wait at every gate for the learner's actual reply.
-4. Settle an objective only when you — the host — have genuinely observed the evidence
+4. When an exercise is present, read `references/exercise-facilitation.md` and conduct it
+   inside the session whenever the host can do the work. The learner decides; you operate.
+5. Settle an objective only when you — the host — have genuinely observed the evidence
    yourself this session; see `references/objectives.md`. Never settle one on the learner's
    say-so alone.
-5. On failure, read `references/troubleshooting.md` before doing anything else. Relay the
+6. On failure, read `references/troubleshooting.md` before doing anything else. Relay the
    envelope's message in your own words; never retry blindly and never fall back to touching
    files under the state root yourself.
 

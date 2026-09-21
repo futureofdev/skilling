@@ -1,10 +1,11 @@
 # Delivery loop — learn
 
-Every learner turn is one `skilling` verb, one JSON envelope back, and — when the envelope
-puts you at a gate — one open wait for the learner before you call anything else. Every
-example below assumes you already resolved `--course <course>` (see
-`course-resolution.md`). In ordinary workspace use this is the course id with implicit state;
-if an explicit `--state`/`--learner` was selected, pass it unchanged throughout.
+Every course-state transition is one `skilling` verb and one JSON envelope back. Conversation
+at an open gate can take as many turns as the learner needs without changing course state;
+do not manufacture a CLI call merely because the learner sent a message. Every example below
+assumes you already resolved `--course <course>` (see `course-resolution.md`). In ordinary
+workspace use this is the course id with implicit state; if an explicit
+`--state`/`--learner` was selected, pass it unchanged throughout.
 
 ## The beats, in order
 
@@ -84,6 +85,12 @@ assume agreement from silence or enthusiasm, and do not call `advance` until the
 genuinely responded. A gate exists so a human decision happens exactly where the format put
 one; skipping it is a violation even when you are confident what they would say, and there is
 no timeout — a learner who returns in a fortnight finds the same gate waiting.
+
+An open gate is not a conversational stop sign. Answer questions, teach, inspect work, and
+collaborate across multiple turns while leaving the state where it is. At `gate-exercise`,
+follow `exercise-facilitation.md`; use `hint` when the learner asks for help or accepts an
+offer to work through the exercise and you need the exercise body rendered again. Only the
+learner's explicit report that they made a genuine attempt authorizes `attempted`.
 
 ## The quiz verbs, specifically
 
