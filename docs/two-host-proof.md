@@ -108,7 +108,8 @@ Watch for, across the whole lesson:
   declares none) — adopted from `skilling next`'s envelope, never stated as if remembered.
 - Both gates (`gate-concept`, `gate-exercise`) waiting for an actual reply — try answering a
   concept-gate follow-up ("go deeper") at least once before proceeding, to confirm position
-  does not move.
+  does not move, that the answer is shown in the conversation and grounded in the re-served
+  concept body, and that anything beyond the lesson is flagged as beyond the course.
 - The exercise conducted inside the session: supply the substantive decision or explanation,
   let the host perform the mechanical edit or command, review the displayed result, and
   confirm that the gate advances only after your explicit acceptance.

@@ -55,6 +55,9 @@ be discovered consistently.
    state.
 3. Present the beat the envelope names, drive `advance`/`quiz next`/`answer` per
    `references/delivery-loop.md`, and wait at every gate for the learner's actual reply.
+   Read each envelope in full, show explanations in the conversation rather than describing
+   them, offer only choices that map to `legal_inputs`, and flag anything beyond the
+   course's content as beyond the course.
 4. When an exercise is present, read `references/exercise-facilitation.md` and conduct it
    inside the session whenever the host can do the work. The learner decides; you operate.
 5. Settle an objective only when you — the host — have genuinely observed the evidence
