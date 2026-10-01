@@ -69,6 +69,7 @@ _GROUPS: list[tuple[str, str, tuple[Code, ...]]] = [
             Code.QUIZ_ANSWER_AMBIGUOUS,
             Code.QUIZ_ANSWER_NO_REASON,
             Code.QUIZ_QUESTION_NUMBERING,
+            Code.QUIZ_LINE_UNCONSUMED,
             Code.HOMEWORK_SECTION_MALFORMED,
             Code.NEXT_UP_TOO_LONG,
         ),

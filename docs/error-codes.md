@@ -83,6 +83,7 @@ Frontmatter, the section registry, and the grammars inside each section.
 | `quiz-answer-ambiguous` | error | An answer line does not name exactly one of the four options | [quick-quiz](../spec/course-format.md#quick-quiz) |
 | `quiz-answer-no-reason` | error | An answer line states the correct option but gives no reason | [quick-quiz](../spec/course-format.md#quick-quiz) |
 | `quiz-question-numbering` | error | Quiz questions are not numbered exactly 1, 2, 3 — markdown renders duplicates invisibly, and `about` indexes by these numbers | [quick-quiz](../spec/course-format.md#quick-quiz) |
+| `quiz-line-unconsumed` | error | A Quick Quiz line belongs to no question, option, or answer, so no runtime delivers it | [quick-quiz](../spec/course-format.md#quick-quiz) |
 | `homework-section-malformed` | error | Homework Assignment is missing its title, Objective, requirements, or Submission line | [homework-assignment](../spec/course-format.md#homework-assignment) |
 | `next-up-too-long` | warning | Next Up is longer than the one or two sentences intended | [next-up](../spec/course-format.md#next-up) |
 
@@ -120,7 +121,7 @@ Addressable learning objectives, since spec 1.1; kinds and verification since 1.
 | `objective-verify-on-knowledge` | error | A knowledge objective carries verify or check; only practice can be observed | [verifying-a-practice-objective](../spec/course-format.md#verifying-a-practice-objective) |
 | `objective-check-without-verify` | error | A check with no verify leaves nothing saying what is being established | [verifying-a-practice-objective](../spec/course-format.md#verifying-a-practice-objective) |
 
-49 codes: 46 errors, 3 warnings.
+50 codes: 47 errors, 3 warnings.
 
 ## Using codes in CI
 

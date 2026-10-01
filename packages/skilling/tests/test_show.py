@@ -21,6 +21,8 @@ def test_show_objectives_prints_question_text_beside_each_objective(clean_dir: P
     assert result.exit_code == 0, result.output
     # The fixture's lesson two maps the "second-thing" objective to question 1; both the
     # objective's id and the full text of the question it points to must co-occur.
+    # That stem wraps onto a second source line in the fixture, so this also proves the
+    # continuation is joined rather than dropped (#98).
     assert "second-thing" in result.output
     assert "What is the second thing?" in result.output
 

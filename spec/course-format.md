@@ -381,6 +381,24 @@ The answer line's shape matters, because a runtime parses it:
 - It opens with the correct option's label, then restates that option's text, then gives the reason. A runtime strips the restated text to find the reason, so an answer that gives only the letter has no reason to read out.
 - It may wrap across as many source lines as it needs. Indented continuation lines belong to the same answer.
 
+Stems and options wrap the same way. Markdown authors break long lines, and a question cut off mid-sentence is one no learner can answer:
+
+- A question's stem may continue onto the lines below its number, up to its first option.
+- An option may continue onto the lines below its label, up to the next option, the answer line, or a blank line.
+- Continuation lines are indented to sit under the text they continue. A runtime joins them to that text with single spaces.
+
+```markdown
+1. `greet` is defined and registered, but the assistant still can't
+   call it. What is most likely missing?
+   - a) A new model provider
+   - b) A line in the assistant's tool list
+     naming the new tool
+   - c) A restart of the terminal
+   - d) A second copy of the file
+```
+
+Every non-blank line in the section belongs to a question's stem, one of its options, or its answer. Prose before the first question, a paragraph after a blank line, or a list item that is not one of `a)` to `d)` belongs to none of them, so a runtime would never show it to a learner — and that is a conformance failure, not something a runtime quietly drops.
+
 The reason is not decoration. A runtime reads it aloud as feedback, and a learner who guessed correctly still needs to hear why.
 
 Question numbers are what [`about`](#remediation-not-evidence) refers to, so renumbering a quiz means revisiting the objectives that point at it. That coupling is loose by design: `about` only steers what a tutor says next, so a stale entry costs a slightly-off sentence rather than a wrong record.

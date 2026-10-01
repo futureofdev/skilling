@@ -70,6 +70,7 @@ class Code(StrEnum):
     QUIZ_ANSWER_AMBIGUOUS = "quiz-answer-ambiguous"
     QUIZ_ANSWER_NO_REASON = "quiz-answer-no-reason"
     QUIZ_QUESTION_NUMBERING = "quiz-question-numbering"
+    QUIZ_LINE_UNCONSUMED = "quiz-line-unconsumed"
     HOMEWORK_SECTION_MALFORMED = "homework-section-malformed"
     NEXT_UP_TOO_LONG = "next-up-too-long"
 
@@ -233,6 +234,11 @@ CATALOGUE: dict[Code, CodeInfo] = {
         f"{_FORMAT}#quick-quiz",
         "Quiz questions are not numbered exactly 1, 2, 3 — markdown renders duplicates "
         "invisibly, and `about` indexes by these numbers",
+    ),
+    _C.QUIZ_LINE_UNCONSUMED: CodeInfo(
+        _E,
+        f"{_FORMAT}#quick-quiz",
+        "A Quick Quiz line belongs to no question, option, or answer, so no runtime delivers it",
     ),
     _C.HOMEWORK_SECTION_MALFORMED: CodeInfo(
         _E,

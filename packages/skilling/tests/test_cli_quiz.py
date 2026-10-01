@@ -95,6 +95,18 @@ def test_quiz_next_provably_contains_no_answer_material(clean_dir: Path, tmp_pat
     assert body["question"]["options"][answer_label] == correct_option.text
 
 
+def test_quiz_next_carries_wrapped_stem_and_option_in_full(clean_dir: Path, tmp_path: Path) -> None:
+    """Lesson 0.1's first stem and option a) wrap onto a second source line (#98)."""
+    _walk_to_quiz(clean_dir, tmp_path)
+    body = json.loads(run(["quiz", "next", "--course", str(clean_dir)], tmp_path).stdout)
+    assert body["question"]["text"] == (
+        "What is the first thing, the one every later lesson assumes you already know?"
+    )
+    assert body["question"]["options"]["a"] == (
+        "Wrong one, though it runs on long enough that its author wrapped it onto a second line"
+    )
+
+
 def test_question_three_is_unreachable_while_two_is_open(clean_dir: Path, tmp_path: Path) -> None:
     _walk_to_quiz(clean_dir, tmp_path)
     result = _answer(clean_dir, tmp_path, "b")  # q1 correct (fixture answer is b)
