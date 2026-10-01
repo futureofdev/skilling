@@ -289,6 +289,16 @@ def _quiz_question_numbering(root: Path) -> None:
     )
 
 
+def _quiz_line_unconsumed(root: Path) -> None:
+    # A blank line ends the answer, so this paragraph belongs to nothing and was once dropped.
+    fx.edit(
+        root,
+        fx.LESSON_ONE_PATH,
+        _ANSWER_ONE,
+        _ANSWER_ONE + "\n   A second paragraph no runtime would ever deliver.\n",
+    )
+
+
 def _homework_section_malformed(root: Path) -> None:
     fx.edit(root, fx.LESSON_TWO_PATH, "**Submission:** Tell your tutor when it is ready.\n", "")
 
@@ -459,6 +469,7 @@ CORRUPTIONS: dict[Code, Corruption] = {
     Code.QUIZ_ANSWER_AMBIGUOUS: _quiz_answer_ambiguous,
     Code.QUIZ_ANSWER_NO_REASON: _quiz_answer_no_reason,
     Code.QUIZ_QUESTION_NUMBERING: _quiz_question_numbering,
+    Code.QUIZ_LINE_UNCONSUMED: _quiz_line_unconsumed,
     Code.HOMEWORK_SECTION_MALFORMED: _homework_section_malformed,
     Code.NEXT_UP_TOO_LONG: _next_up_too_long,
     Code.ASSET_REFERENCE_DANGLING: _asset_reference_dangling,

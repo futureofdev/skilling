@@ -20,6 +20,7 @@ from ..course import (
     asset_references,
     parse_homework,
     parse_quiz,
+    scan_quiz,
 )
 from ._counts import _BODY_COUNTS, _scan_counts
 from ._errors import Code
@@ -347,7 +348,18 @@ def _check_about(out: _Collector, path: Path, parsed: ParsedLesson, section: Sec
 
 
 def _check_quiz(out: _Collector, path: Path, section: Section) -> None:
-    questions = parse_quiz(section.body, section.body_line)
+    scan = scan_quiz(section.body, section.body_line)
+    questions = scan.questions
+
+    for line_no, text in scan.unconsumed:
+        out.add(
+            Code.QUIZ_LINE_UNCONSUMED,
+            f"Quick Quiz line {text.strip()!r} belongs to no question stem, option, or answer, "
+            "so no runtime will ever show it to a learner. Wrap a stem, option, or answer onto "
+            "the line directly below it, with no blank line between.",
+            path=path,
+            line=line_no,
+        )
 
     if len(questions) != 3:
         out.add(

@@ -15,6 +15,7 @@ import pytest
 
 from skilling.conformance import CATALOGUE, Code, Severity, validate_course
 from skilling.conformance._errors import missing_from_catalogue
+from skilling.course import scan_quiz
 
 from . import fixtures as fx
 from .conftest import EXAMPLE_COURSE
@@ -107,3 +108,83 @@ def test_course_id_terminal_newline_is_invalid(clean_dir: Path) -> None:
     path.write_text(yaml.safe_dump(data))
     report = validate_course(clean_dir)
     assert Code.COURSE_ID_INVALID in {finding.code for finding in report.errors}
+
+
+# ------------------------------------------------------------------- wrapped quiz lines (#98)
+
+_WRAPPED_QUIZ = """\
+1. `compose_greeting` is in `tools.py` and registered in `safe.yaml`, but `hello-chat` still
+   can't call it. What's most likely missing?
+   - a) A new model provider
+   - b) A line in the agent's tool list
+     naming the new tool
+   - c) A restart of the terminal
+   - d) A second copy of `tools.py`
+
+   **Answer:** b) A line in the agent's tool list naming the new tool — registering a
+   tool makes it available, but each agent still opts in.
+"""
+
+
+def test_wrapped_stem_and_option_are_joined_not_dropped() -> None:
+    scan = scan_quiz(_WRAPPED_QUIZ, 10)
+    assert scan.unconsumed == []
+    (question,) = scan.questions
+    assert question.text == (
+        "`compose_greeting` is in `tools.py` and registered in `safe.yaml`, but `hello-chat` "
+        "still can't call it. What's most likely missing?"
+    )
+    assert question.labels == ["a", "b", "c", "d"]
+    option_b = question.option("b")
+    assert option_b is not None
+    assert option_b.text == "A line in the agent's tool list naming the new tool"
+    assert option_b.line == 13  # an option keeps the line it starts on
+    assert question.answer_label == "b"
+    assert question.answer_reason == (
+        "registering a tool makes it available, but each agent still opts in."
+    )
+
+
+def test_clean_fixture_wraps_a_stem_and_an_option(clean_dir: Path) -> None:
+    """The clean course carries both wraps, so every CLI test reads joined text."""
+    text = fx.read(clean_dir, fx.LESSON_ONE_PATH)
+    body = text.split("## Quick Quiz\n", 1)[1].split("\n## ", 1)[0]
+    first = scan_quiz(body, 1).questions[0]
+    assert (
+        first.text
+        == "What is the first thing, the one every later lesson assumes you already know?"
+    )
+    option_a = first.option("a")
+    assert option_a is not None
+    assert option_a.text.endswith("wrapped it onto a second line")
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "stray"),
+    [
+        # prose before the first question
+        (
+            "## Quick Quiz\n",
+            "## Quick Quiz\nAnswer these from memory.\n",
+            "Answer these from memory.",
+        ),
+        # a fifth option must not be folded silently into the fourth
+        ("   - d) Wrong four\n", "   - d) Wrong four\n   - e) Wrong five\n", "- e) Wrong five"),
+        # text after a blank line belongs to nothing
+        (
+            "   - d) Wrong four\n",
+            "   - d) Wrong four\n\n   An afterthought about option d.\n",
+            "An afterthought about option d.",
+        ),
+    ],
+)
+def test_a_quiz_line_nothing_consumes_is_reported(
+    clean_dir: Path, old: str, new: str, stray: str
+) -> None:
+    fx.edit(clean_dir, fx.LESSON_ONE_PATH, old, new)
+    report = validate_course(clean_dir)
+    findings = [f for f in report.errors if f.code == Code.QUIZ_LINE_UNCONSUMED]
+    assert len(findings) == 1, findings
+    lines = fx.read(clean_dir, fx.LESSON_ONE_PATH).splitlines()
+    assert findings[0].line is not None
+    assert lines[findings[0].line - 1].strip() == stray

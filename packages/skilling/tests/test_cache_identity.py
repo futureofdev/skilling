@@ -105,7 +105,11 @@ def test_changed_payload_cannot_borrow_an_existing_identity(
     second = repository(clean_dir, tmp_path / "second")
     if changed == "lesson":
         path = next(second.glob("phases/*/lesson-*.md"))
-        path.write_text(path.read_text() + "\nUpdated explanation.\n")
+        # Inside The Concept: text trailing a quiz would itself be a conformance finding.
+        text = path.read_text()
+        path.write_text(
+            text.replace("## The Concept\n", "## The Concept\nUpdated explanation.\n", 1)
+        )
     elif changed == "resource":
         (second / "assets/data.txt").write_bytes(b"different resource\n")
     else:

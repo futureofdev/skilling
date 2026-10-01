@@ -198,6 +198,7 @@ _QUESTION = re.compile(r"^(\d+)\.\s+(.+?)\s*$")
 _OPTION = re.compile(r"^\s*[-*]\s*([a-dA-D])\)\s*(.+?)\s*$")
 _ANSWER = re.compile(r"^\s*\*\*Answer:\*\*\s*(.*?)\s*$")
 _ANSWER_LABEL = re.compile(r"^([a-dA-D])\)\s*(.*)$", re.DOTALL)
+_LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
 
 
 @dataclass
@@ -259,21 +260,44 @@ class QuizQuestion:
         return bool(self.answer_reason.strip(" —–-:;,.!?\t"))
 
 
-def parse_quiz(body: str, offset: int) -> list[QuizQuestion]:
-    lines = body.splitlines()
-    questions: list[QuizQuestion] = []
-    collecting_answer = False
+@dataclass
+class QuizScan:
+    questions: list[QuizQuestion] = field(default_factory=list)
+    unconsumed: list[tuple[int, str]] = field(default_factory=list)
+    """Non-blank lines the grammar did not place anywhere, as ``(line, text)``."""
 
-    for i, line in enumerate(lines):
+
+def _join(head: str, line: str) -> str:
+    return f"{head} {line.strip()}".strip()
+
+
+def scan_quiz(body: str, offset: int) -> QuizScan:
+    """Parse a quiz body and keep every non-blank line the grammar did not consume.
+
+    A stem, an option, and an answer may each wrap onto continuation lines; a blank line,
+    the next option, the answer line, or the next question ends the wrap. A list item that
+    is not an ``a)``-``d)`` option is never folded into a neighbour: it is reported instead,
+    because silently swallowing a fifth option into the fourth would hide it.
+    """
+    scan = QuizScan()
+    questions = scan.questions
+    collecting: str | None = None  # "stem" | "option" | "answer"
+
+    for i, line in enumerate(body.splitlines()):
         line_no = i + offset
 
         m = _QUESTION.match(line)
         if m:
             questions.append(QuizQuestion(number=int(m.group(1)), text=m.group(2), line=line_no))
-            collecting_answer = False
+            collecting = "stem"
+            continue
+
+        if not line.strip():
+            collecting = None
             continue
 
         if not questions:
+            scan.unconsumed.append((line_no, line))
             continue
         current = questions[-1]
 
@@ -282,23 +306,31 @@ def parse_quiz(body: str, offset: int) -> list[QuizQuestion]:
             current.options.append(
                 QuizOption(label=m.group(1).lower(), text=m.group(2), line=line_no)
             )
-            collecting_answer = False
+            collecting = "option"
             continue
 
         m = _ANSWER.match(line)
         if m:
             current.answer_line = line_no
             current.answer_raw = m.group(1)
-            collecting_answer = True
+            collecting = "answer"
             continue
 
-        if collecting_answer:
-            if line.strip():
-                current.answer_raw = f"{current.answer_raw} {line.strip()}".strip()
-            else:
-                collecting_answer = False
+        if collecting == "answer":
+            current.answer_raw = _join(current.answer_raw, line)
+        elif collecting == "stem" and not current.options and not _LIST_ITEM.match(line):
+            current.text = _join(current.text, line)
+        elif collecting == "option" and not _LIST_ITEM.match(line):
+            option = current.options[-1]
+            option.text = _join(option.text, line)
+        else:
+            scan.unconsumed.append((line_no, line))
 
-    return questions
+    return scan
+
+
+def parse_quiz(body: str, offset: int) -> list[QuizQuestion]:
+    return scan_quiz(body, offset).questions
 
 
 # ---------------------------------------------------------------------------- homework

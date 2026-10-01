@@ -68,8 +68,10 @@ The first thing is worth knowing. See [the diagram](../../assets/diagram.txt) fo
 Try the first thing yourself.
 
 ## Quick Quiz
-1. What is the first thing?
-   - a) Wrong one
+1. What is the first thing, the one every later lesson
+   assumes you already know?
+   - a) Wrong one, though it runs on long enough that its author
+     wrapped it onto a second line
    - b) The first thing
    - c) Wrong three
    - d) Wrong four
@@ -128,7 +130,8 @@ The second thing builds on the first.
 Try the second thing yourself.
 
 ## Quick Quiz
-1. What is the second thing?
+1. What is the second
+   thing?
    - a) Wrong one
    - b) Wrong two
    - c) The second thing

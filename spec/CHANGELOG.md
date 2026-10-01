@@ -6,6 +6,26 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Quiz stems and options may wrap — 2026-10-01
+
+Errata found by a learner on a production course: 4 of 42 questions had a stem wrapped onto a
+second source line, and every runtime showed only the first. The specification said an
+[answer](course-format.md#quick-quiz) may wrap and was silent on stems and options, so the
+reference parser kept one line of each and dropped the rest, and the validator reported
+nothing. A learner was left with a question that stopped mid-sentence, and a tutor that may
+not read the lesson file during a quiz could only guess the rest.
+
+Stems and options now wrap exactly as answers always have: indented continuation lines up to
+the next option, the answer line, or a blank line, joined with single spaces. Every non-blank
+line in Quick Quiz must belong to a stem, an option, or an answer; one that belongs to none is
+reported as the new `quiz-line-unconsumed`, so quiz content can never again be dropped
+silently.
+
+Minor, within this draft: wrapping is additive, and a course that wrapped a stem or option
+already meant the joined text, which is what it now delivers. The new check rejects only text
+that no runtime ever delivered. All three example courses and the 64-lesson origin course
+validate with no new findings.
+
 ### Authoritative completion chronology — 2026-09-17
 
 Ceremony and artifact defaults use validated completion-log append order rather than the
