@@ -13,6 +13,7 @@ from ._errors import (
     ResolveError,
     UnknownRef,
 )
+from ._git import tracked_payload
 from ._identity import safe_source_ref
 from ._locking import locked_directory
 from ._resolve import (
@@ -41,4 +42,5 @@ __all__ = [
     "UnknownRef",
     "UrlResolver",
     "resolve",
+    "tracked_payload",
 ]
