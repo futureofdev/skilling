@@ -5,7 +5,7 @@ and prints exactly one JSON object. This module is the part every verb shares: h
 is assembled, how a refusal is reported, and where the runtime-private scratch that has to
 survive between one process and the next actually lives.
 
-The CLI is the sole write authority: a store never computes anything, so every derived write
+The trusted runtime is the write authority: a store never computes anything, so every derived write
 — position after a transition, the completion write set — happens in ``delivery`` or here,
 never inside a store backend.
 """
@@ -15,32 +15,47 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
-from typing import NamedTuple, NoReturn
+from typing import NoReturn
 
 import typer
 import yaml
 
-from ...conformance import validate_course
-from ...course import Course, CourseLoadError, Record, ResolvedLesson, declared_level, is_semver
+from ...course import Course, Record, declared_level, is_semver
 from ...delivery import (
     ChronologyInvalid,
     CoordinateRequired,
     completed_coordinate,
-    load_or_create,
-    preview_upgrade,
+)
+from ...session import (
+    FileSession,
+    RefusalKind,
+    SessionRefusal,
+    VersionMismatch,
+    _commit_runtime,
+    _load_runtime,
+    load_course,
+)
+from ...session import (
+    _parse_scratch as parse_scratch,
+)
+from ...session import (
+    _RuntimeSession as Session,
+)
+from ...session import (
+    _Scratch as Scratch,
+)
+from ...session import (
+    _serialize_scratch as serialize_scratch,
 )
 from ...store import (
     Conflict,
     FileProgressStore,
-    IdempotencyKeyConflict,
     ProgressStore,
     RecoveryRequired,
     StatePathError,
-    TransitionCommit,
     TransitionIdentity,
     TransitionResult,
     open_store,
@@ -52,6 +67,8 @@ from ...workspace import (
     resolve_state_root,
     workspace_read,
 )
+
+__all__ = ["Scratch", "Session", "parse_scratch", "serialize_scratch"]
 
 SCRATCH_NAME = "scratch.yaml"
 
@@ -65,37 +82,6 @@ class ExitCode(IntEnum):
     CONFLICT = 3
     ILLEGAL = 4
     VERSION_MISMATCH = 5
-
-
-@dataclass(frozen=True)
-class Scratch:
-    """Runtime-private working state, beside the record but never part of it.
-
-    ``wrong_count`` and ``returning_to_quiz`` mirror the same-named ``LessonState`` fields.
-    The machine treats them as in-memory scratch because the interactive walker never leaves
-    a lesson mid-quiz without them still in a live Python object. The session verbs *do*
-    leave between every single input — one process per transition — so this file is where
-    that residual has to live instead, or a wrong answer would be forgotten the instant the
-    process that recorded it exited.
-
-    ``last_key``/``last_result`` are read only for compatibility with older state. New keys
-    live in immutable transition receipts; replay renders a current coherent snapshot.
-    """
-
-    wrong_count: int = 0
-    returning_to_quiz: bool = False
-    last_key: str | None = None
-    last_result: dict[str, object] | None = None
-
-
-class Session(NamedTuple):
-    course: Course
-    lesson: ResolvedLesson
-    store: ProgressStore
-    record: Record
-    revision: str | None
-    scratch: Scratch
-    scratch_bytes: bytes
 
 
 def now_override() -> datetime | None:
@@ -126,16 +112,6 @@ def load_scratch(store: ProgressStore, course_id: str) -> Scratch:
     return parse_scratch(store.read_runtime_state(course_id))
 
 
-def parse_scratch(raw: bytes) -> Scratch:
-    data = yaml.safe_load(raw) or {}
-    return Scratch(
-        wrong_count=data.get("wrong_count", 0),
-        returning_to_quiz=data.get("returning_to_quiz", False),
-        last_key=data.get("last_key"),
-        last_result=data.get("last_result"),
-    )
-
-
 def save_scratch(session: Session, scratch: Scratch, expected_record_revision: str) -> None:
     """Reject delayed scratch writes after another record mutation or completion reset.
 
@@ -151,38 +127,73 @@ def save_scratch(session: Session, scratch: Scratch, expected_record_revision: s
         fail(ExitCode.CONFLICT, "conflict", str(exc))
 
 
-def serialize_scratch(scratch: Scratch) -> bytes:
-    return yaml.safe_dump(
-        {
-            "wrong_count": scratch.wrong_count,
-            "returning_to_quiz": scratch.returning_to_quiz,
-            "last_key": scratch.last_key,
-            "last_result": scratch.last_result,
-        },
-        sort_keys=False,
-    ).encode("utf-8")
-
-
 def commit_runtime(
     session: Session, record: Record, scratch: Scratch, identity: TransitionIdentity
 ) -> TransitionResult:
-    if not isinstance(session.store, FileProgressStore):
-        raise TypeError("runtime transitions currently need the file store backend")
-    assert session.revision is not None
     try:
-        return session.store.commit_transition(
-            TransitionCommit(
-                identity,
-                session.revision,
-                session.scratch_bytes,
-                record,
-                serialize_scratch(scratch),
+        return _commit_runtime(session, record, scratch, identity)
+    except SessionRefusal as exc:
+        refuse_session(exc, str(session.course.root))
+
+
+def refuse_session(exc: SessionRefusal, ref: str) -> NoReturn:
+    if isinstance(exc, VersionMismatch):
+        command = f"skilling upgrade --course {ref}"
+        if exc.resumable:
+            message = (
+                f"this record is on {exc.course_id} {exc.from_version}, and {exc.to_version} is "
+                f"available here. Progress carries over: run `{command} --yes` (or "
+                "/upgrade-skilling) to switch. Nothing changes until you do."
             )
+        elif exc.refusal_message is not None:
+            message = (
+                f"{exc.refusal_message} Run `{command} --check` (or /upgrade-skilling) for options."
+            )
+        else:
+            message = (
+                f"the record was started against {exc.course_id} {exc.from_version}, but "
+                f"{exc.course_id} on disk is {exc.to_version}. Run `{command} --check` for options."
+            )
+        fail(
+            ExitCode.VERSION_MISMATCH,
+            "version-mismatch",
+            message,
+            upgrade={
+                "from": exc.from_version,
+                "to": exc.to_version,
+                "resumable": exc.resumable,
+                "reason": exc.reason.value if exc.reason else None,
+                "command": command,
+            },
         )
-    except IdempotencyKeyConflict as exc:
-        fail(ExitCode.CONFLICT, "idempotency-key-conflict", str(exc))
-    except Conflict as exc:
-        fail(ExitCode.CONFLICT, "conflict", str(exc))
+    code = {
+        RefusalKind.INVALID: ExitCode.INVALID,
+        RefusalKind.CONFLICT: ExitCode.CONFLICT,
+        RefusalKind.ILLEGAL: ExitCode.ILLEGAL,
+    }[exc.kind]
+    fail(code, exc.code, str(exc))
+
+
+def file_state_root(state: Path | None) -> Path:
+    """Preserve CLI file: and backend selection before normalizing a local path."""
+    try:
+        store = open_store(str(resolve_state_root(state)))
+    except StatePathError as exc:
+        fail(ExitCode.INVALID, "state-invalid", str(exc))
+    if not isinstance(store, FileProgressStore):
+        raise TypeError("runtime-private scratch currently needs the file store backend")
+    return store.state_root
+
+
+def open_file_session(course_ref: str, state: Path | None, learner: str) -> FileSession:
+    try:
+        return FileSession.open(
+            load_session_course(course_ref),
+            state_root=file_state_root(state),
+            learner_id=learner,
+        )
+    except SessionRefusal as exc:
+        refuse_session(exc, course_ref)
 
 
 def load_session_course(course_ref: str) -> Course:
@@ -207,21 +218,9 @@ def _load_session_course(course_ref: str) -> Course:
         course_path = located
 
     try:
-        report = validate_course(course_path)
-        if not report.ok:
-            first = report.errors[0]
-            fail(
-                ExitCode.INVALID,
-                "course-invalid",
-                f"{first.code}: {first.message} ({len(report.errors)} error(s))",
-            )
-        course = Course.load(course_path)
-    except CourseLoadError as exc:
-        fail(ExitCode.INVALID, "course-invalid", f"{exc.code}: {exc.message}")
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        fail(ExitCode.INVALID, "course-invalid", f"Cannot read course: {type(exc).__name__}")
-
-    return course
+        return load_course(course_path.absolute())
+    except SessionRefusal as exc:
+        refuse_session(exc, course_ref)
 
 
 def open_session(
@@ -245,73 +244,15 @@ def open_session(
     course = load_session_course(course_ref) if isinstance(course_ref, str) else course_ref
 
     try:
-        state_root = resolve_state_root(state)
-        store = open_store(str(state_root))
-        if isinstance(store, FileProgressStore):
-            store.ensure_course_paths(course.id)
-        if initialize:
-            load_or_create(store, course, learner)
-        if not isinstance(store, FileProgressStore):
-            raise TypeError("runtime-private scratch currently needs the file store backend")
-        snapshot = store.read_runtime_snapshot(learner, course.id)
-        if snapshot is None:
-            record, revision = Record.new(course, learner), None
-            scratch_bytes = b""
-        else:
-            record, revision = snapshot.record, snapshot.revision
-            scratch_bytes = snapshot.scratch
-        scratch = parse_scratch(scratch_bytes)
-    except StatePathError as exc:
-        fail(ExitCode.INVALID, "state-invalid", str(exc))
-
-    if record.course_version != course.version:
+        return _load_runtime(
+            course,
+            file_state_root(state),
+            learner,
+            initialize=initialize,
+        )
+    except SessionRefusal as exc:
         ref = course_ref if isinstance(course_ref, str) else str(course.root)
-        _refuse_version(store, course, learner, record, ref)
-
-    lesson = course.lesson_at(record.position.coordinate)
-    if lesson is None:
-        fail(
-            ExitCode.INVALID,
-            "position-invalid",
-            f"{record.position.coordinate} is not a lesson in {course.id}",
-        )
-
-    return Session(course, lesson, store, record, revision, scratch, scratch_bytes)
-
-
-def _refuse_version(
-    store: ProgressStore, course: Course, learner: str, record: Record, ref: str
-) -> NoReturn:
-    """Explain a version mismatch without writing: whether an upgrade would carry progress."""
-    command = f"skilling upgrade --course {ref}"
-    plan = (
-        preview_upgrade(store, course, learner).plan
-        if isinstance(store, FileProgressStore)
-        else None
-    )
-    if plan is not None and plan.ok:
-        message = (
-            f"this record is on {course.id} {record.course_version}, and {course.version} is "
-            f"available here. Progress carries over: run `{command} --yes` (or "
-            "/upgrade-skilling) to switch. Nothing changes until you do."
-        )
-    elif plan is not None:
-        message = (
-            f"{plan.refusal_message()} Run `{command} --check` (or /upgrade-skilling) for options."
-        )
-    else:
-        message = (
-            f"the record was started against {course.id} {record.course_version}, but "
-            f"{course.id} on disk is {course.version}. Run `{command} --check` for options."
-        )
-    upgrade: dict[str, object] = {
-        "from": record.course_version,
-        "to": course.version,
-        "resumable": bool(plan and plan.ok),
-        "reason": plan.refusal.value if plan and plan.refusal else None,
-        "command": command,
-    }
-    fail(ExitCode.VERSION_MISMATCH, "version-mismatch", message, upgrade=upgrade)
+        refuse_session(exc, ref)
 
 
 def known_upgrade(course: Course) -> dict[str, object] | None:

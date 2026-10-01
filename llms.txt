@@ -24,6 +24,7 @@
 - [Runtime](spec/runtime.md): Normative delivery and persistence behaviour.
 - [Workspace](spec/workspace.md): Normative learner workspace layout and discovery.
 - [Skill pack](spec/skill-pack.md): Normative host skill conventions.
+- [Python file session](docs/python-session.md): Experimental trusted-controller facade and safe teaching views.
 - [Implement a runtime](docs/implementing-a-runtime.md): Reference implementation guide.
 - [Known implementations](docs/implementations.md): Registry and claim limits.
 - [Delivery loop](docs/concepts/the-delivery-loop.md): Explanatory concept.
