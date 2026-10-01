@@ -13,10 +13,18 @@ from pathlib import Path
 
 import typer
 
-from ...course import Course
-from ...delivery import submit_homework
+from ...session import SessionRefusal
 from ...store import LOCAL_LEARNER, Conflict, InvalidSubmissionToken, NotSupported, SubmissionToken
-from ._common import ExitCode, emit, fail, load_session_course, now_override, open_session
+from ._common import (
+    ExitCode,
+    emit,
+    fail,
+    load_session_course,
+    now_override,
+    open_file_session,
+    refuse_session,
+    view_data,
+)
 
 COURSE_HELP = "Path to the course directory."
 STATE_HELP = "Where to keep the learner's progress record."
@@ -29,10 +37,6 @@ _LearnerOption = typer.Option(LOCAL_LEARNER, "--learner", help=LEARNER_HELP)
 homework = typer.Typer(help="Inspect and submit the active homework assignment.")
 
 
-def _course_envelope(course: Course) -> dict[str, object]:
-    return {"id": course.id, "version": course.version}
-
-
 @homework.command("check")
 def check(
     course: str = _CourseOption,
@@ -43,22 +47,26 @@ def check(
 
     Does not initialize state or change the slot. Existing accepted intent may recover.
     """
-    session = open_session(course, state, learner, initialize=False)
-    active, revision = session.store.get_homework(learner, session.course.id)
-    token = None
+    service = open_file_session(course, state, learner, initialize=False)
+    try:
+        result = service.homework_check()
+    except SessionRefusal as exc:
+        refuse_session(exc, course)
+    active = view_data(result.active) if result.active is not None else None
     if active is not None:
-        assert revision is not None
-        token = SubmissionToken.for_slot(
-            learner, session.course.id, session.course.version, active, revision
-        ).encode()
+        active["queued"] = (
+            [{k: v for k, v in view_data(a).items() if k != "queued"} for a in result.active.queued]
+            if result.active is not None
+            else []
+        )
     emit(
         {
             "ok": True,
             "verb": "homework-check",
-            "course": _course_envelope(session.course),
-            "active": active.model_dump(mode="json") if active is not None else None,
-            "revision": revision,
-            "submission_token": token,
+            "course": {"id": result.course.id, "version": result.course.version},
+            "active": active,
+            "revision": result.revision,
+            "submission_token": result.submission_token,
         }
     )
 
@@ -94,16 +102,11 @@ def submit(
             "invalid-submission-token",
             "Token belongs to a different record stream",
         )
-    session = open_session(selected, state, learner, initialize=False)
+    service = open_file_session(selected, state, learner, initialize=False)
     try:
-        entry = submit_homework(
-            session.store,
-            learner,
-            session.course.id,
-            identity.coordinate,
-            token=token,
-            now=now_override(),
-        )
+        entry = service.homework_submit(token, now=now_override())
+    except SessionRefusal as exc:
+        refuse_session(exc, course)
     except InvalidSubmissionToken as exc:
         fail(ExitCode.INVALID, "invalid-submission-token", str(exc))
     except Conflict as exc:
@@ -111,11 +114,13 @@ def submit(
     except NotSupported as exc:
         fail(ExitCode.ERROR, "submission-not-supported", str(exc))
 
+    archived = view_data(entry)
+    archived.pop("course")
     emit(
         {
             "ok": True,
             "verb": "homework-submit",
-            "course": _course_envelope(session.course),
-            "archived": entry.model_dump(mode="json"),
+            "course": {"id": entry.course.id, "version": entry.course.version},
+            "archived": archived,
         }
     )

@@ -1,8 +1,8 @@
 # Embed a file-backed Python session
 
 `skilling.session` is an experimental Python API for a trusted producer controller. It is
-LLM-free and uses the same file runtime as `skilling next`, `advance`, `quiz next` and
-`answer`. The runtime specification remains authoritative; these Python signatures are not a
+LLM-free and uses the same file runtime as the teaching, completion and companion CLI
+commands. The runtime specification remains authoritative; these Python signatures are not a
 new conformance class. Use a build containing this API; the previously allocated core 0.7.0
 release does not by itself establish that the API is present in published artifacts.
 
@@ -71,7 +71,7 @@ answer a later question. `answer` returns correctness, the authored reason and r
 objectives/revisit offer; it never settles objectives. This extraction does not add durable
 pending feedback, acknowledgement or keyed-answer recovery. Preserve the returned feedback
 and present it before fetching another question; do not blindly retry after presentation or
-model failure. Completion and companion operations remain CLI-owned in this API stage.
+model failure.
 
 `SessionRefusal` has a typed `kind` (`RefusalKind.INVALID`, `CONFLICT` or `ILLEGAL`), a `code`
 and an explanatory exception message. `VersionMismatch` additionally carries `course_id`,
@@ -85,3 +85,39 @@ remain typed core exceptions. A refused action does not imply rollback of an ear
 operation. The producer owns identity/session binding, learner controls, presentation,
 optional history, model/credentials and usage limits. This API supplies no model tools,
 provider dependency or general filesystem authority.
+
+Completion and companions use that same controller-owned session. At the completion beat,
+`complete(expected_revision)` commits the current lesson against the revision the controller
+observed. Repeating a committed completion preserves its badges, queue and log.
+`ceremony(coordinate=None)` selects the existing completion chronology and returns share text
+and a workspace-relative showcase. Neither operation infers that a learner presented work.
+
+`homework_check()` retrieves the active assignment, queued assignments and a submission token;
+it does not evaluate requirements or initialize a missing record. Keep its token on the
+controller side. Only after the learner explicitly submits, call `homework_submit(token)`.
+A successful replay returns the original archive without consuming a successor assignment.
+Malformed or differently bound tokens refuse before state access.
+
+`objectives(capabilities=())` reports authored objectives and whether each can be settled with
+those producer capabilities. `settle_objective(id, capabilities, checked=..., attested_by=...,
+expected_revision=...)` requires the actual observation and provenance for practice evidence.
+Knowledge settlement requires the existing conversational capability; quiz correctness never
+settles an objective. `ObjectiveSettlementError` in `skilling.delivery` retains `ValueError`
+compatibility and exposes a typed `ObjectiveRefusal` reason. The facade maps those refusals to
+`SessionRefusal` codes. `progress()` returns copied progress values. `telemetry()` reads consent;
+`telemetry(True)` and `telemetry(False)` persist only an explicit learner choice.
+
+`artifact_add(path, title, workspace_root=..., path_base=..., coordinate=None,
+expected_revision=...)` requires explicit absolute workspace and path-base roots. It records
+an existing file inside that workspace at the existing completion chronology, using the same
+relative-path upsert and containment rules as the CLI. Call it only at the two authored
+artifact moments: phase ceremony and confirmed homework submission. It adds no timing
+gate or general filesystem tool. `artifacts()`
+returns copied entries. A stopped writer can reopen a relocated workspace and state tree with
+new explicit roots; persisted artifact paths remain workspace-relative.
+
+Companion results are frozen copied values. Homework tokens and artifact paths are controller
+values; send models only the assignment or relative showcase content needed for the task.
+Optional `expected_revision` arguments reject stale writes with the existing `Conflict`
+exception. Read-only homework checks preserve record, queue, receipts and scratch bytes;
+prepared file operations may still recover as described above.

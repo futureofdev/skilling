@@ -334,8 +334,9 @@ class Artifact(Strict):
     """A pointer to work the learner built. Since 1.4; meaningful only within a workspace
     (spec/workspace.md#artifacts).
 
-    Recorded only through the CLI, at the two moments the loop already owns — phase ceremony
-    and confirmed homework submission — and never gating the flow: no beat waits on one, no
+    Recorded through the runtime-owned CLI or public file-session facade, at the two
+    moments the loop already owns — phase ceremony and confirmed homework submission — and
+    never gating the flow: no beat waits on one, no
     completion requires one. A pointer and a title, never a judgement.
     """
 

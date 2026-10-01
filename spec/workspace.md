@@ -188,7 +188,8 @@ Since 1.4 the [progress record](runtime.md#the-progress-record) may carry an `ar
 list: pointers to work the learner built. Each entry names a `path` (workspace-relative,
 POSIX separators), a `title`, the `coordinate` it was recorded at, and `added_at`.
 
-Artifacts are recorded **only through the CLI**, at exactly two moments the loop already
+Artifacts are recorded **through the runtime-owned CLI or public file-session facade**,
+at exactly two moments the loop already
 owns: [phase ceremony](runtime.md#phase-boundary-ceremony) and confirmed
 [homework submission](runtime.md#submit). A tutor never writes one on its own say-so, for the
 same reason it never writes anything else around the runtime.

@@ -13,9 +13,9 @@ from pathlib import Path
 
 import typer
 
-from ...delivery import set_telemetry_consent
+from ...session import SessionRefusal
 from ...store import LOCAL_LEARNER
-from ._common import ExitCode, emit, fail, open_session
+from ._common import ExitCode, emit, fail, open_file_session, refuse_session, view_data
 
 COURSE_HELP = "Path to the course directory."
 STATE_HELP = "Where to keep the learner's progress record."
@@ -41,31 +41,14 @@ def progress(
     Read-only, like ``next`` — but reports regardless of where the learner currently
     stands, including after the course is complete.
     """
-    session = open_session(course, state, learner)
-    record = session.record
-    course_obj = session.course
-    emit(
-        {
-            "ok": True,
-            "verb": "progress",
-            "course": {"id": course_obj.id, "version": course_obj.version},
-            "position": {
-                "phase": record.position.phase,
-                "lesson": record.position.lesson,
-                "beat": record.position.beat,
-                "question_index": record.position.question_index,
-            },
-            "completed": list(record.completed),
-            "completed_count": course_obj.completed_count(record.completed),
-            "lesson_count": course_obj.lesson_count,
-            "percent_complete": course_obj.percent_complete(record.completed),
-            "skills_unlocked": list(record.skills_unlocked),
-            "streak_days": record.streak_days,
-            "started_at": record.started_at.isoformat(),
-            "last_activity": record.last_activity.isoformat(),
-            "revision": session.revision,
-        }
-    )
+    service = open_file_session(course, state, learner)
+    try:
+        result = service.progress()
+    except SessionRefusal as exc:
+        refuse_session(exc, course)
+    data = view_data(result)
+    data["course"] = {"id": result.course.id, "version": result.course.version}
+    emit({"ok": True, "verb": "progress", **data})
 
 
 def telemetry(
@@ -84,32 +67,20 @@ def telemetry(
     if action not in ("ask", "on", "off"):
         fail(ExitCode.INVALID, "unknown-action", f"{action!r} is not 'ask', 'on', or 'off'")
 
-    session = open_session(course, state, learner)
+    service = open_file_session(course, state, learner)
+    try:
+        result = service.telemetry(None if action == "ask" else action == "on")
+    except SessionRefusal as exc:
+        refuse_session(exc, course)
     envelope: dict[str, object] = {
         "ok": True,
         "verb": "telemetry",
-        "course": {"id": session.course.id, "version": session.course.version},
+        "course": {"id": result.course.id, "version": result.course.version},
+        "opt_in": result.opt_in,
+        "revision": result.revision,
     }
-
     if action == "ask":
-        envelope.update(
-            {
-                "opt_in": session.record.telemetry.opt_in,
-                "question": TELEMETRY_QUESTION,
-                "revision": session.revision,
-            }
-        )
-        emit(envelope)
-        return
-
-    updated, revision = set_telemetry_consent(
-        session.store, session.record, session.revision, action == "on"
-    )
-    envelope.update(
-        {
-            "opt_in": updated.telemetry.opt_in,
-            "anonymous_id": updated.telemetry.anonymous_id or None,
-            "revision": revision,
-        }
-    )
+        envelope["question"] = TELEMETRY_QUESTION
+    else:
+        envelope["anonymous_id"] = result.anonymous_id
     emit(envelope)
