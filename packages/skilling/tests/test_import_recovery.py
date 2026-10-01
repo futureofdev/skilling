@@ -140,6 +140,18 @@ def test_first_import_and_new_version_recover(tmp_path: Path, boundary: str, ini
     assert entry is not None and entry.version == ("1.0.0" if initial else "1.1.0")
 
 
+def test_version_change_output_survives_a_legacy_console_encoding(tmp_path: Path) -> None:
+    """Windows consoles and pipes often default to cp1252, so a version change's progress
+    report must not need UTF-8 to print."""
+    source, workspace = setup(tmp_path, initial=False)
+    manifest = source / "course.yaml"
+    manifest.write_text(manifest.read_text().replace('version: "1.0.0"', 'version: "1.1.0"'))
+    legacy = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    result = run(worker(workspace, source), env=legacy)
+    assert result.returncode == 0, result.stderr
+    assert load_manifest(workspace).courses[0].version == "1.1.0"
+
+
 @pytest.mark.parametrize(
     "damage",
     [

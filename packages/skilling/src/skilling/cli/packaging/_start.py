@@ -138,7 +138,8 @@ def start(
                     "state_initialised": True,
                     "progress": progress_payload(plan, applied=True) if plan else None,
                 }
-            )
+            ),
+            ensure_ascii=True,
         )
         return
 

@@ -107,7 +107,7 @@ class UpgradePlan:
 
     def summary(self) -> str:
         """One plain sentence about what happens to existing progress."""
-        name = f"{self.course_id} {self.from_version} → {self.to_version}"
+        name = f"{self.course_id} {self.from_version} -> {self.to_version}"
         if self.ok:
             restart = (
                 " The current lesson restarts at its first beat because its shape changed."
