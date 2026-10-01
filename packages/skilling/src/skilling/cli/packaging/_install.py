@@ -1,6 +1,6 @@
 """``skilling install`` / ``skilling uninstall`` — writing the bundled skill pack
-(``learn``/``progress``/``homework``/``upgrade``) into the Claude Code and generic Agent-Skills
-host conventions, and removing exactly what was written.
+(``learn``/``progress``/``homework``/``upgrade-skilling``) into the Claude Code and generic
+Agent-Skills host conventions, and removing exactly what was written.
 
 Both platforms by default: no single directory is read by both hosts, so installing
 "cross-host" means writing both conventions unless ``--platform`` narrows it. Folder-scoped by
@@ -53,8 +53,8 @@ def install(
         ),
     ),
 ) -> None:
-    """Install the bundled learn/progress/homework/upgrade skill pack into one or both Agent-Skills
-    host conventions. Reinstalling upgrades any already-installed copy in place."""
+    """Install the bundled learn/progress/homework/upgrade-skilling skill pack into one or both
+    Agent-Skills host conventions. Reinstalling upgrades any already-installed copy in place."""
     target_dir = _target_dir(home)
     tracked: list[Path] = []
     for chosen in platform or ALL_PLATFORMS:

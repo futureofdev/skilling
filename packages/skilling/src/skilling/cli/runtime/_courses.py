@@ -1,7 +1,7 @@
 """``skilling courses`` — enumerate every course a learner has local progress state for.
 
-The mechanism the generic skill pack (``learn``/``progress``/``homework``/``upgrade``) needs
-for cross-course discovery
+The mechanism the generic skill pack (``learn``/``progress``/``homework``/
+``upgrade-skilling``) needs for cross-course discovery
 (docs/superpowers/specs/2026-08-06-generic-delivery-skills-design.md): nothing prior to this
 ever enumerated "what courses does this learner even have, and which one were they most
 recently working on" — every other verb is *handed* a course. Read-only: enumeration only, no

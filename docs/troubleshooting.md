@@ -64,7 +64,7 @@ one. Move the entire workspace rather than only its visible showcase folder.
 ## `version-mismatch`
 
 Your progress is on a different version of the course from the one the workspace now holds.
-Nothing was changed. Run `skilling upgrade --course <course-id>` (or invoke `/upgrade`) to see
+Nothing was changed. Run `skilling upgrade --course <course-id>` (or invoke `/upgrade-skilling`) to see
 whether progress carries over, then `--yes` to switch. When it can't carry over (a new major
 version, a downgrade, or a lesson you've reached was removed), stay on your current version.
 Don't edit or delete anything under `.skilling/` to get past this. Starting a course over on

@@ -59,6 +59,9 @@ def start(
     workspace = (dir if dir is not None else Path.cwd()).resolve()
 
     remote = GhResolver.claims(ref) or UrlResolver.claims(ref)
+    # A local source is recorded as an absolute path: a relative one means nothing once a
+    # later command (``skilling upgrade``) runs from inside the workspace.
+    recorded = ref if remote else str(Path(ref).resolve())
     try:
         if not remote:
             validate_local_import(workspace, Path(ref))
@@ -77,11 +80,11 @@ def start(
             if plan is not None and not as_json:
                 render.console.print(f"[green]{plan.summary()}[/]", soft_wrap=True)
             if not remote:
-                imported = import_local_course(workspace, Path(ref), ref=ref)
+                imported = import_local_course(workspace, Path(ref), ref=recorded)
                 course, content_path = imported.course, imported.path
             # Finishing steps are idempotent; committed content survives failures here.
             ensure_workspace(workspace)
-            entry = add_course(workspace, course, ref, content_path)
+            entry = add_course(workspace, course, recorded, content_path)
 
             skill_dirs: list[Path] = []
             for platform in ALL_PLATFORMS:
@@ -161,7 +164,7 @@ def _refuse_switch(plan: UpgradePlan, as_json: bool) -> NoReturn:
     """The workspace stays where the learner's progress can resume; nothing was switched."""
     message = (
         f"{plan.refusal_message()} This workspace stays on {plan.from_version}; run "
-        f"`skilling upgrade --course {plan.course_id} --check` (or /upgrade) for options."
+        f"`skilling upgrade --course {plan.course_id} --check` (or /upgrade-skilling) for options."
     )
     if as_json:
         emit(

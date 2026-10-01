@@ -2,8 +2,9 @@
 
 ``fetch`` turns a ref into a validated, cached course directory that every other command's
 ``--course`` argument can point at. ``install``/``uninstall`` write the fixed skill pack
-(``learn``/``progress``/``homework``/``upgrade``) into a host's Agent-Skills convention — once
-per learner, not once per course, so nothing here validates a learner's progress either.
+(``learn``/``progress``/``homework``/``upgrade-skilling``) into a host's Agent-Skills
+convention — once per learner, not once per course, so nothing here validates a learner's
+progress either.
 ``start`` is the one-command onboarding path: it resolves a course, grows a learner workspace
 around it, and calls ``fetch``'s resolution and ``install``'s mechanics on the learner's
 behalf. ``upgrade`` is the explicit route to a newer course version.

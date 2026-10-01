@@ -1,5 +1,5 @@
 """Tests for ``skilling install`` / ``skilling uninstall``: writing the bundled
-``learn``/``progress``/``homework``/``upgrade`` skill pack into the Claude Code and generic
+``learn``/``progress``/``homework``/``upgrade-skilling`` skill pack into the Claude Code and generic
 Agent-Skills host conventions, and removing exactly what a receipt says it wrote.
 
 There is no course argument any more (docs/superpowers/specs/
@@ -56,25 +56,27 @@ def _home_env(home: Path) -> dict[str, str]:
 def test_upgrade_is_installed_as_the_fourth_skill_for_both_hosts_with_receipts(
     tmp_path: Path,
 ) -> None:
-    assert SKILL_NAMES == ("learn", "progress", "homework", "upgrade")
+    assert SKILL_NAMES == ("learn", "progress", "homework", "upgrade-skilling")
     for platform in Platform:
         target = HostTarget(platform)
         install(target, project=tmp_path, home=tmp_path)
-        skill = target.skills_dir(project=tmp_path, home=tmp_path) / "upgrade"
+        skill = target.skills_dir(project=tmp_path, home=tmp_path) / "upgrade-skilling"
         receipt = yaml.safe_load((skill / RECEIPT_NAME).read_text(encoding="utf-8"))
-        assert receipt["name"] == "upgrade"
+        assert receipt["name"] == "upgrade-skilling"
         assert sorted(receipt["files"]) == [
             "SKILL.md",
             "references/course-resolution.md",
             "references/reading-the-check.md",
         ]
-        assert target.invocation("upgrade") in ("/upgrade", "$upgrade")
+        assert target.invocation("upgrade-skilling") in ("/upgrade-skilling", "$upgrade-skilling")
 
     for platform in Platform:
         target = HostTarget(platform)
         removed = uninstall(target, project=tmp_path, home=tmp_path)
-        assert any(path.parts[-2:] == ("upgrade", "SKILL.md") for path in removed)
-        assert not (target.skills_dir(project=tmp_path, home=tmp_path) / "upgrade").exists()
+        assert any(path.parts[-2:] == ("upgrade-skilling", "SKILL.md") for path in removed)
+        assert not (
+            target.skills_dir(project=tmp_path, home=tmp_path) / "upgrade-skilling"
+        ).exists()
 
 
 # --------------------------------------------------------------------------------- HostTarget

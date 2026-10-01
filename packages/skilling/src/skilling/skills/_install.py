@@ -8,8 +8,8 @@ by default, because no single directory is read by both hosts.
 
 There is nothing left to generate (docs/superpowers/specs/2026-08-06-generic-delivery-skills-
 design.md) — every file this writes is copied verbatim from ``skills/<name>/`` — so ``install``
-and ``uninstall`` operate on the whole ``learn``/``progress``/``homework``/``upgrade`` pack as
-one unit.
+and ``uninstall`` operate on the whole ``learn``/``progress``/``homework``/``upgrade-skilling``
+pack as one unit.
 Each skill still gets its own receipt (its relative paths and content hashes), but ``uninstall``
 treats every skill's receipt as one atomic transaction: a hand-edit anywhere in the pack refuses
 the entire removal, not just the affected skill's, so a learner never ends up with some skills

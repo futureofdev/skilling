@@ -292,11 +292,13 @@ def _refuse_version(
     if plan is not None and plan.ok:
         message = (
             f"this record is on {course.id} {record.course_version}, and {course.version} is "
-            f"available here. Progress carries over: run `{command} --yes` (or /upgrade) to "
-            "switch. Nothing changes until you do."
+            f"available here. Progress carries over: run `{command} --yes` (or "
+            "/upgrade-skilling) to switch. Nothing changes until you do."
         )
     elif plan is not None:
-        message = f"{plan.refusal_message()} Run `{command} --check` (or /upgrade) for options."
+        message = (
+            f"{plan.refusal_message()} Run `{command} --check` (or /upgrade-skilling) for options."
+        )
     else:
         message = (
             f"the record was started against {course.id} {record.course_version}, but "

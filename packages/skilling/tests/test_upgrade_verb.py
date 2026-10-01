@@ -309,3 +309,46 @@ def test_pins_and_branches(monkeypatch: pytest.MonkeyPatch) -> None:
     branch = find_update("gh:acme/course@dev", "1.0.0")
     assert (branch.kind, branch.pin) == (UpdateKind.BRANCH, "dev")
     assert find_update("https://example.com/course.git", "1.0.0").kind is UpdateKind.HEAD
+
+
+# ------------------------------------------------------------------- relative local refs
+
+
+def test_a_relative_local_ref_is_recorded_absolute_and_upgrades_from_inside(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in ("SKILLING_STATE_ROOT", "SKILLING_WORKSPACE", "SKILLING_CACHE_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    source = fx.build(tmp_path / "course")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["start", "./course", "ws", "--json"])
+    assert result.exit_code == 0, result.output
+    workspace = tmp_path / "ws"
+    manifest = (workspace / ".skilling" / "workspace.yaml").read_text()
+    assert str(source.resolve()) in manifest
+    assert "ref: ./course" not in manifest
+
+    monkeypatch.chdir(workspace)
+    assert cli("next", "--course", COURSE)[0] == 0
+    (source / fx.MANIFEST_PATH).write_text(
+        (source / fx.MANIFEST_PATH).read_text().replace('version: "1.0.0"', 'version: "1.0.1"')
+    )
+    code, body = cli("upgrade", "--course", COURSE, "--check", "--json")
+    assert code == 0, body
+    assert (body["status"], body["available"]) == ("available", "1.0.1")
+
+
+def test_a_legacy_relative_ref_gets_an_actionable_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = fx.build(tmp_path / "src" / COURSE)
+    workspace = started(tmp_path, monkeypatch, str(source))
+    path = workspace / ".skilling" / "workspace.yaml"
+    path.write_text(path.read_text().replace(str(source), "./somewhere-else/clean-course"))
+
+    code, body = cli("upgrade", "--course", COURSE, "--json")
+
+    assert code == 1
+    assert body["error"]["code"] == "source-unavailable"
+    assert "relative path" in body["error"]["message"]
+    assert "absolute path" in body["error"]["message"]

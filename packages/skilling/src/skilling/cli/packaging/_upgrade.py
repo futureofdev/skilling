@@ -26,6 +26,7 @@ import typer
 
 from ...conformance import validate_course
 from ...course import Course, CourseLoadError, compare, declared_level, is_course_id
+from ...course import load_manifest as load_course_manifest
 from ...delivery import UpgradePlan, preview_upgrade, roll_forward
 from ...sources import (
     CacheConflict,
@@ -155,6 +156,13 @@ def _validated(path: Path) -> Course:
         raise CourseInvalid(f"{exc.code}: {exc.message}", findings=[]) from exc
 
 
+def _course_id(path: Path) -> str | None:
+    try:
+        return load_course_manifest(path).id
+    except (CourseLoadError, OSError, UnicodeError):
+        return None
+
+
 def _is_remote(ref: str) -> bool:
     return GhResolver.claims(ref) or UrlResolver.claims(ref)
 
@@ -163,9 +171,22 @@ def _local_source(located: Located) -> Path | None:
     if located.entry is None or _is_remote(located.entry.ref):
         return None
     candidate = Path(located.entry.ref)
-    for option in (candidate, (located.workspace or Path.cwd()) / candidate):
-        if option.is_dir():
+    if candidate.is_absolute():
+        options = [candidate]
+    else:
+        # Older workspaces recorded the ref as typed, relative to wherever `start` ran.
+        workspace = located.workspace or Path.cwd()
+        options = [Path.cwd() / candidate, workspace / candidate, workspace.parent / candidate]
+    for option in options:
+        if option.is_dir() and _course_id(option) == located.course_id:
             return option.resolve()
+    if not candidate.is_absolute():
+        raise ResolveError(
+            f"this workspace recorded its local course source as the relative path "
+            f"{located.entry.ref!r}, which can't be found from here. Run `skilling upgrade` "
+            "from the directory you ran `skilling start` in, or re-run `skilling start` with "
+            "the course's absolute path to record it"
+        )
     raise ResolveError(
         f"the local course source {located.entry.ref!r} is no longer there; restore it or "
         "start the course from its new location"
@@ -262,7 +283,9 @@ def switch_workspace(found: Check) -> None:
         bound = bind_fresh(found.source.ref, found.fetched, cache=courses_dir(located.workspace))
         add_course(located.workspace, bound.course, found.source.ref, bound.path)
     elif found.local_source is not None:
-        imported = import_local_course(located.workspace, found.local_source, ref=located.entry.ref)
+        imported = import_local_course(
+            located.workspace, found.local_source, ref=str(found.local_source)
+        )
         if found.available is None or imported.course.version != found.available.version:
             raise Conflict("course source", found.available and found.available.version, None)
 

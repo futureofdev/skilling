@@ -47,8 +47,8 @@ invent a showcase path or treat its presence as evidence that learner work alrea
 
 When the `next` envelope carries an `upgrade` object (`available`, `level`, `command`), a newer
 version of this course is already known locally. After presenting the current beat, mention it
-once in plain words and offer the choice: a) Check the update with `/upgrade` (`$upgrade` in
-Codex)  b) Keep learning. Never run `skilling upgrade` yourself from this skill, and never
+once in plain words and offer the choice: a) Check the update with `/upgrade-skilling` (`$upgrade-skilling`
+in Codex)  b) Keep learning. Never run `skilling upgrade` yourself from this skill, and never
 upgrade without the learner choosing to. The hint is informational; the lesson goes on either
 way.
 

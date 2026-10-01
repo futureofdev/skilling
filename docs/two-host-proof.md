@@ -84,9 +84,9 @@ uv run skilling install
 ```
 
 Confirm the printed output lists all four skills under both conventions
-(`.claude/skills/{learn,progress,homework,upgrade}/`, invoked `/learn` etc., and
-`.agents/skills/{learn,progress,homework,upgrade}/`, invoked `$learn` etc.) before starting
-either host session. The 2026-08-06 pass below ran with the first three; `upgrade` was added
+(`.claude/skills/{learn,progress,homework,upgrade-skilling}/`, invoked `/learn` etc., and
+`.agents/skills/{learn,progress,homework,upgrade-skilling}/`, invoked `$learn` etc.) before starting
+either host session. The 2026-08-06 pass below ran with the first three; `upgrade-skilling` was added
 later and is not covered by it.
 
 ## Step 2 — `hello-skilling` in Codex

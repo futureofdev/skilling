@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 
-SKILL_NAMES: tuple[str, ...] = ("learn", "progress", "homework", "upgrade")
+SKILL_NAMES: tuple[str, ...] = ("learn", "progress", "homework", "upgrade-skilling")
 
 
 def skill_dir(name: str) -> Path:

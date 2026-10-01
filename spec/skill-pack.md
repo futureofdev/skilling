@@ -136,7 +136,7 @@ skill's `SKILL.md` or `references/*.md` use to state them. Two skill packs can s
 rule on this page while reading nothing alike.
 
 **How many skills a pack contains, or what they are named.** Nothing here requires a
-`learn`/`progress`/`homework`/`upgrade` split specifically, which is what the reference
+`learn`/`progress`/`homework`/`upgrade-skilling` split specifically, which is what the reference
 implementation ships. An implementation is free to ship one skill, or a different division of
 labour, as long as every skill it ships satisfies the rules above.
 

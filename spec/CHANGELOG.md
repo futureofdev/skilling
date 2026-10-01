@@ -33,7 +33,8 @@ version the learner's progress couldn't resume on. Learners were stranded either
   replay from the earlier version are refused instead of replayed.
 - [Skill pack](skill-pack.md#upgrading): skills that update must ask before every network call
   or change, and apply only through the CLI after an explicit yes. Lesson-delivery skills may
-  only offer an upgrade. The reference pack adds a fourth skill, `upgrade`.
+  only offer an upgrade. The reference pack adds a fourth skill, `upgrade-skilling`. It isn't named
+  `upgrade` because that would collide with a host's built-in `/upgrade` command.
 
 This is minor because everything it adds is optional behaviour, a file-backend extension and a
 new CLI verb. No conforming course, record or store breaks, `ProgressStore` is unchanged, and

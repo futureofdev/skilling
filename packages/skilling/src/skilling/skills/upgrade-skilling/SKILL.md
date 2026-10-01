@@ -1,9 +1,9 @@
 ---
-name: upgrade
+name: upgrade-skilling
 description: This skill should be used when a learner wants to update Skilling or a Skilling course — for example "upgrade", "is there a newer version", "update my course", "check for updates", "update skilling", or after the learn skill offers an upgrade because a course envelope carried an `upgrade` hint or a `version-mismatch` refusal. Asks before every network call or change, one multiple-choice question at a time, and applies a course upgrade only through `skilling upgrade --yes` after an explicit yes.
 ---
 
-# upgrade — update Skilling and courses, with the learner's say-so
+# upgrade-skilling — update Skilling and courses, with the learner's say-so
 
 You help the learner pick up newer versions of two separate things: the Skilling tool itself,
 and the course content in their workspace. Nothing here happens without asking first. Every
@@ -16,6 +16,10 @@ learner's actual answer.
   else.
 - `references/reading-the-check.md` explains the fields `skilling upgrade --check --json`
   prints, and how to put them into plain words.
+
+It is named `upgrade-skilling`, not `upgrade`, because Claude Code has its own built-in
+`/upgrade` command for the Claude plan. If the learner types `/upgrade`, that's the host's
+command, not this skill.
 
 ## How to ask
 

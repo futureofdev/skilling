@@ -48,6 +48,14 @@ it may fetch the course source, but it never switches the workspace or changes p
 recorded as met. `lesson_restarted: true` means the lesson they're on changed shape, so it
 starts again from its beginning; their place in the course doesn't move.
 
+## The `next` hint
+
+The learn skill's `next` envelope carries an `upgrade` hint only for a newer version that is
+already in the workspace, typically because an earlier `--check` downloaded it. That hint
+never goes online, so it can't see new releases nobody has checked for yet. A course started
+from a local folder never shows it either, because a local source isn't downloaded into the
+workspace until it is applied. Run `--check` to look.
+
 ## Refusals
 
 On failure the object is `{"ok": false, "error": {"code": ..., "message": ...}}`:

@@ -170,7 +170,7 @@ def test_human_output_matches_the_documented_format(tmp_path: Path) -> None:
     assert f"workspace  {ws.resolve()}" in out
     assert "course     .skilling/courses/hello-skilling@1.0.0" in out
     assert "showcase   showcase/hello-skilling/" in out
-    assert ".claude/skills/ + .agents/skills/ (learn, progress, homework, upgrade)" in out
+    assert ".claude/skills/ + .agents/skills/ (learn, progress, homework, upgrade-skilling)" in out
     for host in ("Claude Code", "Codex"):
         assert host in out
     assert f"open {ws.resolve()}" in out
