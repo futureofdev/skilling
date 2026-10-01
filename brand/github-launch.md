@@ -16,7 +16,7 @@ banner carries a Build-lime tile. There is no white or reversed mark.
 ## Copy contract
 
 The command-bearing source of truth is the repository README. It installs the package
-persistently (unpinned) and starts `gh:futureofdev/skilling@v0.6.0#examples/welcome-skilling`.
+persistently (unpinned) and starts `gh:futureofdev/skilling@v0.7.0#examples/welcome-skilling`.
 Brand copy
 may say `skilling start · 0.5.0`, but must not advertise transient execution, the legacy text
 walker as the learner route, an unpinned course, an old specification version or retired

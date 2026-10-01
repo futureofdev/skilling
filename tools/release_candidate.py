@@ -21,9 +21,9 @@ from email.parser import BytesParser
 from pathlib import Path, PurePosixPath
 from typing import NoReturn
 
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 SPEC_VERSION = "1.4.0-draft"
-CANDIDATE_ARTIFACT = "skilling-0.6.0-candidate"
+CANDIDATE_ARTIFACT = "skilling-0.7.0-candidate"
 BRAND_ARCHIVE = "skilling-brand-assets-v2.0.zip"
 CHECKSUM_PATHS = (
     f"dist/skilling-{VERSION}-py3-none-any.whl",
