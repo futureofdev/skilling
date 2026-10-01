@@ -25,8 +25,15 @@ from typer.testing import CliRunner
 
 from skilling.cli import app
 from skilling.skills import RECEIPT_NAME, SKILL_NAMES
+from skilling.sources import ResolveError
 from skilling.store import FileProgressStore
-from skilling.workspace import ENTRY_BLOCK_END, ENTRY_BLOCK_START, load_manifest, state_root
+from skilling.workspace import (
+    ENTRY_BLOCK_END,
+    ENTRY_BLOCK_START,
+    load_manifest,
+    state_root,
+    validate_local_import,
+)
 
 from .conftest import EXAMPLE_COURSE, REPO_ROOT
 
@@ -395,6 +402,128 @@ def test_interior_symlink_is_refused_without_following_it(tmp_path: Path, clean_
     assert result.exit_code == 1
     assert "symlink" in result.output
     assert not (ws / ".skilling").exists()
+
+
+# ------------------------------------------------- local import payload (GitHub issue #101)
+
+
+def files_under(root: Path) -> set[str]:
+    return {p.relative_to(root).as_posix() for p in root.rglob("*") if not p.is_dir()}
+
+
+def git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+
+def course_in_repository(tmp_path: Path, clean_dir: Path) -> tuple[Path, set[str]]:
+    """A course one directory down in a Git repository, everything committed; returns the
+    course directory and its tracked files."""
+    repo = tmp_path / "project"
+    course = repo / "course"
+    shutil.copytree(clean_dir, course)
+    (repo / ".gitignore").write_text(".venv/\n__pycache__/\n", encoding="utf-8")
+    git(repo, "init", "-q")
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "course")
+    return course, files_under(course)
+
+
+def symlink_or_skip(link: Path, target: Path, *, directory: bool = False) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=directory)
+    except OSError:
+        pytest.skip("symlinks unavailable on this platform")
+
+
+def installed(ws: Path, clean_dir: Path) -> Path:
+    return ws / ".skilling/courses" / f"{clean_dir.name}@1.0.0"
+
+
+def test_git_course_copies_tracked_files_and_ignores_untracked_symlinks(
+    tmp_path: Path, clean_dir: Path
+) -> None:
+    course, tracked = course_in_repository(tmp_path, clean_dir)
+    venv = course / ".venv/bin"
+    venv.mkdir(parents=True)
+    symlink_or_skip(venv / "python", Path("/usr/bin/python3"))
+    (course / "__pycache__").mkdir()
+    (course / "__pycache__/answer.pyc").write_bytes(b"\0")
+    (course / "scratch.txt").write_text("untracked notes", encoding="utf-8")
+    symlink_or_skip(course / "untracked-link", course / "course.yaml")
+    ws = tmp_path / "ws"
+    result = run(["start", str(course), str(ws), "--json"], tmp_path / "home")
+    assert result.exit_code == 0, result.output
+    course_id = json.loads(result.stdout)["course"]["id"]
+    content = ws / ".skilling/courses" / f"{course_id}@1.0.0"
+    assert files_under(content) == tracked
+    assert not (content / ".git").exists() and not (content / ".venv").exists()
+
+
+def test_tracked_symlink_is_refused_naming_the_path(tmp_path: Path, clean_dir: Path) -> None:
+    course, _ = course_in_repository(tmp_path, clean_dir)
+    symlink_or_skip(course / "tracked-link", Path("course.yaml"))
+    git(course.parent, "add", "-A")
+    git(course.parent, "commit", "-qm", "link")
+    with pytest.raises(ResolveError, match=r"symlink.*: tracked-link$"):
+        validate_local_import(tmp_path / "ws", course)
+    assert not (tmp_path / "ws").exists()
+
+
+def test_tracked_file_replaced_by_symlink_is_refused_naming_the_path(
+    tmp_path: Path, clean_dir: Path
+) -> None:
+    course, _ = course_in_repository(tmp_path, clean_dir)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("not course content", encoding="utf-8")
+    (course / "notes.txt").write_text("tracked", encoding="utf-8")
+    git(course.parent, "add", "-A")
+    git(course.parent, "commit", "-qm", "notes")
+    (course / "notes.txt").unlink()
+    symlink_or_skip(course / "notes.txt", outside)
+    with pytest.raises(ResolveError, match="symlink") as refused:
+        validate_local_import(tmp_path / "ws", course)
+    assert str(course / "notes.txt") in str(refused.value)
+
+
+def test_course_git_tracks_nothing_of_falls_back_to_directory_walk(
+    tmp_path: Path, clean_dir: Path
+) -> None:
+    repo = tmp_path / "home-dotfiles"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    course = repo / "course"
+    shutil.copytree(clean_dir, course)
+    ws = tmp_path / "ws"
+    assert run(["start", str(course), str(ws)], tmp_path / "home").exit_code == 0
+    assert files_under(installed(ws, clean_dir)) == files_under(clean_dir)
+
+
+def test_plain_directory_excludes_vcs_and_environment_dirs(tmp_path: Path, clean_dir: Path) -> None:
+    expected = files_under(clean_dir)
+    (clean_dir / ".venv/bin").mkdir(parents=True)
+    symlink_or_skip(clean_dir / ".venv/bin/python", Path("/usr/bin/python3"))
+    (clean_dir / ".git").mkdir()
+    (clean_dir / ".git/HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (clean_dir / "answer/__pycache__").mkdir(parents=True)
+    (clean_dir / "answer/__pycache__/key.pyc").write_bytes(b"\0")
+    (clean_dir / "answer/key.py").write_text("ANSWER = 42\n", encoding="utf-8")
+    ws = tmp_path / "ws"
+    result = run(["start", str(clean_dir), str(ws)], tmp_path / "home")
+    assert result.exit_code == 0, result.output
+    assert files_under(installed(ws, clean_dir)) == expected | {"answer/key.py"}
+
+
+def test_plain_directory_symlink_outside_exclusions_is_refused_by_name(
+    tmp_path: Path, clean_dir: Path
+) -> None:
+    (clean_dir / "assets").mkdir(exist_ok=True)
+    symlink_or_skip(clean_dir / "assets/logo.png", tmp_path / "elsewhere.png")
+    with pytest.raises(ResolveError, match="symlink") as refused:
+        validate_local_import(tmp_path / "ws", clean_dir)
+    assert str(clean_dir / "assets/logo.png") in str(refused.value)
+    assert not (tmp_path / "ws").exists()
 
 
 @pytest.mark.parametrize("foreign", ["# Learner notes\n\n\n\n", "  \n\t\n"])

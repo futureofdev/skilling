@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path, PurePosixPath
 from typing import NamedTuple
 
-from ._errors import CacheInvalid
+from ._errors import CacheInvalid, ResolveError
 
 GIT_TOKEN_ENV = "SKILLING_GIT_TOKEN"
 """Set by the learner for headless HTTPS (CI, a container with no keyring or interactive
@@ -63,9 +63,7 @@ class GitPayload(NamedTuple):
 
 def payload_intent(workdir: Path, course: Path) -> GitPayload:
     scope = PurePosixPath(course.relative_to(workdir).as_posix())
-    files: list[str] = []
-    found: list[str] = []
-    for entry in _git(
+    listing = _git(
         "-c",
         "core.fsmonitor=false",
         "--git-dir",
@@ -76,22 +74,58 @@ def payload_intent(workdir: Path, course: Path) -> GitPayload:
         "--stage",
         "-z",
         cwd=workdir,
-    ).split("\0"):
+    )
+    return _index_payload(listing, scope)
+
+
+def tracked_payload(path: Path) -> GitPayload | None:
+    """The files Git tracks under ``path``, relative to it, when ``path`` lies inside a Git
+    work tree — ``None`` when it does not, or when Git is absent or refuses the repository
+    (``safe.directory``), so the caller falls back to walking the directory itself.
+
+    The same index reading and mode checks as a fetched course: a tracked symlink, submodule
+    or unmerged entry is refused, never followed. Unlike ``payload_intent`` the repository is
+    discovered from ``path`` — a local course is usually a subdirectory of an author's
+    project, and that project's ``.git`` may be a file (a linked worktree or submodule).
+    """
+    try:
+        inside = _git("-c", "core.fsmonitor=false", "rev-parse", "--is-inside-work-tree", cwd=path)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    if inside.strip() != "true":
+        return None
+    try:
+        # Run from inside ``path``, ls-files lists only entries beneath it, relative to it.
+        listing = _git("-c", "core.fsmonitor=false", "ls-files", "--stage", "-z", cwd=path)
+    except (OSError, subprocess.CalledProcessError):
+        raise ResolveError(f"Git could not list the tracked files under {path}") from None
+    return _index_payload(listing, PurePosixPath("."))
+
+
+def _index_payload(listing: str, scope: PurePosixPath) -> GitPayload:
+    files: list[str] = []
+    found: list[str] = []
+    for entry in listing.split("\0"):
         if not entry:
             continue
         metadata, _, name = entry.partition("\t")
         path = PurePosixPath(name)
         if not path.is_relative_to(scope):
             continue
+        relative = path.relative_to(scope).as_posix()
         fields = metadata.split()
         if len(fields) != 3 or fields[2] != "0":
-            raise CacheInvalid("Git course index has unresolved or invalid file intent")
+            raise CacheInvalid(
+                f"Git course index has unresolved or invalid file intent: {relative}"
+            )
         mode = fields[0]
         if mode not in {"100644", "100755"}:
-            raise CacheInvalid("Git course payload contains a symlink or unsupported file kind")
-        files.append(path.relative_to(scope).as_posix())
+            raise CacheInvalid(
+                f"Git course payload contains a symlink or unsupported file kind: {relative}"
+            )
+        files.append(relative)
         if mode == "100755":
-            found.append(path.relative_to(scope).as_posix())
+            found.append(relative)
     return GitPayload(tuple(sorted(files)), tuple(sorted(found)))
 
 

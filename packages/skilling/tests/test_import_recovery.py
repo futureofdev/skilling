@@ -349,7 +349,10 @@ def test_cleanup_of_readonly_local_git_files(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     assert run(worker(workspace, source)).returncode == 0
     content = workspace / ".skilling/courses/hello-skilling@1.0.0"
+    assert not (content / ".git").exists()  # imports copy tracked files only (#101)
     readonly = content / ".git/readonly"
+    # Content installed before #101 carried the source's .git; cleanup must still remove it.
+    readonly.parent.mkdir()
     readonly.write_text("old metadata", encoding="utf-8")
     readonly.chmod(0o444)
     (source / "new.txt").write_text("replacement", encoding="utf-8")
