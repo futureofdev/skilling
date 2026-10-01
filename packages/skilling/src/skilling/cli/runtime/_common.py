@@ -25,13 +25,13 @@ import typer
 import yaml
 
 from ...conformance import validate_course
-from ...course import Course, CourseLoadError, Record, ResolvedLesson
+from ...course import Course, CourseLoadError, Record, ResolvedLesson, declared_level, is_semver
 from ...delivery import (
     ChronologyInvalid,
     CoordinateRequired,
     completed_coordinate,
     load_or_create,
-    roll_forward,
+    preview_upgrade,
 )
 from ...store import (
     Conflict,
@@ -45,7 +45,13 @@ from ...store import (
     TransitionResult,
     open_store,
 )
-from ...workspace import resolve_course_location, resolve_state_root, workspace_read
+from ...workspace import (
+    courses_dir,
+    find_workspace,
+    resolve_course_location,
+    resolve_state_root,
+    workspace_read,
+)
 
 SCRATCH_NAME = "scratch.yaml"
 
@@ -104,8 +110,13 @@ def emit(payload: dict[str, object]) -> None:
     sys.stdout.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
-def fail(code: ExitCode, error: str, message: str) -> NoReturn:
-    emit({"ok": False, "error": {"code": error, "message": message}})
+def fail(
+    code: ExitCode, error: str, message: str, *, upgrade: dict[str, object] | None = None
+) -> NoReturn:
+    body: dict[str, object] = {"code": error, "message": message}
+    if upgrade is not None:
+        body["upgrade"] = upgrade
+    emit({"ok": False, "error": body})
     raise typer.Exit(code)
 
 
@@ -227,10 +238,9 @@ def open_session(
     Initialization is optional for homework reads/refusals. Existing prepared operations
     recover before access; otherwise reads preserve state and writes use CAS.
 
-    An existing record started on an older version of the same course rolls forward first
-    (``delivery.roll_forward``, spec/runtime.md#course-version-changes) — like recovery, this
-    resolves the stream before any verb, read-only ones included, consumes it. A change that
-    cannot carry progress over refuses with ``version-mismatch`` and leaves the record as is.
+    A record started on a different version of the course is never moved implicitly: every
+    verb refuses with ``version-mismatch`` and says whether ``skilling upgrade`` can carry the
+    progress over (spec/runtime.md#course-version-changes).
     """
     course = load_session_course(course_ref) if isinstance(course_ref, str) else course_ref
 
@@ -250,27 +260,13 @@ def open_session(
         else:
             record, revision = snapshot.record, snapshot.revision
             scratch_bytes = snapshot.scratch
-        if revision is not None and record.course_version != course.version:
-            try:
-                rolled = roll_forward(store, course, learner)
-            except Conflict as exc:
-                fail(ExitCode.CONFLICT, "conflict", str(exc))
-            if rolled.plan is not None and not rolled.plan.ok:
-                fail(ExitCode.VERSION_MISMATCH, "version-mismatch", rolled.plan.refusal_message())
-            if rolled.snapshot is not None:
-                record, revision = rolled.snapshot.record, rolled.snapshot.revision
-                scratch_bytes = rolled.snapshot.scratch
         scratch = parse_scratch(scratch_bytes)
     except StatePathError as exc:
         fail(ExitCode.INVALID, "state-invalid", str(exc))
 
     if record.course_version != course.version:
-        fail(
-            ExitCode.VERSION_MISMATCH,
-            "version-mismatch",
-            f"the record was started against {course.id} {record.course_version}, but "
-            f"{course.id} on disk is {course.version}",
-        )
+        ref = course_ref if isinstance(course_ref, str) else str(course.root)
+        _refuse_version(store, course, learner, record, ref)
 
     lesson = course.lesson_at(record.position.coordinate)
     if lesson is None:
@@ -281,6 +277,70 @@ def open_session(
         )
 
     return Session(course, lesson, store, record, revision, scratch, scratch_bytes)
+
+
+def _refuse_version(
+    store: ProgressStore, course: Course, learner: str, record: Record, ref: str
+) -> NoReturn:
+    """Explain a version mismatch without writing: whether an upgrade would carry progress."""
+    command = f"skilling upgrade --course {ref}"
+    plan = (
+        preview_upgrade(store, course, learner).plan
+        if isinstance(store, FileProgressStore)
+        else None
+    )
+    if plan is not None and plan.ok:
+        message = (
+            f"this record is on {course.id} {record.course_version}, and {course.version} is "
+            f"available here. Progress carries over: run `{command} --yes` (or /upgrade) to "
+            "switch. Nothing changes until you do."
+        )
+    elif plan is not None:
+        message = f"{plan.refusal_message()} Run `{command} --check` (or /upgrade) for options."
+    else:
+        message = (
+            f"the record was started against {course.id} {record.course_version}, but "
+            f"{course.id} on disk is {course.version}. Run `{command} --check` for options."
+        )
+    upgrade: dict[str, object] = {
+        "from": record.course_version,
+        "to": course.version,
+        "resumable": bool(plan and plan.ok),
+        "reason": plan.refusal.value if plan and plan.refusal else None,
+        "command": command,
+    }
+    fail(ExitCode.VERSION_MISMATCH, "version-mismatch", message, upgrade=upgrade)
+
+
+def known_upgrade(course: Course) -> dict[str, object] | None:
+    """A newer version of ``course`` already in this workspace's content directory, if any.
+
+    A hint only, never a network call: content lands there when ``skilling upgrade --check``
+    fetched it. Nothing is verified or switched here; ``skilling upgrade`` does both.
+    """
+    workspace = find_workspace()
+    if workspace is None:
+        return None
+    root = courses_dir(workspace)
+    newer: list[tuple[tuple[int, int, int], str]] = []
+    prefix = f"{course.id}@"
+    if root.is_dir():
+        for child in root.iterdir():
+            version = child.name.removeprefix(prefix)
+            if not child.name.startswith(prefix) or not is_semver(version):
+                continue
+            level = declared_level(course.version, version)
+            if level in ("patch", "minor", "major") and "-" not in version:
+                major, minor, patch = (int(p) for p in version.split("+")[0].split("."))
+                newer.append(((major, minor, patch), version))
+    if not newer:
+        return None
+    version = max(newer)[1]
+    return {
+        "available": version,
+        "level": declared_level(course.version, version),
+        "command": f"skilling upgrade --course {course.id}",
+    }
 
 
 def open_chronology_session(course_ref: str, state: Path | None, learner: str) -> Session:

@@ -64,6 +64,10 @@ def ok(args: list[str], state: Path) -> dict:
     return json.loads(result.stdout)
 
 
+def upgrade_yes(course: Path, state: Path) -> dict:
+    return ok(["upgrade", "--course", str(course), "--yes", "--json"], state)
+
+
 def set_version(course: Path, version: str) -> None:
     manifest = course / fx.MANIFEST_PATH
     text = manifest.read_text(encoding="utf-8")
@@ -146,6 +150,13 @@ def test_a_patch_bump_resumes_at_the_same_position(clean_dir: Path, state: Path)
     }
 
     patch_bump(clean_dir)
+    refused = run(["next", "--course", str(clean_dir)], state)
+    assert refused.exit_code == 5  # never implicit: the learner chooses to upgrade
+    assert json.loads(refused.stdout)["error"]["upgrade"]["resumable"] is True
+    assert record(state) == before
+    applied = upgrade_yes(clean_dir, state)
+    assert applied["status"] == "applied"
+    assert applied["progress"]["status"] == "rolled-forward"
     out = ok(["next", "--course", str(clean_dir)], state)
 
     assert out["beat"]["name"] == "gate-concept"
@@ -172,6 +183,7 @@ def test_a_minor_bump_with_appended_lessons_resumes(clean_dir: Path, state: Path
     slot_before = (state / "clean-course" / "homework" / "active.yaml").read_bytes()
 
     append_lesson(clean_dir)
+    assert upgrade_yes(clean_dir, state)["bump"]["declared"] == "minor"
     out = ok(["next", "--course", str(clean_dir)], state)
 
     assert (out["position"]["phase"], out["position"]["lesson"]) == (1, 1)
@@ -187,8 +199,9 @@ def test_a_minor_bump_with_appended_lessons_resumes(clean_dir: Path, state: Path
 def test_rolling_forward_is_idempotent(clean_dir: Path, state: Path) -> None:
     finish_first_lesson(clean_dir, state)
     patch_bump(clean_dir)
-    ok(["next", "--course", str(clean_dir)], state)
+    upgrade_yes(clean_dir, state)
     settled = state_bytes(state)
+    assert upgrade_yes(clean_dir, state)["status"] == "up-to-date"
     ok(["next", "--course", str(clean_dir)], state)
     assert state_bytes(state) == settled
 
@@ -210,6 +223,7 @@ def test_a_beat_the_new_lesson_lacks_restarts_that_lesson(clean_dir: Path, state
         .replace("## Hands-On Exercise\nTry the second thing yourself.\n\n", ""),
         encoding="utf-8",
     )
+    assert upgrade_yes(clean_dir, state)["progress"]["lesson_restarted"] is True
     out = ok(["next", "--course", str(clean_dir)], state)
 
     after = record(state)
@@ -290,7 +304,21 @@ def test_plan_checks_every_recorded_reference(clean: Course) -> None:
     stale = record.model_copy(update={"objectives_met": [met], "completed": ["0.1", "9.9"]})
     plan = plan_upgrade(stale, [], None, target)
     assert plan.refusal is UpgradeRefusal.MISSING
-    assert plan.missing == ("completed 9.9", "objective vanished")
+    assert plan.missing == ("completed 9.9",)
+
+
+def test_a_vanished_objective_is_dropped_and_reported(clean: Course) -> None:
+    from skilling.course import Record
+
+    record = Record.new(clean, "local")
+    kept = ObjectiveMet(id="second-thing", at=record.started_at, evidence="explained")
+    gone = ObjectiveMet(id="vanished", at=record.started_at, evidence="explained")
+    record = record.model_copy(update={"objectives_met": [kept, gone]})
+    plan = plan_upgrade(record, [], None, newer(clean))
+    assert plan.ok and plan.record is not None
+    assert plan.dropped_objectives == ("vanished",)
+    assert [o.id for o in plan.record.objectives_met] == ["second-thing"]
+    assert "vanished" in plan.summary()
 
 
 def test_an_invalid_in_lesson_beat_restarts_only_that_lesson(clean: Course) -> None:
@@ -328,6 +356,7 @@ def test_keys_bound_before_an_upgrade_stay_bound(clean_dir: Path, state: Path) -
     position = record(state)["position"]
 
     patch_bump(clean_dir)
+    upgrade_yes(clean_dir, state)
     retried = run(base, state)
 
     assert retried.exit_code == 3
@@ -343,7 +372,7 @@ def test_committed_markers_are_retired_not_left_invalid(clean_dir: Path, state: 
     old = {n: (course_dir / n).read_bytes() for n in ("completion.yaml", "transition.yaml")}
 
     patch_bump(clean_dir)
-    ok(["next", "--course", str(clean_dir)], state)
+    upgrade_yes(clean_dir, state)
 
     assert not (course_dir / "completion.yaml").exists()
     assert not (course_dir / "transition.yaml").exists()
@@ -362,6 +391,7 @@ def test_an_old_version_homework_token_refuses(clean_dir: Path, state: Path) -> 
     token = ok(["homework", "check", "--course", str(clean_dir)], state)["submission_token"]
 
     patch_bump(clean_dir)
+    upgrade_yes(clean_dir, state)
     result = run(["homework", "submit", "--course", str(clean_dir), "--token", token], state)
 
     assert result.exit_code == 2
@@ -408,7 +438,7 @@ def test_an_interrupted_upgrade_recovers_on_next_access(
     with pytest.raises(OSError, match="injected"):
         runner.invoke(
             app,
-            ["next", "--course", str(clean_dir), "--state", str(state)],
+            ["upgrade", "--course", str(clean_dir), "--yes", "--state", str(state)],
             catch_exceptions=False,
         )
     monkeypatch.undo()
@@ -439,7 +469,7 @@ def test_recovery_refuses_bytes_it_did_not_write(
     with pytest.raises(OSError, match="injected"):
         runner.invoke(
             app,
-            ["next", "--course", str(clean_dir), "--state", str(state)],
+            ["upgrade", "--course", str(clean_dir), "--yes", "--state", str(state)],
             catch_exceptions=False,
         )
     monkeypatch.undo()
@@ -511,7 +541,10 @@ def test_concurrent_processes_upgrade_exactly_once(clean_dir: Path, state: Path)
         if k not in ("SKILLING_STATE_ROOT", "SKILLING_WORKSPACE", "SKILLING_NOW")
     }
     code = "from skilling.cli import main; main()"
-    args = [sys.executable, "-c", code, "next", "--course", str(clean_dir), "--state", str(state)]
+    args = [
+        *(sys.executable, "-c", code, "upgrade", "--course", str(clean_dir)),
+        *("--yes", "--json", "--state", str(state)),
+    ]
     procs = [
         subprocess.Popen(args, cwd=REPO_ROOT, env=env, stdout=subprocess.PIPE, text=True)
         for _ in range(4)
@@ -519,7 +552,8 @@ def test_concurrent_processes_upgrade_exactly_once(clean_dir: Path, state: Path)
     outputs = [p.communicate(timeout=60)[0] for p in procs]
 
     assert [p.returncode for p in procs] == [0, 0, 0, 0], outputs
-    assert all(json.loads(o)["beat"]["name"] == "welcome" for o in outputs)
+    statuses = sorted(json.loads(o)["status"] for o in outputs)
+    assert "applied" in statuses and set(statuses) <= {"applied", "up-to-date"}
     after = record(state)
     assert after["course_version"] == "1.0.1"
     assert after["completed"] == ["0.1"]
@@ -545,8 +579,14 @@ def test_start_reports_what_happens_to_progress(tmp_path: Path) -> None:
     assert record(state)["course_version"] == "1.0.1"
 
     set_version(source, "2.0.0")
-    third = runner.invoke(app, ["start", str(source), str(workspace)])
-    assert third.exit_code == 0, third.output
-    assert "not resumable" in third.output
-    assert "major version change" in third.output
+    manifest = (workspace / ".skilling" / "workspace.yaml").read_bytes()
+    third = runner.invoke(app, ["start", str(source), str(workspace), "--json"])
+    assert third.exit_code == 5, third.output
+    error = json.loads(third.stdout)["error"]
+    assert error["code"] == "version-mismatch"
+    assert error["upgrade"]["status"] == "not-resumable"
+    assert "major version change" in error["message"]
+    assert "skilling upgrade" in error["message"]
+    # Nothing switched: the workspace stays where the progress can resume.
+    assert (workspace / ".skilling" / "workspace.yaml").read_bytes() == manifest
     assert record(state)["course_version"] == "1.0.1"

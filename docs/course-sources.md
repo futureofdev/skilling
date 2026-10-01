@@ -62,8 +62,15 @@ Course id and version identify a directory, but are not proof that two repositor
 the same bytes. If different payloads claim the same id/version, Skilling refuses the conflict
 without overwriting the existing content. Missing or modified cached files are also refused.
 
-There is no automatic update service. To use changed content, authors publish an appropriate
-course version and learners start that new ref. Use a separate workspace/cache when comparing
+There is no automatic update service. Re-running `start` with the same ref keeps the snapshot.
+`skilling upgrade --course <id>` is the explicit refresh: it fetches the source fresh and
+reports what's available without changing anything. With `--yes` it switches the workspace and
+rolls progress forward when that's possible. The check follows the remote's semver tags
+(`v1.2.3` or `1.2.3`) and offers the newest one with your current major version. It falls back
+to the default branch when a repository has no such tags. A ref pinned to a full commit is
+never upgraded automatically. A local-directory source is compared as it is on disk. Even a
+fresh fetch refuses different content that claims a version the workspace already holds, so
+authors still bump the version for every change. Use a separate workspace/cache when comparing
 different revisions that claim the same course version.
 
 ## Copies and offline use

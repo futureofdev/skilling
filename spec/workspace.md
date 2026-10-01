@@ -56,7 +56,8 @@ that reuses a fetched directory must verify the source binding and content ident
 returning it. Different payloads claiming the same id/version must refuse without replacing
 the existing directory or silently binding the new source to it. Equivalent payloads may share
 the directory. A verified cached ref remains a snapshot; resolving it again does not implicitly
-update a moving remote branch. An interrupted acquisition must not create a trusted source
+update a moving remote branch. The one sanctioned refresh is an explicit
+[update check](#checking-for-updates). An interrupted acquisition must not create a trusted source
 binding to missing or unverified content. Private recovery/index representation remains an
 implementation detail; the directory layout and installed-workspace loading stay unchanged.
 When an existing unversioned or deliberately invalidated tree's prior executable intent
@@ -67,6 +68,34 @@ installed workspace content remains available offline.
 
 The reference implementation's comparison, legacy adoption and recovery behavior are described
 in [course sources](../docs/course-sources.md).
+
+### Checking for updates
+
+**Since 1.4.** A learner may ask whether a course in their workspace has a newer version. An
+update check fetches the source fresh, bypassing the snapshot binding, and reports what it
+found. It must not change the manifest entry, any ref binding, or the learner's record. It may
+store newly fetched content under that content's own `<id>@<version>` directory, subject to the
+same identity rule as any fetch: different content claiming an id/version the workspace
+already holds refuses, even on a fresh fetch.
+
+What the check looks for depends on the ref:
+
+| Ref | The check offers |
+|---|---|
+| Pinned to a full commit sha | Nothing. A sha pin is deliberate; it is reported as pinned, with no automatic upgrades |
+| Unpinned, or pinned to a semver tag | The newest remote tag named `v<semver>` or `<semver>` with the same major version as the learner's record. A newer major is reported, but not as resumable |
+| A repository with no semver tags | The default branch head |
+| Pinned to any other name | That branch's head |
+| A local directory | The course as it is on disk |
+
+Applying an update is a separate, explicit step. It binds the ref to the verified content,
+switches the manifest entry, and rolls the record forward under
+[course version changes](runtime.md#course-version-changes), in that order. A
+tag-pinned GitHub ref moves to the new tag, and other refs keep their spelling. When the
+progress can't carry over, applying refuses and changes nothing. An interruption after the
+manifest switch leaves a record behind its workspace entry. That state is self-describing:
+verbs refuse with a pointer to the upgrade, and applying again finishes it. In the reference
+CLI the check is `skilling upgrade --course <id> --check` and applying is `--yes`.
 
 ## The manifest
 

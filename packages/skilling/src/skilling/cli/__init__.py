@@ -1,7 +1,7 @@
 """The ``skilling`` command line.
 
 Assembly only. Commands live in groups by audience — ``authoring`` for people writing courses,
-``learning`` for delivering one, ``packaging`` for fetch and the bundled skill triad's
+``learning`` for delivering one, ``packaging`` for fetch and the bundled skill pack's
 install/uninstall, ``runtime`` for read-only cross-course queries a driving skill needs — so
 that adding a command touches one new module and one line here, rather than a file every other
 change also wants to edit.
@@ -28,7 +28,7 @@ from ..workspace import ImportRecoveryError, find_workspace, workspace_read
 from . import _render as render
 from .authoring import diff, init, show, today, validate
 from .learning import deliver
-from .packaging import fetch, install, start, uninstall
+from .packaging import fetch, install, start, uninstall, upgrade
 from .runtime import (
     advance,
     answer,
@@ -70,6 +70,7 @@ def root(
 
 COMMANDS: tuple[Callable[..., None], ...] = (
     start,
+    upgrade,
     validate,
     init,
     show,

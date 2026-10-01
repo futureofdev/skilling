@@ -22,10 +22,18 @@ from ._resolve import (
     ResolvedSource,
     Resolver,
     UrlResolver,
+    bind_fresh,
+    fetch_fresh,
     resolve,
 )
+from ._updates import UpdateKind, UpdateSource, find_update
 
 __all__ = [
+    "UpdateKind",
+    "UpdateSource",
+    "bind_fresh",
+    "fetch_fresh",
+    "find_update",
     "locked_directory",
     "CACHE_ENV",
     "CacheBusy",

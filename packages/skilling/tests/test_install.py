@@ -1,11 +1,11 @@
 """Tests for ``skilling install`` / ``skilling uninstall``: writing the bundled
-``learn``/``progress``/``homework`` skill triad into the Claude Code and generic Agent-Skills
-host conventions, and removing exactly what a receipt says it wrote.
+``learn``/``progress``/``homework``/``upgrade`` skill pack into the Claude Code and generic
+Agent-Skills host conventions, and removing exactly what a receipt says it wrote.
 
 There is no course argument any more (docs/superpowers/specs/
-2026-08-06-generic-delivery-skills-design.md) — the triad is fixed and installed once per
-learner, not once per course. ``uninstall`` treats the triad as one atomic unit: a hand-edit
-to any one of the three skills refuses the whole removal, not just that skill's.
+2026-08-06-generic-delivery-skills-design.md) — the pack is fixed and installed once per
+learner, not once per course. ``uninstall`` treats the pack as one atomic unit: a hand-edit
+to any one of the skills refuses the whole removal, not just that skill's.
 
 ``install``/``uninstall`` are folder-scoped by default (spec/workspace.md#folder-scoped-skill-
 installs): the target is the enclosing workspace's root, or the current directory when no
@@ -48,6 +48,33 @@ runner = CliRunner()
 
 def _home_env(home: Path) -> dict[str, str]:
     return {"HOME": str(home), "USERPROFILE": str(home)}
+
+
+# --------------------------------------------------------------------------- the fourth skill
+
+
+def test_upgrade_is_installed_as_the_fourth_skill_for_both_hosts_with_receipts(
+    tmp_path: Path,
+) -> None:
+    assert SKILL_NAMES == ("learn", "progress", "homework", "upgrade")
+    for platform in Platform:
+        target = HostTarget(platform)
+        install(target, project=tmp_path, home=tmp_path)
+        skill = target.skills_dir(project=tmp_path, home=tmp_path) / "upgrade"
+        receipt = yaml.safe_load((skill / RECEIPT_NAME).read_text(encoding="utf-8"))
+        assert receipt["name"] == "upgrade"
+        assert sorted(receipt["files"]) == [
+            "SKILL.md",
+            "references/course-resolution.md",
+            "references/reading-the-check.md",
+        ]
+        assert target.invocation("upgrade") in ("/upgrade", "$upgrade")
+
+    for platform in Platform:
+        target = HostTarget(platform)
+        removed = uninstall(target, project=tmp_path, home=tmp_path)
+        assert any(path.parts[-2:] == ("upgrade", "SKILL.md") for path in removed)
+        assert not (target.skills_dir(project=tmp_path, home=tmp_path) / "upgrade").exists()
 
 
 # --------------------------------------------------------------------------------- HostTarget
@@ -97,7 +124,7 @@ def test_install_preserves_bundled_bytes_and_receipt_roundtrip(
     assert all(path in removed and not path.exists() for path in installed.files)
 
 
-def test_install_writes_all_three_skills_and_a_receipt_each(tmp_path: Path) -> None:
+def test_install_writes_every_skill_and_a_receipt_each(tmp_path: Path) -> None:
     target = HostTarget(Platform.CLAUDE)
     result = install(target, project=None, home=tmp_path)
 
@@ -177,7 +204,7 @@ def test_uninstall_removes_exactly_the_receipted_files_and_keeps_foreign_ones(
     assert result.skill_dirs[0].is_dir()  # the foreign file kept it alive
 
 
-def test_uninstall_of_a_never_installed_triad_is_a_no_op(tmp_path: Path) -> None:
+def test_uninstall_of_a_never_installed_pack_is_a_no_op(tmp_path: Path) -> None:
     target = HostTarget(Platform.CLAUDE)
     assert uninstall(target, project=None, home=tmp_path) == []
 

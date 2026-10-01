@@ -1,6 +1,6 @@
 """Which bundled skill lives where.
 
-Three hand-maintained Agent Skills, shipped as real files (``SKILL.md`` plus
+Four hand-maintained Agent Skills, shipped as real files (``SKILL.md`` plus
 ``references/*.md``) beside this module rather than generated: nothing here varies by
 course, so there is nothing left to template. ``ROOT`` is package-relative, so a caller —
 a test today, an eventual ``skilling install`` — finds bundled content the same way
@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 
-SKILL_NAMES: tuple[str, ...] = ("learn", "progress", "homework")
+SKILL_NAMES: tuple[str, ...] = ("learn", "progress", "homework", "upgrade")
 
 
 def skill_dir(name: str) -> Path:

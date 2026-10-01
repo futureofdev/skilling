@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 
@@ -18,7 +19,7 @@ from ...conformance import Report
 from ...course import Course
 from ...delivery import UpgradePlan, load_or_create, preview_upgrade, roll_forward
 from ...skills import SKILL_NAMES, HostTarget, Platform
-from ...skills import install as install_triad
+from ...skills import install as install_skills
 from ...sources import CourseInvalid, GhResolver, ResolveError, UrlResolver, safe_source_ref
 from ...sources import resolve as resolve_remote
 from ...store import LOCAL_LEARNER, Conflict, FileProgressStore
@@ -34,6 +35,8 @@ from ...workspace import (
     workspace_lock,
 )
 from .. import _render as render
+from ..runtime import ExitCode, emit
+from ._upgrade import progress_payload
 
 ALL_PLATFORMS = tuple(Platform)
 
@@ -49,25 +52,33 @@ def start(
         False, "--json", help="Machine-readable output for CI and driving agents."
     ),
 ) -> None:
-    """Resolve a course, grow a learner workspace around it, install the skill triad
+    """Resolve a course, grow a learner workspace around it, install the skill pack
     folder-scoped into it, refresh the entry files, and initialise the progress record —
     one command from a ref to an openable workspace. Idempotent: re-running upserts the
     manifest and refreshes skills and entry files, never duplicating either."""
     workspace = (dir if dir is not None else Path.cwd()).resolve()
 
+    remote = GhResolver.claims(ref) or UrlResolver.claims(ref)
     try:
-        if not (GhResolver.claims(ref) or UrlResolver.claims(ref)):
+        if not remote:
             validate_local_import(workspace, Path(ref))
         with workspace_lock(workspace):
-            if GhResolver.claims(ref) or UrlResolver.claims(ref):
+            if remote:
                 resolved = resolve_remote(ref, cache=courses_dir(workspace))
                 course, content_path = Course.load(resolved.path), resolved.path
             else:
+                checked = validate_local_import(workspace, Path(ref))
+                course, content_path = checked.course, checked.path
+            store = FileProgressStore(state_root(workspace))
+            # Decided before anything switches: progress that cannot resume never moves.
+            plan = preview_upgrade(store, course, LOCAL_LEARNER).plan
+            if plan is not None and not plan.ok:
+                _refuse_switch(plan, as_json)
+            if plan is not None and not as_json:
+                render.console.print(f"[green]{plan.summary()}[/]", soft_wrap=True)
+            if not remote:
                 imported = import_local_course(workspace, Path(ref), ref=ref)
                 course, content_path = imported.course, imported.path
-            store = FileProgressStore(state_root(workspace))
-            # Decided before the manifest switches versions, so the report describes it.
-            plan = preview_upgrade(store, course, LOCAL_LEARNER).plan
             # Finishing steps are idempotent; committed content survives failures here.
             ensure_workspace(workspace)
             entry = add_course(workspace, course, ref, content_path)
@@ -79,7 +90,7 @@ def start(
                 # is a required argument, and passing `workspace` rather than the real `Path.home()`
                 # means a future refactor that starts honouring it can never reach outside the
                 # workspace this command owns.
-                result = install_triad(target, project=workspace, home=workspace)
+                result = install_skills(target, project=workspace, home=workspace)
                 skill_dirs.extend(result.skill_dirs)
 
             entry_files = refresh_entry_files(workspace)
@@ -122,7 +133,7 @@ def start(
                     "skills": skills_relative,
                     "entry_files": entry_files_relative,
                     "state_initialised": True,
-                    "progress": _progress_json(plan),
+                    "progress": progress_payload(plan, applied=True) if plan else None,
                 }
             )
         )
@@ -139,9 +150,6 @@ def start(
         f"  {'skills':<9}  .claude/skills/ + .agents/skills/ ({', '.join(SKILL_NAMES)})",
         soft_wrap=True,
     )
-    if plan is not None:
-        colour = "green" if plan.ok else "yellow"
-        console.print(f"  {'progress':<9}  [{colour}]{plan.summary()}[/]", soft_wrap=True)
     console.print()
     console.print(
         f"Next: open {workspace} in Claude Code and run /learn, or in Codex and run $learn.",
@@ -149,16 +157,23 @@ def start(
     )
 
 
-def _progress_json(plan: UpgradePlan | None) -> dict[str, object] | None:
-    """What a version switch does to existing progress; ``None`` when there is nothing to
-    carry (a fresh start, or a re-run on the same version)."""
-    if plan is None:
-        return None
-    return {
-        "status": "rolled-forward" if plan.ok else "not-resumable",
-        "from": plan.from_version,
-        "to": plan.to_version,
-        "level": plan.level,
-        "reason": plan.refusal.value if plan.refusal is not None else None,
-        "message": plan.summary(),
-    }
+def _refuse_switch(plan: UpgradePlan, as_json: bool) -> NoReturn:
+    """The workspace stays where the learner's progress can resume; nothing was switched."""
+    message = (
+        f"{plan.refusal_message()} This workspace stays on {plan.from_version}; run "
+        f"`skilling upgrade --course {plan.course_id} --check` (or /upgrade) for options."
+    )
+    if as_json:
+        emit(
+            {
+                "ok": False,
+                "error": {
+                    "code": "version-mismatch",
+                    "message": message,
+                    "upgrade": progress_payload(plan),
+                },
+            }
+        )
+    else:
+        render.err_console.print(f"[red]version-mismatch[/] {message}", soft_wrap=True)
+    raise typer.Exit(ExitCode.VERSION_MISMATCH)

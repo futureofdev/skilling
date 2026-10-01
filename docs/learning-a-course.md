@@ -75,6 +75,23 @@ skilling start 'gh:owner/repository@v1.0.0#path/to/course' . --json
 The command adds the validated course without replacing existing courses, records or showcase
 folders. See [Course sources](course-sources.md) for every supported reference form.
 
+## Update Skilling or a course
+
+Invoke `/upgrade` in Claude Code or `$upgrade` in Codex. The tutor asks before every check
+and every change. It can update the Skilling tool and its skills, and it can check whether a
+course you're taking has a newer version and whether your progress carries over. The same
+course check is available directly:
+
+```bash
+skilling upgrade --course welcome-skilling          # report only; changes nothing
+skilling upgrade --course welcome-skilling --yes    # switch, keeping your progress
+```
+
+A small fix or new lessons keep your place, completed lessons and homework. A restructure
+(a new major version) can't carry progress over automatically, so Skilling keeps you on your
+current version and changes nothing. Re-running `start` with the same source never updates a
+course; `upgrade` is the only way to move to a newer version.
+
 ## Work from nested folders
 
 Learner commands discover the enclosing workspace by walking upward from your current folder.

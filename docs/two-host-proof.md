@@ -62,7 +62,7 @@ what counts as passing:
   anywhere, works offline" claim is false.
 
 A run that satisfies all five is what lets [`docs/implementations.md`](implementations.md)
-move the bundled triad's row from "pending the two-host proof" to "shipped."
+move the bundled skill pack's row from "pending the two-host proof" to "shipped."
 
 ## Prerequisites
 
@@ -76,17 +76,18 @@ move the bundled triad's row from "pending the two-host proof" to "shipped."
 - A way to disable outbound networking after content is on disk (turning off Wi-Fi is
   sufficient; a firewall rule works too).
 
-## Step 1 — install the triad
+## Step 1 — install the skill pack
 
 ```bash
 cd /path/to/skilling            # a checkout of this repository
 uv run skilling install
 ```
 
-Confirm the printed output lists all three skills under both conventions
-(`~/.claude/skills/{learn,progress,homework}/`, invoked `/learn` etc., and
-`~/.agents/skills/{learn,progress,homework}/`, invoked `$learn` etc.) before starting either
-host session.
+Confirm the printed output lists all four skills under both conventions
+(`.claude/skills/{learn,progress,homework,upgrade}/`, invoked `/learn` etc., and
+`.agents/skills/{learn,progress,homework,upgrade}/`, invoked `$learn` etc.) before starting
+either host session. The 2026-08-06 pass below ran with the first three; `upgrade` was added
+later and is not covered by it.
 
 ## Step 2 — `hello-skilling` in Codex
 
@@ -212,7 +213,7 @@ fresh fetch), disable networking, then:
 uv run pytest packages/skilling/tests/test_equivalence.py packages/skilling/tests/test_adversarial_host.py
 ```
 
-and deliver one more lesson by hand, in either host, through the installed triad exactly as in
+and deliver one more lesson by hand, in either host, through the installed skill pack exactly as in
 Step 2 or 4 — fully offline, no account, no network call anywhere in the transcript.
 
 ## Recording the outcome
@@ -250,6 +251,6 @@ artifacts, against a second, simpler course once the format reaches a stable "v1
 | Offline rerun needed no network access | *deferred — not yet run* |
 
 Nothing in the choreography failed to survive contact with a real host in what was run. This
-row does not move `docs/implementations.md`'s triad status to a bare "shipped" — only three of
+row does not move `docs/implementations.md`'s skill pack status to a bare "shipped" — only three of
 five criteria have any attestation at all, and none has a committed artifact — but it does move
 past "pending, nothing run." See `docs/implementations.md` for the exact wording this maps to.

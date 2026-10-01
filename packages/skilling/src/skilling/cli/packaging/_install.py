@@ -1,6 +1,6 @@
-"""``skilling install`` / ``skilling uninstall`` — writing the bundled ``learn``/``progress``/
-``homework`` skill triad into the Claude Code and generic Agent-Skills host conventions, and
-removing exactly what was written.
+"""``skilling install`` / ``skilling uninstall`` — writing the bundled skill pack
+(``learn``/``progress``/``homework``/``upgrade``) into the Claude Code and generic Agent-Skills
+host conventions, and removing exactly what was written.
 
 Both platforms by default: no single directory is read by both hosts, so installing
 "cross-host" means writing both conventions unless ``--platform`` narrows it. Folder-scoped by
@@ -9,7 +9,7 @@ workspace's root — found by walking up from the current directory via
 ``workspace.find_workspace`` — or the current directory itself when no workspace encloses it.
 ``--home`` opts into writing the learner's home profile instead, exactly as every install used
 to behave unconditionally. There is no course argument and no ``--name`` override here: the
-triad's names are fixed, and every learner gets the same three skills.
+pack's skill names are fixed, and every learner gets the same skills.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def install(
         ),
     ),
 ) -> None:
-    """Install the bundled learn/progress/homework skill triad into one or both Agent-Skills
+    """Install the bundled learn/progress/homework/upgrade skill pack into one or both Agent-Skills
     host conventions. Reinstalling upgrades any already-installed copy in place."""
     target_dir = _target_dir(home)
     tracked: list[Path] = []
@@ -87,10 +87,10 @@ def uninstall(
         ),
     ),
 ) -> None:
-    """Remove exactly what ``install`` wrote for the triad, per its receipts, as one atomic
-    operation across all three skills. A foreign file left in a skill directory is never
+    """Remove exactly what ``install`` wrote for the skill pack, per its receipts, as one atomic
+    operation across every bundled skill. A foreign file left in a skill directory is never
     touched; a receipted file that changed since install stops the whole removal for that
-    host, with nothing deleted anywhere in the triad."""
+    host, with nothing deleted anywhere in the pack."""
     target_dir = _target_dir(home)
     removed_any = False
     for chosen in platform or ALL_PLATFORMS:

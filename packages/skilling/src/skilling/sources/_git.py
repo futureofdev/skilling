@@ -39,7 +39,7 @@ def clone(url: str, dst: Path, *, pin: str | None) -> None:
     try:
         _git("fetch", "--depth", "1", "origin", pin or "HEAD", cwd=dst)
     except subprocess.CalledProcessError:
-        if pin is None or not _is_full_sha(pin):
+        if pin is None or not is_full_sha(pin):
             raise
         _git("fetch", "--tags", "origin", cwd=dst)
         _git("checkout", "--quiet", "--detach", pin, cwd=dst)
@@ -47,7 +47,18 @@ def clone(url: str, dst: Path, *, pin: str | None) -> None:
     _git("checkout", "--quiet", "--detach", "FETCH_HEAD", cwd=dst)
 
 
-def _is_full_sha(pin: str) -> bool:
+def remote_tags(url: str) -> tuple[str, ...]:
+    """Tag names the remote advertises (``git ls-remote --tags``), peeled duplicates removed.
+    Raises like ``clone``; the caller translates to ``GitFailed``."""
+    names: set[str] = set()
+    for line in _git("ls-remote", "--tags", url).splitlines():
+        _, _, name = line.partition("\t")
+        if name.startswith("refs/tags/"):
+            names.add(name.removeprefix("refs/tags/").removesuffix("^{}"))
+    return tuple(sorted(names))
+
+
+def is_full_sha(pin: str) -> bool:
     """A full sha1 (40 hex) or sha256 (64 hex) digest — the only sha forms promised."""
     return len(pin) in (40, 64) and all(c in string.hexdigits for c in pin)
 

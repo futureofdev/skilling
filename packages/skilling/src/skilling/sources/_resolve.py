@@ -21,6 +21,7 @@ from typing import NamedTuple
 from ..conformance import validate_course
 from ..course import Course
 from . import _cache, _git
+from ._cache import Binding
 from ._errors import CacheInvalid, CourseInvalid, GitFailed, UnknownRef
 from ._identity import (
     Provenance,
@@ -46,6 +47,8 @@ class ResolvedSource(NamedTuple):
     """The ref exactly as given."""
     pinned: str | None
     """The tag or sha the ref pinned, if any."""
+    source: Provenance | None = None
+    """Verified provenance of a fresh fetch, so an applied upgrade can bind the ref to it."""
 
 
 class Resolver(ABC):
@@ -57,9 +60,10 @@ class Resolver(ABC):
     def claims(cls, ref: str) -> bool: ...
 
     @abstractmethod
-    def fetch(self, ref: str, workdir: Path) -> Path:
+    def fetch(self, ref: str, workdir: Path, *, pin: str | None = None) -> Path:
         """Populate ``workdir`` (which does not yet exist) and return the course root —
-        ``workdir`` itself, or a subdirectory of it for a ref naming one."""
+        ``workdir`` itself, or a subdirectory of it for a ref naming one. ``pin`` overrides
+        the ref's own pin (an upgrade fetching a discovered tag)."""
 
 
 class GhResolver(Resolver):
@@ -70,9 +74,9 @@ class GhResolver(Resolver):
     def claims(cls, ref: str) -> bool:
         return ref.startswith(GH_PREFIX)
 
-    def fetch(self, ref: str, workdir: Path) -> Path:
-        owner_repo, pin, subdir = _parse_gh_ref(ref)
-        _git.clone(f"https://github.com/{owner_repo}", workdir, pin=pin)
+    def fetch(self, ref: str, workdir: Path, *, pin: str | None = None) -> Path:
+        owner_repo, own_pin, subdir = _parse_gh_ref(ref)
+        _git.clone(f"https://github.com/{owner_repo}", workdir, pin=pin or own_pin)
         return workdir / subdir if subdir else workdir
 
 
@@ -84,8 +88,8 @@ class UrlResolver(Resolver):
     def claims(cls, ref: str) -> bool:
         return "://" in ref
 
-    def fetch(self, ref: str, workdir: Path) -> Path:
-        _git.clone(ref.removeprefix("git+"), workdir, pin=None)
+    def fetch(self, ref: str, workdir: Path, *, pin: str | None = None) -> Path:
+        _git.clone(ref.removeprefix("git+"), workdir, pin=pin)
         return workdir
 
 
@@ -121,24 +125,67 @@ def resolve(ref: str, *, cache: Path | None = None) -> ResolvedSource:
     return _load_or_refuse(path, ref=ref, pinned=None)
 
 
-def _resolve_remote(ref: str, *, cache: Path) -> ResolvedSource:
+def fetch_fresh(
+    ref: str,
+    *,
+    cache: Path,
+    pin: str | None = None,
+) -> ResolvedSource:
+    """Fetch a remote ``ref`` from its source even when the cache already binds it.
+
+    The sanctioned refresh behind ``skilling upgrade`` (spec/workspace.md#fetched-content):
+    ordinary ``resolve`` keeps a bound ref as a snapshot. ``pin`` fetches a discovered tag or
+    commit instead of the ref's own pin. Content is published under its own
+    ``<id>@<version>`` but no ref binding changes; ``bind_fresh`` does that once the learner
+    agrees. Different content claiming an existing id/version still refuses.
+    """
+    if not (GhResolver.claims(ref) or UrlResolver.claims(ref)):
+        raise UnknownRef("only remote refs can be fetched fresh")
+    return _resolve_remote(ref, cache=cache, fresh=True, pin=pin, binding=Binding.NONE)
+
+
+def bind_fresh(ref: str, resolved: ResolvedSource, *, cache: Path) -> ResolvedSource:
+    """Bind ``ref`` to content a ``fetch_fresh`` check already published (see ``_cache.bind``)."""
+    if resolved.source is None:
+        raise CacheInvalid("only freshly fetched content can be bound")
+    key = course_key(resolved.course.id, resolved.course.version)
+    try:
+        course = _cache.bind(root_path(cache), ref, key, resolved.source)
+    except OSError:
+        raise CacheInvalid("cache operation failed; preserve its content and retry") from None
+    return resolved._replace(course=course, path=course.root, ref=ref)
+
+
+def _resolve_remote(
+    ref: str,
+    *,
+    cache: Path,
+    fresh: bool = False,
+    pin: str | None = None,
+    binding: Binding = Binding.KEEP,
+) -> ResolvedSource:
     resolver_cls: type[Resolver] = GhResolver if GhResolver.claims(ref) else UrlResolver
     gh = _parse_gh_ref(ref) if resolver_cls is GhResolver else None
-    pin = gh.pin if gh is not None else None
+    own_pin = gh.pin if gh is not None else None
     cache = root_path(cache)
-    try:
-        cached = _cache.lookup(cache, ref)
-    except OSError:
-        raise CacheInvalid("cannot read or lock the course cache; preserve it and retry") from None
-    if cached.course is not None:
-        return ResolvedSource(cached.course, cached.course.root, ref, pin)
+    cached = _cache.Lookup(None, False)
+    if not fresh:
+        try:
+            cached = _cache.lookup(cache, ref)
+        except OSError:
+            raise CacheInvalid(
+                "cannot read or lock the course cache; preserve it and retry"
+            ) from None
+        if cached.course is not None:
+            return ResolvedSource(cached.course, cached.course.root, ref, own_pin)
+    fetch_pin = pin or own_pin
 
     scratch = Path(tempfile.mkdtemp(prefix="skilling-fetch-"))
     staging: Path | None = None
     try:
         workdir = scratch / "clone"
         try:
-            fetched = _fetch_into(resolver_cls, ref, workdir)
+            fetched = _fetch_into(resolver_cls, ref, workdir, fetch_pin)
         except GitFailed:
             if cached.legacy:
                 raise GitFailed(
@@ -154,12 +201,12 @@ def _resolve_remote(ref: str, *, cache: Path) -> ResolvedSource:
         except (OSError, subprocess.CalledProcessError):
             raise GitFailed("Git could not inspect the fetched course identity") from None
         payload = inspect_payload(fetched, executables)
-        resolved = _load_or_refuse(fetched, ref=ref, pinned=pin)
+        resolved = _load_or_refuse(fetched, ref=ref, pinned=fetch_pin)
         key = course_key(resolved.course.id, resolved.course.version)
         source = Provenance(
             transport="https" if gh else ref.removeprefix("git+").partition(":")[0].lower(),
             source=safe_source_ref(ref),
-            pin=pin,
+            pin=own_pin,  # the ref's own spelling; ``commit`` records what was fetched
             subdirectory=gh.subdirectory if gh else None,
             commit=commit,
         )
@@ -167,14 +214,14 @@ def _resolve_remote(ref: str, *, cache: Path) -> ResolvedSource:
         staging = Path(tempfile.mkdtemp(prefix=".skilling-cache-", dir=cache.parent))
         candidate = staging / "course"
         _cache.stage(fetched, candidate)
-        copied = _load_or_refuse(candidate, ref=ref, pinned=pin)
+        copied = _load_or_refuse(candidate, ref=ref, pinned=fetch_pin)
         if (copied.course.id, copied.course.version) != (
             resolved.course.id,
             resolved.course.version,
         ):
             raise CacheInvalid("course identity changed while staging")
-        stored = _cache.publish(cache, candidate, key, payload, ref, source)
-        return resolved._replace(course=stored, path=stored.root)
+        stored = _cache.publish(cache, candidate, key, payload, ref, source, binding)
+        return resolved._replace(course=stored, path=stored.root, source=source if fresh else None)
     except OSError:
         raise CacheInvalid("cache operation failed; preserve its content and retry") from None
     finally:
@@ -183,9 +230,11 @@ def _resolve_remote(ref: str, *, cache: Path) -> ResolvedSource:
             remove_tree(staging)
 
 
-def _fetch_into(resolver_cls: type[Resolver], ref: str, workdir: Path) -> Path:
+def _fetch_into(
+    resolver_cls: type[Resolver], ref: str, workdir: Path, pin: str | None = None
+) -> Path:
     try:
-        return resolver_cls().fetch(ref, workdir)
+        return resolver_cls().fetch(ref, workdir, pin=pin)
     except (OSError, subprocess.CalledProcessError):
         raise GitFailed(
             f"Git could not fetch {safe_source_ref(ref)!r}; check the source and Git authentication"

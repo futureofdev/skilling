@@ -1,4 +1,4 @@
-"""Where the bundled skill triad lands per Agent-Skills host, and the receipt that lets
+"""Where the bundled skill pack lands per Agent-Skills host, and the receipt that lets
 ``uninstall`` remove exactly what ``install`` wrote.
 
 Two conventions, not one: Claude Code reads ``.claude/skills/<name>/`` and a learner invokes a
@@ -8,15 +8,16 @@ by default, because no single directory is read by both hosts.
 
 There is nothing left to generate (docs/superpowers/specs/2026-08-06-generic-delivery-skills-
 design.md) — every file this writes is copied verbatim from ``skills/<name>/`` — so ``install``
-and ``uninstall`` operate on the whole ``learn``/``progress``/``homework`` triad as one unit.
+and ``uninstall`` operate on the whole ``learn``/``progress``/``homework``/``upgrade`` pack as
+one unit.
 Each skill still gets its own receipt (its relative paths and content hashes), but ``uninstall``
-treats the three receipts as one atomic transaction: a hand-edit anywhere in the triad refuses
-the entire removal, not just the affected skill's, so a learner never ends up with two of three
-skills gone and a dangling third.
+treats every skill's receipt as one atomic transaction: a hand-edit anywhere in the pack refuses
+the entire removal, not just the affected skill's, so a learner never ends up with some skills
+gone and others dangling.
 
 Ported from the now-closed ``feat/skilling-install`` branch's ``pack/_hosts.py``, whose
 ``Platform``/``HostTarget``/receipt design was sound; only its input changed, from one
-generated-per-course pack to this fixed, hand-maintained triad.
+generated-per-course pack to this fixed, hand-maintained pack.
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ class HostTarget:
 
 class InstallResult(NamedTuple):
     skill_dirs: tuple[Path, ...]  # one per SKILL_NAMES, same order
-    files: tuple[Path, ...]  # every content file written, across all three skills
+    files: tuple[Path, ...]  # every content file written, across every skill
 
 
 def _hash(content: str) -> str:
@@ -68,7 +69,7 @@ def _hash(content: str) -> str:
 
 
 def install(target: HostTarget, *, project: Path | None, home: Path) -> InstallResult:
-    """Write ``learn``, ``progress``, and ``homework`` under ``target``'s skills directory,
+    """Write every bundled skill (``SKILL_NAMES``) under ``target``'s skills directory,
     overwriting any previous install of the same skills in place (same relative paths in, same
     relative paths out — nothing stale is left behind), and record one receipt per skill of
     exactly what was written."""
@@ -104,12 +105,12 @@ def install(target: HostTarget, *, project: Path | None, home: Path) -> InstallR
 
 
 def uninstall(target: HostTarget, *, project: Path | None, home: Path) -> list[Path]:
-    """Remove exactly the files ``install`` wrote for the triad, per its receipts, as one
-    atomic operation across all three skills: if any receipted file anywhere in the triad was
+    """Remove exactly the files ``install`` wrote for the pack, per its receipts, as one
+    atomic operation across every skill: if any receipted file anywhere in the pack was
     hand-edited since install, nothing is removed anywhere — not even from a skill that was
     itself untouched. A foreign file left in a skill directory is never touched.
 
-    Returns an empty list, doing nothing, if the triad was never installed for ``target``.
+    Returns an empty list, doing nothing, if the pack was never installed for ``target``.
     """
     base = target.skills_dir(project=project, home=home)
     to_remove: list[Path] = []

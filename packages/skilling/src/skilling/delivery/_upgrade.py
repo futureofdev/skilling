@@ -98,6 +98,8 @@ class UpgradePlan:
     homework: HomeworkSlot | None = None
     homework_changed: bool = False
     lesson_restarted: bool = False
+    dropped_objectives: tuple[str, ...] = ()
+    """Met objectives the new version no longer declares: removed from the record."""
 
     @property
     def ok(self) -> bool:
@@ -112,9 +114,15 @@ class UpgradePlan:
                 if self.lesson_restarted
                 else ""
             )
+            dropped = (
+                f" Objective(s) {', '.join(self.dropped_objectives)} no longer exist in "
+                f"{self.to_version}, so they are no longer recorded as met."
+                if self.dropped_objectives
+                else ""
+            )
             return (
-                f"Progress rolled forward ({name}, {self.level}): position, completed "
-                f"lessons, objectives and homework carry over unchanged.{restart}"
+                f"Progress carries over ({name}, {self.level}): position, completed "
+                f"lessons, objectives and homework are kept.{restart}{dropped}"
             )
         return f"Progress is not resumable ({name}): {self.reason()}"
 
@@ -131,8 +139,8 @@ class UpgradePlan:
             )
         if self.refusal is UpgradeRefusal.MISSING:
             return (
-                f"{self.to_version} no longer has {', '.join(self.missing)} that this record "
-                "refers to, so progress cannot carry over automatically."
+                f"{self.to_version} no longer has {', '.join(self.missing)}, which this "
+                "record refers to, so progress cannot carry over automatically."
             )
         return (
             f"{self.from_version} and {self.to_version} cannot be ordered as an upgrade, so "
@@ -143,7 +151,7 @@ class UpgradePlan:
         return (
             f"the record was started against {self.course_id} {self.from_version}, but "
             f"{self.course_id} on disk is {self.to_version}: {self.reason()} The record is "
-            f"unchanged; to resume it, use {self.course_id} {self.from_version} again."
+            f"unchanged and still resumes on {self.from_version}."
         )
 
 
@@ -156,7 +164,8 @@ def plan_upgrade(
 ) -> UpgradePlan:
     """Decide whether ``record`` rolls forward to ``target``, and build the upgraded record.
 
-    Everything except ``course_version`` (and coordinates the map moves) is preserved. Log
+    Everything except ``course_version`` (and coordinates the map moves) is preserved, except
+    that a met objective the new version no longer declares is dropped and reported. Log
     entries are never rewritten: they keep their historical ``course_version`` and are only
     checked to name coordinates the new version still has. An in-lesson beat the new lesson
     no longer has (an exercise beat with no exercise, a ceremony off a phase end) restarts that
@@ -184,9 +193,9 @@ def plan_upgrade(
         referenced += [("queued homework", q.coordinate) for q in slot.queued]
     referenced += [("completion log", e.coordinate) for e in log]
     missing = [f"{what} {c}" for what, c in referenced if move(c) not in target.coordinates]
-    missing += [
-        f"objective {o.id}" for o in record.objectives_met if o.id not in target.objective_ids
-    ]
+    dropped = tuple(
+        dict.fromkeys(o.id for o in record.objectives_met if o.id not in target.objective_ids)
+    )
     if missing:
         return _refused(base, UpgradeRefusal.MISSING, tuple(dict.fromkeys(missing)))
 
@@ -205,6 +214,7 @@ def plan_upgrade(
             "course_version": target.version,
             "position": position,
             "completed": [move(c) for c in record.completed],
+            "objectives_met": [o for o in record.objectives_met if o.id not in dropped],
             "artifacts": [
                 a.model_copy(update={"coordinate": move(a.coordinate)}) for a in record.artifacts
             ],
@@ -231,6 +241,7 @@ def plan_upgrade(
         homework=remapped,
         homework_changed=remapped != slot,
         lesson_restarted=restarted,
+        dropped_objectives=dropped,
     )
 
 

@@ -35,6 +35,8 @@ is a one-line `uv run` wrapper — read `Taskfile.yml` and run those directly.
 - `examples/workbench` exercises every authoring surface in a course small enough to deliver
   end-to-end when testing; `test_examples.py` asserts that coverage. Every example validates
   with zero findings. The 64-lesson origin course moved to `../futureofdev/courses/`.
+- A record changes course version only through `skilling upgrade --yes` (fresh fetch, then the
+  journaled `commit_upgrade`); verbs refuse a mismatch, and plain resolution keeps refs as snapshots.
 - `packages/skilling` stays LLM-free: no model, agent-framework, or API-key dependency, ever.
   New runtime deps must earn their place; tooling goes in dependency groups.
 

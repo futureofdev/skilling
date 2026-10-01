@@ -39,7 +39,7 @@ calling `skilling next` for the first time.
 This folder-scoped skill is teaching policy, not a CLI installer. It assumes an already
 installed bare `skilling` executable is available in the host environment. The normal entry
 is `skilling start <ref> <workspace> --json`: that command creates or grows the workspace and
-installs this triad into both `.claude/skills/` and `.agents/skills/`. Run subsequent bare
+installs these skills into both `.claude/skills/` and `.agents/skills/`. Run subsequent bare
 `skilling` commands from that returned workspace so its course, state, and showcase facts can
 be discovered consistently.
 

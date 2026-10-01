@@ -55,6 +55,7 @@ from ._common import (
     commit_runtime,
     emit,
     fail,
+    known_upgrade,
     now_override,
     open_chronology_session,
     open_session,
@@ -288,9 +289,13 @@ def next(
 ) -> None:
     """Resume current content; first use initializes and pending completion recovers."""
     session = open_session(course, state, learner)
-    emit(
-        _resume_envelope("next", session.course, session.record, session.revision, session.scratch)
+    envelope = _resume_envelope(
+        "next", session.course, session.record, session.revision, session.scratch
     )
+    hint = known_upgrade(session.course)
+    if hint is not None:
+        envelope["upgrade"] = hint
+    emit(envelope)
 
 
 # ------------------------------------------------------------------------------------ advance
