@@ -17,7 +17,7 @@ means something the format cares about, not a glitch to route around.
 | 2 | `INVALID` | An argument was malformed — a bad `--input`, an unknown option label, an unrecognised evidence or capability value | This is almost always your own call being wrong, not the learner's fault — fix the argument, don't ask the learner to retry |
 | 3 | `CONFLICT` | Someone else's write landed between your last read and this write (optimistic concurrency) | Call `next` again to see where things actually stand now, then retry the learner's *intent* — not necessarily the identical call, since state moved under you |
 | 4 | `ILLEGAL` | The action is not legal from here, regardless of arguments — wrong beat, wrong stage, a rule the format itself enforces | Never retry as-is. Call `next` to see the real state, and explain to the learner what actually needs to happen first |
-| 5 | `VERSION_MISMATCH` | The learner's record was started against one version of this course; the manifest on disk is now a different version | Stop and say so plainly. This reference implementation has no automatic migration path across a version change — it needs a deliberate decision, not a guess |
+| 5 | `VERSION_MISMATCH` | The course on disk is a different version from the one the record was started on, and progress can't carry over automatically: a downgrade, a major version, or a lesson the record refers to is gone. Patch and minor updates roll forward on their own and never get here | Stop and tell the learner what the message says changed. Their progress is unchanged. Don't edit or delete state to get past this; it needs a deliberate decision, not a guess |
 
 ## Refusals you will actually see in this loop
 

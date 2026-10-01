@@ -62,6 +62,16 @@ from ._runtime import (
     settleable,
     submit_homework,
 )
+from ._upgrade import (
+    CoordinateMap,
+    RollForward,
+    UpgradePlan,
+    UpgradeRefusal,
+    UpgradeTarget,
+    plan_upgrade,
+    preview_upgrade,
+    roll_forward,
+)
 
 __all__ = [
     "DERIVED_PLACEHOLDERS",
@@ -71,6 +81,7 @@ __all__ = [
     "Beat",
     "ChronologyInvalid",
     "CompletionOutcome",
+    "CoordinateMap",
     "CoordinateRequired",
     "Dispatcher",
     "Event",
@@ -84,8 +95,12 @@ __all__ = [
     "NullSink",
     "ObjectivesMarked",
     "RecordingSink",
+    "RollForward",
     "StoredRecord",
     "ThreadedSink",
+    "UpgradePlan",
+    "UpgradeRefusal",
+    "UpgradeTarget",
     "advance",
     "assemble",
     "assignment_from_lesson",
@@ -100,7 +115,10 @@ __all__ = [
     "objectives_of",
     "parse_sink",
     "placeholders_in",
+    "plan_upgrade",
+    "preview_upgrade",
     "render",
+    "roll_forward",
     "set_telemetry_consent",
     "settle_objective",
     "settleable",

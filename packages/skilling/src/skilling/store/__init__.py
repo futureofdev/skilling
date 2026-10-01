@@ -8,6 +8,9 @@ from ._journal import (
     TransitionIdentity,
     TransitionResult,
     TransitionVerb,
+    UpgradeCommit,
+    UpgradeIdentity,
+    UpgradeResult,
 )
 from ._protocol import (
     CompletionCommit,
@@ -43,6 +46,9 @@ __all__ = [
     "TransitionIdentity",
     "TransitionResult",
     "TransitionVerb",
+    "UpgradeCommit",
+    "UpgradeIdentity",
+    "UpgradeResult",
     "IdempotencyKeyConflict",
     "LOCAL_LEARNER",
     "STORE_ENTRY_POINT_GROUP",

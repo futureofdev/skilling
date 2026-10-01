@@ -6,6 +6,27 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Course version roll-forward — 2026-10-01
+
+**Minor.** Fixes #99. [Course version changes](runtime.md#course-version-changes) now states
+the rule that [course versions](course-format.md#course-versions) only implied. A runtime may
+roll a record forward in place on a patch or minor bump of the same course when every
+coordinate, objective and log entry it refers to still exists. Only `course_version` changes,
+and log entries keep their historical version. A downgrade, a major bump, unordered versions
+or a missing reference refuse with an actionable message and leave the record unchanged, and
+staying on the started version remains conforming. Before this, the reference runtime refused
+every version change with `version-mismatch`, even a patch, which stranded learners. The CLI
+code and exit 5 are unchanged; only the message is more specific.
+
+This is minor rather than patch because it adds optional runtime behaviour and a file-backend
+extension: [`commit_upgrade`](runtime.md#recoverable-version-roll-forward) with a journaled
+`upgrade.yaml` and new `UpgradeIdentity`/`UpgradeCommit`/`UpgradeResult` values. It is not
+major because no conforming course, record or store breaks. Runtimes that refuse every version
+change still conform, and `ProgressStore` is unchanged. Keys bound before an upgrade stay
+reserved, and tokens and completion replay from the earlier version are refused instead of
+replayed. `skilling start` reports whether existing progress rolled forward or is not
+resumable.
+
 ### Quiz stems and options may wrap — 2026-10-01
 
 Errata found by a learner on a production course: 4 of 42 questions had a stem wrapped onto a

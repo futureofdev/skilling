@@ -515,7 +515,7 @@ A course's `version` is a semantic version, and each level means something speci
 | Minor | Additive: lessons appended to the end of a phase, or new trailing phases | Existing ones unchanged |
 | Major | Anything that moves, removes, or renumbers a lesson or phase | May change |
 
-This is what makes it safe for a runtime to roll a learner forward automatically on a patch or minor bump, and to keep them on the version they started for a major one. `skilling diff` checks coordinate stability between two versions mechanically, so the promise a version number makes is testable rather than aspirational.
+This is what makes it safe for a runtime to roll a learner forward automatically on a patch or minor bump, and to keep them on the version they started for a major one. [Course version changes](runtime.md#course-version-changes) states exactly when a runtime may do so. `skilling diff` checks coordinate stability between two versions mechanically, so the promise a version number makes is testable rather than aspirational.
 
 ## Validation
 

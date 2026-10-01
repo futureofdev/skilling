@@ -16,12 +16,12 @@ import typer
 
 from ...conformance import Report
 from ...course import Course
-from ...delivery import load_or_create
+from ...delivery import UpgradePlan, load_or_create, preview_upgrade, roll_forward
 from ...skills import SKILL_NAMES, HostTarget, Platform
 from ...skills import install as install_triad
 from ...sources import CourseInvalid, GhResolver, ResolveError, UrlResolver, safe_source_ref
 from ...sources import resolve as resolve_remote
-from ...store import LOCAL_LEARNER, FileProgressStore
+from ...store import LOCAL_LEARNER, Conflict, FileProgressStore
 from ...workspace import (
     SKILLING_DIR,
     add_course,
@@ -65,6 +65,9 @@ def start(
             else:
                 imported = import_local_course(workspace, Path(ref), ref=ref)
                 course, content_path = imported.course, imported.path
+            store = FileProgressStore(state_root(workspace))
+            # Decided before the manifest switches versions, so the report describes it.
+            plan = preview_upgrade(store, course, LOCAL_LEARNER).plan
             # Finishing steps are idempotent; committed content survives failures here.
             ensure_workspace(workspace)
             entry = add_course(workspace, course, ref, content_path)
@@ -81,7 +84,8 @@ def start(
 
             entry_files = refresh_entry_files(workspace)
 
-            store = FileProgressStore(state_root(workspace))
+            if plan is not None and plan.ok:
+                plan = roll_forward(store, course, LOCAL_LEARNER).plan or plan
             load_or_create(store, course, LOCAL_LEARNER)
 
     except CourseInvalid as exc:
@@ -94,7 +98,7 @@ def start(
             )
             render.findings(report, root=display_ref)
         raise typer.Exit(1) from exc
-    except (ResolveError, OSError) as exc:
+    except (ResolveError, OSError, Conflict) as exc:
         render.err_console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
 
@@ -118,6 +122,7 @@ def start(
                     "skills": skills_relative,
                     "entry_files": entry_files_relative,
                     "state_initialised": True,
+                    "progress": _progress_json(plan),
                 }
             )
         )
@@ -134,8 +139,26 @@ def start(
         f"  {'skills':<9}  .claude/skills/ + .agents/skills/ ({', '.join(SKILL_NAMES)})",
         soft_wrap=True,
     )
+    if plan is not None:
+        colour = "green" if plan.ok else "yellow"
+        console.print(f"  {'progress':<9}  [{colour}]{plan.summary()}[/]", soft_wrap=True)
     console.print()
     console.print(
         f"Next: open {workspace} in Claude Code and run /learn, or in Codex and run $learn.",
         soft_wrap=True,
     )
+
+
+def _progress_json(plan: UpgradePlan | None) -> dict[str, object] | None:
+    """What a version switch does to existing progress; ``None`` when there is nothing to
+    carry (a fresh start, or a re-run on the same version)."""
+    if plan is None:
+        return None
+    return {
+        "status": "rolled-forward" if plan.ok else "not-resumable",
+        "from": plan.from_version,
+        "to": plan.to_version,
+        "level": plan.level,
+        "reason": plan.refusal.value if plan.refusal is not None else None,
+        "message": plan.summary(),
+    }

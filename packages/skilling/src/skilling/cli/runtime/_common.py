@@ -31,6 +31,7 @@ from ...delivery import (
     CoordinateRequired,
     completed_coordinate,
     load_or_create,
+    roll_forward,
 )
 from ...store import (
     Conflict,
@@ -225,6 +226,11 @@ def open_session(
 
     Initialization is optional for homework reads/refusals. Existing prepared operations
     recover before access; otherwise reads preserve state and writes use CAS.
+
+    An existing record started on an older version of the same course rolls forward first
+    (``delivery.roll_forward``, spec/runtime.md#course-version-changes) — like recovery, this
+    resolves the stream before any verb, read-only ones included, consumes it. A change that
+    cannot carry progress over refuses with ``version-mismatch`` and leaves the record as is.
     """
     course = load_session_course(course_ref) if isinstance(course_ref, str) else course_ref
 
@@ -244,6 +250,16 @@ def open_session(
         else:
             record, revision = snapshot.record, snapshot.revision
             scratch_bytes = snapshot.scratch
+        if revision is not None and record.course_version != course.version:
+            try:
+                rolled = roll_forward(store, course, learner)
+            except Conflict as exc:
+                fail(ExitCode.CONFLICT, "conflict", str(exc))
+            if rolled.plan is not None and not rolled.plan.ok:
+                fail(ExitCode.VERSION_MISMATCH, "version-mismatch", rolled.plan.refusal_message())
+            if rolled.snapshot is not None:
+                record, revision = rolled.snapshot.record, rolled.snapshot.revision
+                scratch_bytes = rolled.snapshot.scratch
         scratch = parse_scratch(scratch_bytes)
     except StatePathError as exc:
         fail(ExitCode.INVALID, "state-invalid", str(exc))
