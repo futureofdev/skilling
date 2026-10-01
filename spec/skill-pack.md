@@ -97,6 +97,22 @@ not the default: a pack in the folder travels with the folder when it is zipped 
 into a sandboxed host, where a home-profile install can never follow. Both scopes remain
 legitimate; what 1.4 changed is only which one a bare install means.
 
+## Upgrading
+
+**Since 1.4.** A skill that checks for or applies updates, to the implementation's own tool and
+skills or to a learner's course, acts only with the learner's say-so:
+
+- It asks before every network call and before every change, one question at a time, and
+  treats only an explicit yes to that specific step as consent.
+- It applies a course upgrade only through the CLI's own upgrade path, and only after that
+  explicit yes. It reports whether progress carried over exactly as the CLI did.
+- It never edits, moves or deletes learner state, and never deletes progress to make an
+  upgrade possible. When progress can't carry over, the learner stays on their current
+  version unless they deliberately choose otherwise.
+
+A skill that delivers lessons may *offer* an upgrade when a CLI envelope reports one is
+available, or when a version mismatch refuses. It must not perform the upgrade itself.
+
 ## Installing and removing
 
 Installing writes every file the skill pack ships, verbatim, and records a receipt of exactly
@@ -120,8 +136,9 @@ skill's `SKILL.md` or `references/*.md` use to state them. Two skill packs can s
 rule on this page while reading nothing alike.
 
 **How many skills a pack contains, or what they are named.** Nothing here requires a
-`learn`/`progress`/`homework` split specifically — an implementation is free to ship one skill,
-or a different division of labour, as long as every skill it ships satisfies the rules above.
+`learn`/`progress`/`homework`/`upgrade-skilling` split specifically, which is what the reference
+implementation ships. An implementation is free to ship one skill, or a different division of
+labour, as long as every skill it ships satisfies the rules above.
 
 **Whether a given host actually honours any of this.** The rules bind what a skill pack must
 say and how it must behave when a host follows its instructions faithfully. Whether a real,

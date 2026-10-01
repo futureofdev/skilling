@@ -45,7 +45,8 @@ def fetch(
                     "ref": resolved.ref,
                     "pinned": resolved.pinned,
                 }
-            )
+            ),
+            ensure_ascii=True,
         )
     else:
         pinned = f" pinned to {resolved.pinned}" if resolved.pinned else ""

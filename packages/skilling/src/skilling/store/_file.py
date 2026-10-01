@@ -31,10 +31,14 @@ from ._journal import (
     TransitionIdentity,
     TransitionJournal,
     TransitionResult,
+    UpgradeCommit,
+    UpgradeJournal,
+    UpgradeResult,
     recover_journals,
     validate_commit,
     validate_submission_commit,
     validate_transition_commit,
+    validate_upgrade_commit,
 )
 from ._locking import DEFAULT_LOCK_TIMEOUT as DEFAULT_LOCK_TIMEOUT
 from ._locking import locked_course
@@ -113,6 +117,7 @@ class FileProgressStore:
         self.checked_path(course_id, "completion.yaml")
         self.checked_path(course_id, "transition.yaml")
         self.checked_path(course_id, "submission.yaml")
+        self.checked_path(course_id, "upgrade.yaml")
         receipts = self.checked_path(course_id, "transition-receipts")
         if receipts.is_dir():
             for child in receipts.iterdir():
@@ -354,6 +359,22 @@ class FileProgressStore:
                 )
             except (ValueError, TypeError, yaml.YAMLError) as exc:
                 raise RecoveryRequired(f"Invalid transition intent: {exc}") from exc
+
+    def commit_upgrade(self, commit: UpgradeCommit) -> UpgradeResult:
+        """Roll a record forward to a newer course version as one recoverable write set.
+
+        A file-backend extension beside ``commit_transition``, not part of ``ProgressStore``.
+        Replays a committed identical upgrade; otherwise compares record revision and scratch.
+        """
+        validated = validate_upgrade_commit(commit, self.state_root)
+        self.ensure_course_paths(validated.identity.course_id)
+        with self._locked_course(validated.identity.course_id):
+            try:
+                return UpgradeJournal(self.state_root, validated.identity.course_id).commit(
+                    validated
+                )
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid upgrade intent: {exc}") from exc
 
     def get_submission_receipt(
         self, learner_id: str, course_id: str, token: str

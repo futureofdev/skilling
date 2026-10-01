@@ -6,6 +6,43 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Course upgrade path — 2026-10-01
+
+**Minor.** Fixes #99 and refs #96. Before this, the reference runtime refused every course
+version change with `version-mismatch`, even a patch, and `start` switched a workspace to a new
+version the learner's progress couldn't resume on. Learners were stranded either way.
+
+- [Course version changes](runtime.md#course-version-changes) states the rule that
+  [course versions](course-format.md#course-versions) only implied. A runtime may roll a
+  record forward in place on a patch or minor bump when every coordinate it refers to still
+  exists. Only `course_version` changes, except that met objectives the new version no longer
+  declares are dropped and reported. Log entries keep their historical version. A downgrade, a
+  major bump, unordered versions or a missing coordinate refuse, leaving the record unchanged.
+  Roll-forward should happen only when the learner asks. In the reference CLI, verbs refuse
+  with a pointer to `skilling upgrade`, `next` may carry an offline `upgrade` hint, and
+  `start` never switches a workspace to a version the progress can't resume on.
+- [Checking for updates](workspace.md#checking-for-updates) is the one sanctioned refresh of a
+  cached snapshot. It fetches fresh, follows same-major semver tags (falling back to the
+  default branch), treats sha pins as pinned, and compares local sources on disk. It never
+  moves the manifest, a binding or the record, and the id/version identity rule still refuses
+  conflicting content. Applying binds, switches and rolls forward, and refuses unresumable
+  progress before any change.
+- The file backend's [recoverable roll-forward](runtime.md#recoverable-version-roll-forward)
+  journals `upgrade.yaml` and adds `UpgradeIdentity`/`UpgradeCommit`/`UpgradeResult` and
+  `commit_upgrade`. Keys bound before an upgrade stay reserved, and tokens and completion
+  replay from the earlier version are refused instead of replayed.
+- [Skill pack](skill-pack.md#upgrading): skills that update must ask before every network call
+  or change, and apply only through the CLI after an explicit yes. Lesson-delivery skills may
+  only offer an upgrade. The reference pack adds a fourth skill, `upgrade-skilling`. It isn't named
+  `upgrade` because that would collide with a host's built-in `/upgrade` command.
+
+This is minor because everything it adds is optional behaviour, a file-backend extension and a
+new CLI verb. No conforming course, record or store breaks, `ProgressStore` is unchanged, and
+a runtime that refuses every version change still conforms. The existing `version-mismatch`
+code and exit 5 keep their meaning, and the refusal gains an `upgrade` detail object. The
+reference CLI adds `skilling upgrade` refusal codes `cache-conflict` and `source-unavailable`.
+CLI codes aren't validator codes, so `docs/error-codes.md` is unchanged.
+
 ### Quiz stems and options may wrap — 2026-10-01
 
 Errata found by a learner on a production course: 4 of 42 questions had a stem wrapped onto a

@@ -1,8 +1,9 @@
 """``skilling courses`` — enumerate every course a learner has local progress state for.
 
-The mechanism the generic ``learn``/``progress``/``homework`` skill triad needs for cross-course
-discovery (docs/superpowers/specs/2026-08-06-generic-delivery-skills-design.md): nothing prior
-to this ever enumerated "what courses does this learner even have, and which one were they most
+The mechanism the generic skill pack (``learn``/``progress``/``homework``/
+``upgrade-skilling``) needs for cross-course discovery
+(docs/superpowers/specs/2026-08-06-generic-delivery-skills-design.md): nothing prior to this
+ever enumerated "what courses does this learner even have, and which one were they most
 recently working on" — every other verb is *handed* a course. Read-only: enumeration only, no
 session, no write.
 
@@ -113,7 +114,7 @@ def courses(
 ) -> None:
     """Every course this learner has local progress for, most-recently-active first.
 
-    Backs the skill triad's "which course did you mean" default: pick the course with the
+    Backs the skill pack's "which course did you mean" default: pick the course with the
     latest ``last_activity``, and only ask the learner when two or more genuinely tie.
     """
     del as_json  # No alternate rendering exists yet; see JSON_HELP.

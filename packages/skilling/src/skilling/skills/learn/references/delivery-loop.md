@@ -45,6 +45,13 @@ nothing to look ahead at even if you wanted to. Retain any `showcase` returned b
 `start --json` response or by a later ceremony for optional artifact registration. Never
 invent a showcase path or treat its presence as evidence that learner work already exists.
 
+When the `next` envelope carries an `upgrade` object (`available`, `level`, `command`), a newer
+version of this course is already known locally. After presenting the current beat, mention it
+once in plain words and offer the choice: a) Check the update with `/upgrade-skilling` (`$upgrade-skilling`
+in Codex)  b) Keep learning. Never run `skilling upgrade` yourself from this skill, and never
+upgrade without the learner choosing to. The hint is informational; the lesson goes on either
+way.
+
 ## Reading envelopes and presenting beats
 
 Read every envelope in full, `beat.content` included. Never truncate, slice, or select away

@@ -138,6 +138,57 @@ A runtime resumes a learner at the position in their record: at minimum the reco
 
 When quiz-level position is recorded, the quiz resumes at the recorded question. Remediation bookkeeping (wrong-answer counts, an offered revisit) is runtime-private and resets on resume; a resumed session may therefore re-offer a revisit already offered, or route forward from the concept gate when a return to the quiz was pending. This is a deliberate residual: the record holds what is durably true, not a tutor's working memory.
 
+## Course version changes
+
+**Since 1.4.** A record names the `course_version` it was started against. When a runtime
+meets that record alongside a different version of the same course, the
+[version semantics](course-format.md#course-versions) decide what happens to the progress.
+
+A runtime may **roll the record forward** when all of these hold:
+
+- the course id is the same;
+- the new version is greater than the recorded one, with the same major version (a patch or
+  minor bump); and
+- every coordinate the learner's state refers to still exists in the new version: the
+  position, every `completed` coordinate, every artifact `coordinate`, the homework slot and
+  every queued assignment, and every completion-log entry's coordinate.
+
+Rolling forward sets `course_version` to the new version and preserves everything else, with
+one exception. An `objectives_met` entry whose objective id the new version no longer declares
+is dropped, and the runtime reports which ones it dropped. A claim about an objective that no
+longer exists can't steer a later tutor.
+Completion-log entries are never rewritten; they keep their historical `course_version`.
+When the recorded beat does not exist in the new version of the current lesson — an exercise
+beat in a lesson that no longer has an exercise — the runtime resumes that lesson at its first
+beat instead; it must not move the coordinate. The upgrade is a record write under
+[optimistic concurrency](#the-store-interface): a concurrent or repeated upgrade to the same
+version leaves exactly one upgraded record and loses no other write.
+
+A runtime should roll forward only when the learner, or an adopter acting for them, asks.
+Silently delivering different content under the same progress surprises the learner even
+when every coordinate survives. The reference CLI never moves a record implicitly. A verb
+that meets a mismatch refuses, and its refusal says whether `skilling upgrade` would carry the
+progress over. `skilling upgrade --yes` performs the roll-forward. `skilling start` refuses to
+switch a workspace to a version the existing progress can't resume on.
+
+Otherwise — a downgrade, a different major version, versions that cannot be ordered, or a
+referenced coordinate that is missing — progress cannot carry over
+automatically. The runtime must not deliver the new version against that record, and must
+not rewrite, migrate or discard it. It refuses, saying what changed and that progress cannot
+carry over automatically. Keeping the learner on the version they started, where that content
+is still available, is also conforming. In the reference CLI the refusal is
+`version-mismatch` (exit 5), and the record stays byte-for-byte unchanged. The refusal's
+`error.upgrade` object names the two versions, whether the progress is resumable, the reason
+when it isn't, and the `skilling upgrade` command to run. A `next` envelope may also carry a
+non-fatal `upgrade` hint (`available`, `level`, `command`) when a newer version of the course
+is already present in the workspace. Computing that hint never touches the network.
+
+Operations bound to the earlier version do not cross an upgrade. A keyed transition retried
+after it does not apply twice: its key stays bound and reuse refuses. A homework submission
+token checked against the earlier version is refused, so the learner checks the assignment
+again. Completion replay for the earlier version is no longer offered, and completing a lesson
+that is already complete stays a no-op.
+
 ## Teasers
 
 After completion — and after ceremony, when there was one — the runtime should present the next lesson's teaser: `## Next Up` when present, otherwise one generated from the manifest.
@@ -595,6 +646,27 @@ intents remain readable. Legacy scratch `last_key`/`last_result` cannot prove it
 that key is reserved and refused, its cached envelope is never replayed, and a fresh key
 works. A later committed operation retains the reservation before clearing legacy scratch.
 No historical input or missing receipt is invented.
+
+### Recoverable version roll-forward
+
+The reference file runtime commits a [course version roll-forward](#course-version-changes)
+as one journaled write set under the course lock, a file-backend extension like transitions.
+`FileProgressStore.commit_upgrade(UpgradeCommit(identity, expected_record_revision,
+expected_scratch, record, scratch, homework))` takes an `UpgradeIdentity(learner_id,
+course_id, from_version, to_version)` and the runtime-built after-images. `homework` is
+absent unless the slot changes. A new upgrade compares the record revision and the scratch
+before-image, and a mismatch is a conflict. Retrying a committed upgrade with the same
+identity replays the current snapshot.
+
+The durable order is a prepared `upgrade.yaml` intent with exact before/after bytes, then the
+key reservations, retired markers, homework, scratch and record, then a committed marker. For
+every key the earlier stream consumed (keyed receipts, reservations and a legacy scratch
+`last_key`), the store writes a `reserved` receipt under the new stream. It retires the
+committed completion, transition and submission markers that name the earlier version,
+keeping their bytes in the committed upgrade marker. An upgrade never retires a pending
+journal: recovery runs first. `upgrade.yaml` joins the journals that every cooperating
+operation validates before recovering any of them, and the same `RecoveryRequired` rules
+apply.
 
 ### Portable learner files
 

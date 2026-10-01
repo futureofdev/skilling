@@ -56,7 +56,8 @@ def findings_json(report: Report) -> None:
                 "warnings": len(report.warnings),
                 "findings": [f.as_dict() for f in report.findings],
             }
-        )
+        ),
+        ensure_ascii=True,
     )
 
 

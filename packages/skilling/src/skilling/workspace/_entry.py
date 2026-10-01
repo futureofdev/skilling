@@ -19,6 +19,8 @@ ENTRY_FILENAMES: tuple[str, ...] = ("CLAUDE.md", "AGENTS.md")
 _BLOCK_CONTENT = """\
 This folder is a Skilling workspace: an AI-tutored course for Claude Code or Codex.
 Say "learn" to start or resume it — `/learn` in Claude Code, `$learn` in Codex.
+To check for a newer Skilling or course version, use `/upgrade-skilling` (Claude Code) or
+`$upgrade-skilling` (Codex); nothing is updated without your yes.
 
 Machinery — state, cached course content, the ref index — lives under `.skilling/`.
 Never edit it directly; every command that needs it reads and writes it through

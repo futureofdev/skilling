@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
+from enum import StrEnum
 from pathlib import Path
 from typing import NamedTuple
 
@@ -38,6 +39,13 @@ from ._locking import locked_cache
 from ._paths import child, fsync_directory, plain, remove_tree, root_path
 
 INDEX_NAME = ".index.json"
+
+
+class Binding(StrEnum):
+    """What publishing does to the requested ref's binding."""
+
+    KEEP = "keep"
+    NONE = "none"
 
 
 class Lookup(NamedTuple):
@@ -196,14 +204,22 @@ def publish(
     payload: Payload,
     ref: str,
     source: Provenance,
+    binding: Binding = Binding.KEEP,
 ) -> Course:
+    """Publish verified content under ``key`` and, per ``binding``, bind ``ref`` to it.
+
+    ``KEEP`` is ordinary resolution: an existing binding wins and the candidate is unused.
+    ``NONE`` reserves and publishes content only, leaving every ref binding untouched (an
+    upgrade check; ``bind`` follows once the learner agrees). The id/version identity rule
+    is the same in both modes: different content already holding ``key`` refuses.
+    """
     cache = root_path(cache)
     cache.mkdir(parents=True, exist_ok=True)
     with _locked(cache):
         index = _read_index(cache)
         digest = ref_digest(ref)
         entry = index.entries.get(digest)
-        if entry is not None:
+        if entry is not None and binding is Binding.KEEP:
             return _checked_hit(cache, ref, index, entry)
         destination = child(cache, key, directory=True)
         reserved = index.contents.get(key)
@@ -227,6 +243,8 @@ def publish(
         if not destination.exists():
             candidate.rename(destination)
             fsync_directory(cache)
+        if binding is Binding.NONE:
+            return _checked_course(cache, key, payload)
         updated = Index(
             entries={**index.entries, digest: Entry(key=key, source=source)},
             contents=contents,
@@ -234,6 +252,31 @@ def publish(
         )
         _write_index(cache, updated)
         return _checked_course(cache, key, payload)
+
+
+def bind(cache: Path, ref: str, key: str, source: Provenance) -> Course:
+    """Re-point ``ref`` at content already verified and published under ``key``.
+
+    The second half of an applied upgrade: the check published the content without binding,
+    the learner agreed, and only now does the ref follow it. Content is re-verified first.
+    """
+    cache = root_path(cache)
+    with _locked(cache):
+        index = _read_index(cache)
+        payload = index.contents.get(key)
+        if payload is None:
+            raise CacheInvalid("upgrade content is not in the cache; check for updates again")
+        course = _checked_course(cache, key, payload)
+        digest = ref_digest(ref)
+        _write_index(
+            cache,
+            Index(
+                entries={**index.entries, digest: Entry(key=key, source=source)},
+                contents=index.contents,
+                pending={k: v for k, v in index.pending.items() if k != digest},
+            ),
+        )
+        return course
 
 
 @contextmanager

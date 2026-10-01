@@ -1,4 +1,4 @@
-"""The bundled generic Agent Skills: ``learn``, ``progress``, ``homework``.
+"""The bundled generic Agent Skills: ``learn``, ``progress``, ``homework``, ``upgrade-skilling``.
 
 Installed once per learner, not once per course (docs/superpowers/specs/
 2026-08-06-generic-delivery-skills-design.md). Course identity, persona, and every

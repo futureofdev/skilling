@@ -63,6 +63,12 @@ from ._transition import (
 from ._transition import (
     TransitionVerb as TransitionVerb,
 )
+from ._upgrade import Prepared as PreparedUpgrade
+from ._upgrade import UpgradeCommit as UpgradeCommit
+from ._upgrade import UpgradeIdentity as UpgradeIdentity
+from ._upgrade import UpgradeJournal as UpgradeJournal
+from ._upgrade import UpgradeResult as UpgradeResult
+from ._upgrade import validate_upgrade_commit as validate_upgrade_commit
 
 
 class Boundary(BaseModel):
@@ -392,18 +398,21 @@ def recover_journals(root: Path, course_id: str) -> None:
     completion = Journal(root, course_id)
     transition = TransitionJournal(root, course_id)
     submission = SubmissionJournal(root, course_id)
+    upgrade = UpgradeJournal(root, course_id)
     try:
         old = completion._load()
         if isinstance(old, Prepared):
             completion._preflight(old)
         new = transition.inspect()
         submitted = submission.inspect()
+        upgrading = upgrade.inspect()
         if (
             sum(
                 (
                     isinstance(old, Prepared),
                     isinstance(new, PreparedTransition),
                     isinstance(submitted, PreparedSubmission),
+                    isinstance(upgrading, PreparedUpgrade),
                 )
             )
             > 1
@@ -415,6 +424,8 @@ def recover_journals(root: Path, course_id: str) -> None:
             transition.apply(new)
         if isinstance(submitted, PreparedSubmission):
             submission.apply(submitted)
+        if isinstance(upgrading, PreparedUpgrade):
+            upgrade.apply(upgrading)
     except (ValueError, TypeError, yaml.YAMLError, StatePathError) as exc:
         raise RecoveryRequired(
             f"Cannot recover runtime journals: {exc}. Preserve state for inspection."
