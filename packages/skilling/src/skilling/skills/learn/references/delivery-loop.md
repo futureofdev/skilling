@@ -45,6 +45,23 @@ nothing to look ahead at even if you wanted to. Retain any `showcase` returned b
 `start --json` response or by a later ceremony for optional artifact registration. Never
 invent a showcase path or treat its presence as evidence that learner work already exists.
 
+## Reading envelopes and presenting beats
+
+Read every envelope in full, `beat.content` included. Never truncate, slice, or select away
+fields when parsing CLI output — no `[:3000]`, no keeping only `beat.name` and
+`legal_inputs`. A partial read leaves you teaching from material you never saw.
+
+Present the beat's content in the conversation itself. Show the explanation, analogy, or
+worked example you give; never summarise in the past tense what you supposedly explained
+("I've offered an analogy…") without having shown it.
+
+Every choice you offer the learner maps to a value in the current `legal_inputs`, or is plain
+conversation that changes no state. Never invent menus of options with no input behind them.
+
+When you go beyond the lesson's material — general knowledge, an example the course does not
+give — say so explicitly ("This goes beyond the course: …"). Never attribute a diagram,
+table, or claim to the course unless it appears in content an envelope gave you.
+
 ## `skilling advance --course <course> --input <input>`
 
 Applies exactly one transition and persists the result. `--input` must be one of the
@@ -54,7 +71,7 @@ learner along" before they have actually done what the current beat asked for:
 | Beat | Legal inputs | What they mean |
 |---|---|---|
 | `welcome`, `objectives`, `concept`, `exercise` | `next` | Acknowledge and move on — not a gate |
-| `gate-concept` | `go-deeper`, `proceed` | Ask a follow-up (stays put, position unchanged) / move on |
+| `gate-concept` | `go-deeper`, `proceed` | Ask a follow-up (returns to `concept` with the same body; position unchanged) / move on |
 | `gate-exercise` | `hint`, `attempted` | Ask for a hint (stays put) / the learner reports they tried |
 | `quiz` | `answer-correct`, `answer-wrong` | Never call this directly — see the quiz verbs below |
 | `remediate` | `continue`, `revisit-concept` | Move to the next question / go back to the concept |
@@ -85,6 +102,15 @@ assume agreement from silence or enthusiasm, and do not call `advance` until the
 genuinely responded. A gate exists so a human decision happens exactly where the format put
 one; skipping it is a violation even when you are confident what they would say, and there is
 no timeout — a learner who returns in a fortnight finds the same gate waiting.
+
+### Going deeper at `gate-concept`
+
+`go-deeper` returns the beat to `concept` with `legal_inputs: ["next"]` and re-serves the same
+concept body; position and record are unchanged, and no new material arrives. That is
+expected, not a step backwards. Answer the learner's follow-up grounded in that re-served
+body, flagging anything beyond it as described above, then call `advance --input next` to
+return to the gate and ask again. If you suggest topics to go deeper on, draw them from the
+concept body, never from an invented menu.
 
 An open gate is not a conversational stop sign. Answer questions, teach, inspect work, and
 collaborate across multiple turns while leaving the state where it is. At `gate-exercise`,

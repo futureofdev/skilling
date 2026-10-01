@@ -376,6 +376,29 @@ PROMPT_CONTRACTS: tuple[PromptContract, ...] = (
         ("Gates are open waits", "wait for their actual reply", "do not answer for them"),
     ),
     PromptContract(
+        "going deeper is answered from the re-served concept body",
+        "learn",
+        "delivery-loop.md",
+        (
+            'returns the beat to `concept` with `legal_inputs: ["next"]`',
+            "grounded in that re-served body",
+            "`advance --input next` to return to the gate",
+            "never from an invented menu",
+        ),
+    ),
+    PromptContract(
+        "envelopes are read in full and explanations are shown, not narrated",
+        "learn",
+        "delivery-loop.md",
+        (
+            "Read every envelope in full, `beat.content` included",
+            "Never truncate, slice, or select away fields",
+            "never summarise in the past tense",
+            "maps to a value in the current `legal_inputs`",
+            "This goes beyond the course:",
+        ),
+    ),
+    PromptContract(
         "quiz answers remain in CLI custody",
         "learn",
         "delivery-loop.md",
