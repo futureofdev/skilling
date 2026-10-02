@@ -21,7 +21,7 @@ skilling --version
 ## Create your first workspace
 
 ```bash
-skilling start 'gh:futureofdev/skilling@v0.7.0#examples/welcome-skilling' my-learning --json
+skilling start 'gh:futureofdev/skilling@v0.8.0#examples/welcome-skilling' my-learning --json
 ```
 
 `start` prints a JSON object containing an absolute `workspace` path. Open that exact folder

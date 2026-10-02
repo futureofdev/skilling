@@ -3,7 +3,7 @@ name = "skilling-workspace"
 version = "0.0.0"
 description = "Workspace root for the Skilling reference implementation"
 requires-python = ">=3.11"
-dependencies = ["skilling"]
+dependencies = ["skilling", "skilling-tutor"]
 
 [tool.uv]
 package = false
@@ -13,6 +13,7 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 skilling = { workspace = true }
+skilling-tutor = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -24,7 +25,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["packages/skilling/src"]
+src = ["packages/skilling/src", "packages/skilling-tutor/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
@@ -40,6 +41,6 @@ pythonVersion = "3.11"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
-testpaths = ["packages/skilling/tests"]
+testpaths = ["packages/skilling/tests", "packages/skilling-tutor/tests"]
 
 markers = ["storage_native: real native persistence with a controlled UTC calendar"]
