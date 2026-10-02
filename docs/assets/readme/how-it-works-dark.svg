@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="330" viewBox="0 0 960 330" role="img" aria-labelledby="t d">
+<title id="t">How Skilling works</title>
+<desc id="d">Your coding host, plus a course folder, becomes a tutor that remembers where you are.</desc>
+<rect width="960" height="330" fill="#0A0E17"/>
+<text x="24" y="38" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">01  YOUR CODING HOST</text>
+<rect x="24" y="54" width="268" height="248" fill="#1F2937" stroke="#2A3444"/>
+<text x="346" y="38" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">02  A COURSE FOLDER</text>
+<rect x="346" y="54" width="268" height="248" fill="#1F2937" stroke="#2A3444"/>
+<text x="668" y="38" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">03  A TUTOR THAT REMEMBERS</text>
+<rect x="668" y="54" width="268" height="248" fill="#1F2937" stroke="#2A3444"/>
+<text x="319" y="187.0" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#42D7FF" text-anchor="middle">+</text>
+<text x="641" y="187.0" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#42D7FF" text-anchor="middle">→</text>
+<rect x="24" y="54" width="268" height="30" fill="#0A0E17" stroke="#2A3444"/>
+<text x="38" y="74" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12" font-weight="400" fill="#9CA3AF" text-anchor="start">Claude Code  ·  Codex</text>
+<text x="38" y="116" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">you</text>
+<text x="90" y="116" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="13" font-weight="600" fill="#8B98FF" text-anchor="start">/learn</text>
+<text x="38" y="144" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">tutor</text>
+<text x="90" y="144" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">First idea: explain,</text>
+<text x="90" y="172" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">question, revisit. Ready?</text>
+<text x="38" y="200" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">you</text>
+<text x="90" y="200" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">Yes, slower please.</text>
+<text x="38" y="228" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">tutor</text>
+<text x="90" y="228" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">Sure. Picture making</text>
+<text x="90" y="256" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">a cup of tea…</text>
+<text x="364.0" y="90" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12.5" font-weight="600" fill="#F3F5F8" text-anchor="start">welcome-skilling/</text>
+<text x="364.0" y="116" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12.5" font-weight="400" fill="#F3F5F8" text-anchor="start">├── course.yaml</text>
+<text x="364.0" y="142" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12.5" font-weight="400" fill="#F3F5F8" text-anchor="start">└── phases/</text>
+<text x="394.0" y="168" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12.5" font-weight="400" fill="#F3F5F8" text-anchor="start">└── phase-1-learning/</text>
+<text x="424.0" y="194" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12.5" font-weight="400" fill="#F3F5F8" text-anchor="start">├── lesson-01.md</text>
+<text x="424.0" y="220" font-family="'JetBrains Mono', SFMono-Regular, Consolas, Menlo, monospace" font-size="12.5" font-weight="400" fill="#F3F5F8" text-anchor="start">└── lesson-02.md</text>
+<line x1="364" y1="252" x2="596" y2="252" stroke="#2A3444"/>
+<text x="364" y="276" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#9CA3AF" text-anchor="start">Plain markdown. Any tutor can read it.</text>
+<text x="686" y="90" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#F3F5F8" text-anchor="start">Welcome to Skilling</text>
+<text x="686" y="110" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#9CA3AF" text-anchor="start">Lesson 2 of 2</text>
+<rect x="686" y="126" width="16" height="16" fill="#C8FF3D" stroke="#C8FF3D"/>
+<path d="M689 134 l4 4 l7 -8" fill="none" stroke="#111827" stroke-width="2"/>
+<text x="712" y="139" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">Lesson 1 finished</text>
+<rect x="686" y="154" width="16" height="16" fill="#C8FF3D" stroke="#C8FF3D"/>
+<path d="M689 162 l4 4 l7 -8" fill="none" stroke="#111827" stroke-width="2"/>
+<text x="712" y="167" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">Quiz answered</text>
+<rect x="686" y="182" width="16" height="16" fill="#C8FF3D" stroke="#C8FF3D"/>
+<path d="M689 190 l4 4 l7 -8" fill="none" stroke="#111827" stroke-width="2"/>
+<text x="712" y="195" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#F3F5F8" text-anchor="start">Reflection saved</text>
+<rect x="686" y="210" width="16" height="16" fill="#0A0E17" stroke="#2A3444"/>
+<text x="712" y="223" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#9CA3AF" text-anchor="start">Homework next</text>
+<line x1="686" y1="252" x2="918" y2="252" stroke="#2A3444"/>
+<text x="686" y="276" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#9CA3AF" text-anchor="start">Saved in your folder, not the chat.</text>
+</svg>

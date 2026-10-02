@@ -6,17 +6,53 @@
   </picture>
 </p>
 
-# Skilling
+<p align="center">
+  <b>Turn the coding assistant you already use into a patient, one-to-one tutor.</b><br>
+  Courses are plain folders. Your progress is saved in your own workspace, not in a chat log.
+</p>
 
-Learn through a portable course in **Claude Code or Codex**. Skilling keeps the course,
-progress and work in one folder, so you can stop, resume and move your learning workspace
-without tying it to one tutor.
+<p align="center">
+  <a href="spec/README.md"><img alt="spec 1.4.0-draft" src="brand/assets/github/badges/spec-140-draft.svg"></a>
+  <a href="https://pypi.org/project/skilling/"><img alt="PyPI: skilling" src="brand/assets/github/badges/pypi-skilling.svg"></a>
+  <a href="docs/implementations.md"><img alt="independent implementations: 0" src="brand/assets/github/badges/independent-implementations-0.svg"></a>
+  <a href="docs/implementations.md"><img alt="conformance: self-certified" src="brand/assets/github/badges/conformance-self-certified.svg"></a>
+  <a href="LICENSE"><img alt="licence Apache-2.0" src="brand/assets/github/badges/licence-apache-20.svg"></a>
+  <a href="spec/LICENSE"><img alt="spec text CC BY 4.0" src="brand/assets/github/badges/spec-text-cc-by-40.svg"></a>
+</p>
+
+<p align="center">
+  <a href="#start-learning"><b>Start learning</b></a> ·
+  <a href="#find-a-course">Find a course</a> ·
+  <a href="#write-a-course">Write a course</a> ·
+  <a href="spec/README.md">Specification</a>
+</p>
+
+<br>
+
+# Learn with a tutor that remembers you
+
+Good tutoring is a conversation. The tutor explains one idea, asks you a question, listens to
+your answer, and goes back over whatever didn't land. Skilling brings that to
+**Claude Code or Codex**. You open a learning folder, type `/learn` or `$learn`, and your
+assistant teaches you a course one lesson at a time.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/how-it-works-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/readme/how-it-works-light.svg">
+    <img alt="Your coding host plus a course folder becomes a tutor that remembers where you are" src="docs/assets/readme/how-it-works-light.svg" width="100%">
+  </picture>
+</p>
+
+The course, your progress and anything you make all live in that one folder. Close the
+assistant halfway through a lesson, come back next week, and the tutor picks up where you
+stopped. It doesn't need to remember an old conversation, because the record is on disk.
 
 ## Start learning
 
-Already have [Git](https://git-scm.com/downloads),
-[uv](https://docs.astral.sh/uv/getting-started/installation/) and Claude Code or Codex?
-Paste this prompt into your coding host:
+You need [Git](https://git-scm.com/downloads),
+[uv](https://docs.astral.sh/uv/getting-started/installation/), and Claude Code or Codex.
+Paste this prompt into your coding host. It sets everything up and starts your first lesson:
 
 > Check that Git and uv are available. If either is missing, stop and show me the matching
 > official installation instructions linked from the Skilling README. Install Skilling
@@ -29,12 +65,11 @@ Paste this prompt into your coding host:
 > skills, tell me the exact workspace to open and to invoke `/learn` in Claude Code or `$learn`
 > in Codex.
 
-Skilling itself has no language-model dependency. Your chosen host supplies the model and has
-its own account and network requirements.
+Your first course is *Welcome to Skilling*: two five-minute lessons on how to get the most out
+of being tutored.
 
-### Terminal route
-
-Run the same setup yourself:
+<details>
+<summary><b>Prefer to type the commands yourself?</b></summary>
 
 ```bash
 uv tool install skilling
@@ -42,67 +77,154 @@ skilling --version
 skilling start 'gh:futureofdev/skilling@v0.7.0#examples/welcome-skilling' my-learning --json
 ```
 
-Then open the returned `workspace` in Claude Code or Codex. Use `/learn` in Claude Code or
-`$learn` in Codex. If the host was already open, reopen that exact folder so it discovers the
-new folder-scoped skills.
+Open the `my-learning` folder it creates in Claude Code or Codex, then type `/learn`
+(Claude Code) or `$learn` (Codex). If your host was already open, reopen that folder so it
+picks up the new skills.
 
 > [!NOTE]
 > The pinned example command works once the `v0.7.0` tag is published. Before then, maintainers
 > test the same flow with the retained candidate wheel and an exact commit ref; that
 > substitution is not the public learner route.
 
-Next: [learn how the workspace behaves](docs/learning-a-course.md),
-[choose another course source](docs/course-sources.md), or
-[solve setup problems](docs/troubleshooting.md).
+</details>
 
-## What stays yours
+Skilling has no language model of its own. Your coding host supplies the model and needs its
+usual account and network access.
 
-- **The course:** a validated snapshot is copied into the workspace.
-- **The record:** progress, homework and evidence live under the workspace's `.skilling/`
-  machinery rather than in a chat transcript.
-- **Your work:** visible learner output belongs under `showcase/` and moves with the workspace.
-- **Your choice of tutor:** the same workspace installs instructions for Claude Code and Codex.
+### What a lesson feels like
 
-After setup, the CLI, cached course content and learner state work locally. A cloud-hosted model
-may still need its normal network access; Skilling does not make the model offline.
+```text
+you    /learn
+tutor  Welcome back. You finished lesson 1 yesterday, so today is lesson 2:
+       keeping what you learn. First, in your own words, why does a tutor ask
+       you a question after explaining something?
+you    so it can tell what I actually got?
+tutor  That's it. The question shows both of us what's clear and what needs
+       another look. Let's try one...
+```
 
-## Find a course
+The tutor waits for your real answers, and you can ask for a slower pace or a different
+example at any point. Along the way you'll meet:
 
-The [Welcome to Skilling](examples/welcome-skilling/) course is the shortest orientation.
-The [examples index](examples/README.md) also explains `hello-skilling`, which teaches the
-format, and `workbench`, which gives you practical shell and Git exercises.
+- **Quizzes.** Three questions at the end of a lesson. A wrong answer never blocks you. Miss
+  two and the tutor offers to go over the idea again.
+- **Homework.** The tutor reviews what you made and asks before it submits anything.
+- **Progress.** Ask "how am I doing?", or type `/progress` (`$progress` in Codex), to see
+  what you've finished and your streak, read straight from the saved record.
 
-Course sources may be a GitHub repository or subdirectory pinned by tag or full commit, a
-generic Git HTTPS/SSH repository root, or a local course directory. Private repositories use
-your existing Git or `gh` credentials. See [Course sources](docs/course-sources.md) for exact
-syntax, caching and update behaviour.
+### What stays yours
+
+- **The course.** A checked copy of the course is saved in your workspace.
+- **Your record.** Progress, homework and evidence live under `.skilling/` in the workspace.
+- **Your work.** Notes, code and anything else you make go in `showcase/`. Keep it, share it
+  or commit it.
+- **Your choice of tutor.** The same workspace works in Claude Code and in Codex. Switch
+  between them, or move the whole folder to another machine.
+
+Once a course is set up, the CLI, the course and your progress all work locally. A
+cloud-hosted model still needs its normal network access.
+
+### Find a course
+
+| Course | What you'll learn |
+|---|---|
+| [Welcome to Skilling](examples/welcome-skilling/) | How to learn well with an AI tutor. Start here. |
+| [Hello, Skilling](examples/hello-skilling/) | How a Skilling course is put together, taught by a tutor |
+| [Workbench](examples/workbench/) | Hands-on files, folders and Git in the shell |
+
+Courses can come from a GitHub repository pinned to a tag or commit, any Git repository, or a
+folder on your machine. Private repositories use the Git or `gh` login you already have. See
+[course sources](docs/course-sources.md) for the details, and
+[learning with Skilling](docs/learning-a-course.md) for resuming, homework, updates and moving
+a workspace. If something goes wrong, try [troubleshooting](docs/troubleshooting.md).
+
+<br>
+
+# Write courses people can take with any tutor
+
+A Skilling course is a folder of markdown files plus a small `course.yaml`. There's no
+platform to sign up to. Anyone with Claude Code or Codex can take your course, and so can any
+other tutor that follows the format.
+
+```text
+my-course/
+├── course.yaml                       # title, phases, lessons, tutor persona
+└── phases/
+    └── phase-1-basics/
+        ├── overview.md
+        ├── lesson-01-first-steps.md      # concept, key terms, exercise, quiz
+        └── lesson-02-going-further.md
+```
 
 ## Write a course
 
-Authors can scaffold a course and validate it with the same persistent CLI:
+Install the same CLI, scaffold a course, and check it:
 
 ```bash
 skilling init my-course
 skilling validate ./my-course --strict
 ```
 
-Use the [authoring walkthrough](docs/authoring-a-course.md), then preview the result in a fresh
-learner workspace before publishing a stable Git tag and a tested `skilling start` command.
+The validator says exactly what's wrong and links to the rule behind it. Every finding has a
+stable [error code](docs/error-codes.md), so `validate --strict` is safe to keep in CI.
+
+Then take your own course the way a learner would:
+
+```bash
+skilling start ./my-course my-course-preview --json
+```
+
+Open the preview in Claude Code or Codex, type `/learn` or `$learn`, and answer for real.
+Being taught your course shows you things that rereading it won't.
+
+When it's ready, commit it to Git, tag a release, test the start command in a clean folder,
+and share it:
+
+```bash
+skilling start 'gh:you/your-repo@v1.0.0#courses/my-course' my-learning --json
+```
+
+A few habits make a course teach well:
+
+- **One idea per lesson.** Explain it with a concrete example before you test it.
+- **Exercises for a tutor, not a text editor.** Ask the learner to decide, predict or explain,
+  and let the tutor do the typing.
+- **Objectives you can check.** *Knowledge* objectives cover what a learner can explain.
+  *Practice* objectives cover something they visibly do.
+
+The [authoring walkthrough](docs/authoring-a-course.md) goes from an empty folder to a
+published course. [Hello, Skilling](examples/hello-skilling/) is a small course to copy from,
+and [Workbench](examples/workbench/) uses every feature the format has.
+
+Once your course is out, you can add this badge to its README:
+
+```markdown
+[![built with Skilling](https://raw.githubusercontent.com/futureofdev/skilling/main/brand/assets/github/badges/built-with-skilling.svg)](https://github.com/futureofdev/skilling)
+```
+
+<br>
 
 ## Reference implementation and specification
 
-The `skilling` package is an **LLM-free** reference implementation: typed models, a loader,
-validator, pure delivery state machine, progress store and learner CLI. It does not include an
-agent framework, model or API key.
+Skilling is an open format. This repository holds its specification and a reference
+implementation. The `skilling` package is **LLM-free**: typed models, a loader, a validator, a
+pure delivery state machine, a progress store and the learner CLI. It has no agent framework,
+model or API key, so it runs happily in CI or a reporting job.
 
-Specification **1.4.0-draft** is normative. Start with the
-[specification index](spec/README.md), [course format](spec/course-format.md),
-[runtime](spec/runtime.md), [workspace](spec/workspace.md), or
-[implementation guide](docs/implementing-a-runtime.md). Known implementations and the limits
-of their claims are listed in [docs/implementations.md](docs/implementations.md).
+Specification **1.4.0-draft** is the normative text. Start with the
+[specification index](spec/README.md), then the [course format](spec/course-format.md),
+[runtime](spec/runtime.md), [workspace](spec/workspace.md) or the
+[implementation guide](docs/implementing-a-runtime.md).
+
+So far every known implementation comes from one team, which is why the badge above says
+*independent implementations: 0*. [The registry](docs/implementations.md) lists each one and
+the limits of what it claims. If you build another, we'd like to hear about it.
 
 ## Contributing and licence
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Specification text under `spec/` is
-[CC BY 4.0](spec/LICENSE); the reference implementation and other repository content are
+Questions, course ideas and reports of unclear spec wording are all welcome. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md). Specification text under `spec/` is
+[CC BY 4.0](spec/LICENSE). The reference implementation and other repository content are
 [Apache-2.0](LICENSE).
+
+<p align="center"><sub>Skilling was created by Future of Dev.</sub></p>
