@@ -106,8 +106,8 @@ tutor  Good one. Let's write that down in your showcase folder so it's
 The tutor waits for your real answers, and you can ask for a slower pace or a different
 example at any point. Along the way you'll meet:
 
-- **Quizzes.** Three questions at the end of a lesson. A wrong answer never blocks you. Miss
-  two and the tutor offers to go over the idea again.
+- **Quizzes.** Three questions at the end of every lesson. Get one wrong and the tutor offers
+  to explain the idea again. A wrong answer never stops you finishing.
 - **Homework.** The tutor reviews what you made and asks before it submits anything.
 - **Progress.** Ask "how am I doing?", or type `/progress` (`$progress` in Codex), to see
   what you've finished and your streak, read straight from the saved record.
