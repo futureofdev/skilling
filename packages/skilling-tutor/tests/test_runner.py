@@ -15,7 +15,7 @@ def context():
 
 def test_usage_limit_and_missing_provider():
     runner = SkillingRunner.create(
-        TestModel(custom_output_text="ok"), usage_limits=UsageLimits(request_limit=0)
+        TestModel(call_tools=[], custom_output_text="ok"), usage_limits=UsageLimits(request_limit=0)
     )
     with pytest.raises(TutorError) as error:
         asyncio.run(runner.narrate(context()))
@@ -99,7 +99,7 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
 
     before = durable()
     runner = SkillingRunner.create(
-        TestModel(custom_output_text="arbitrary prose cannot acknowledge")
+        TestModel(call_tools=[], custom_output_text="arbitrary prose cannot acknowledge")
     )
 
     async def exercise():
@@ -121,6 +121,7 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
             await SkillingRunner.create(FunctionModel(cancellation)).narrate(context)
         advice_runner = SkillingRunner.create(
             TestModel(
+                call_tools=[],
                 custom_output_args={
                     "objectives": [
                         {
@@ -129,7 +130,7 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
                             "reason": "Actual evidence is insufficient",
                         }
                     ]
-                }
+                },
             )
         )
         await advice_runner.advise_objectives(

@@ -45,7 +45,7 @@ def item(identity):
 
 def test_direct_and_runner_structured_advice():
     ctx = objective_context()
-    model = TestModel(custom_output_args={"objectives": [item("A")]})
+    model = TestModel(call_tools=[], custom_output_args={"objectives": [item("A")]})
     runner = SkillingRunner.create(model)
     direct = Agent(
         model,
@@ -61,12 +61,16 @@ def test_direct_and_runner_structured_advice():
             == (await runner.advise_objectives(ctx)).output
         )
         assert model.last_model_request_parameters is not None
-        assert model.last_model_request_parameters.function_tools == []
+        assert {tool.name for tool in model.last_model_request_parameters.function_tools} == {
+            "load_capability",
+            "read_skill_reference",
+        }
         homework_model = TestModel(
+            call_tools=[],
             custom_output_args={
                 "requirements": [item("A")],
                 "stretch_goals": [item("stretch-A")],
-            }
+            },
         )
         hw = SkillingRunner.create(homework_model)
         homework_direct = Agent(
@@ -118,9 +122,14 @@ def test_reused_all_purpose_agents_capture_concurrent_and_sequential_isolation()
     async def generate(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         await asyncio.sleep(0)
         assert info.instructions is not None
-        data = json.loads(info.instructions.split("SAFE CONTEXT (data):\n", 1)[1])
+        data = json.JSONDecoder().raw_decode(
+            info.instructions.split("SAFE CONTEXT (data):\n", 1)[1]
+        )[0]
         captures.append((data, messages, info.function_tools))
-        assert info.function_tools == []
+        assert {tool.name for tool in info.function_tools} == {
+            "load_capability",
+            "read_skill_reference",
+        }
         if not info.output_tools:
             return ModelResponse(parts=[TextPart(data["material"])])
         if "objectives" in data:
@@ -179,6 +188,7 @@ def test_supported_direct_output_modes_preserve_producer_contract(mode):
         else PromptedOutput(ObjectiveAdvice.output_type())
     )
     model = TestModel(
+        call_tools=[],
         custom_output_text=json.dumps({"objectives": [item("A")]}),
         profile=ModelProfile(supports_json_schema_output=True),
     )
@@ -192,7 +202,10 @@ def test_supported_direct_output_modes_preserve_producer_contract(mode):
     advice = ObjectiveAdvice.from_output(result.output, context=objective_context())
     assert advice.objectives[0].id == "A"
     assert model.last_model_request_parameters is not None
-    assert model.last_model_request_parameters.function_tools == []
+    assert {tool.name for tool in model.last_model_request_parameters.function_tools} == {
+        "load_capability",
+        "read_skill_reference",
+    }
 
 
 def test_objective_and_homework_producer_histories_retained_and_cleared():
@@ -206,7 +219,9 @@ def test_objective_and_homework_producer_histories_retained_and_cleared():
 
     async def generate(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         assert info.instructions is not None
-        data = json.loads(info.instructions.split("SAFE CONTEXT (data):\n", 1)[1])
+        data = json.JSONDecoder().raw_decode(
+            info.instructions.split("SAFE CONTEXT (data):\n", 1)[1]
+        )[0]
         captures.append((data, repr(messages), len(messages)))
         if "objectives" in data:
             output = {"objectives": [item(x["id"]) for x in data["objectives"]]}

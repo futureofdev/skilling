@@ -66,9 +66,12 @@ def test_native_registration_composition_custody_output():
     for sentinel in ("CREDENTIAL_SENTINEL", "STORE_SENTINEL", "PATH_SENTINEL", "FUTURE_SENTINEL"):
         assert sentinel not in repr(captures)
     assert "never authority" in result.output
-    assert captures[0][1].function_tools == []
+    assert {tool.name for tool in captures[0][1].function_tools} == {
+        "load_capability",
+        "read_skill_reference",
+    }
     structured = Agent(
-        TestModel(custom_output_args={"answer": "producer"}),
+        TestModel(call_tools=[], custom_output_args={"answer": "producer"}),
         deps_type=ProducerDeps,
         capabilities=[cap],
         output_type=ProducerOutput,
@@ -83,9 +86,19 @@ def test_native_conflicts_and_equivalent_per_run():
     cap = SkillingCapability.create(TutorPurpose.NARRATION, context_getter=get_safe)
     other = SkillingCapability.create(TutorPurpose.NARRATION, context_getter=lambda d: d.safe)
     with pytest.raises(TutorError):
-        duplicate = Agent(TestModel(), capabilities=[cap, other], deps_type=ProducerDeps)
+        duplicate = Agent(
+            TestModel(
+                call_tools=[],
+            ),
+            capabilities=[cap, other],
+            deps_type=ProducerDeps,
+        )
         asyncio.run(duplicate.run("turn", deps=ProducerDeps(context("A"))))
-    agent = Agent(TestModel(custom_output_text="ok"), capabilities=[cap], deps_type=ProducerDeps)
+    agent = Agent(
+        TestModel(call_tools=[], custom_output_text="ok"),
+        capabilities=[cap],
+        deps_type=ProducerDeps,
+    )
     with pytest.raises(TutorError):
         asyncio.run(agent.run("turn", deps=ProducerDeps(context("A")), capabilities=[other]))
     equal = SkillingCapability.create(TutorPurpose.NARRATION, context_getter=get_safe)

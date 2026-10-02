@@ -74,6 +74,7 @@ def _inspect(path: Path, *, tutor: bool, version: str, license_bytes: bytes) -> 
     dependencies = parsed.get_all("Requires-Dist", [])
     if tutor:
         assert sorted(dependencies) == [
+            "pydantic-ai-harness[skills]<0.53.0,>=0.52.0",
             "pydantic-ai-slim<2.53.0,>=2.52.0",
             "skilling<0.9.0,>=0.8.0",
         ]

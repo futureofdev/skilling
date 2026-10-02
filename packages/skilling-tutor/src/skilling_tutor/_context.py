@@ -45,13 +45,15 @@ class LearnerEvidence:
 class NarrationContext:
     course_title: str
     coordinate: str
-    persona: str
+    persona: str | None
     tone: tuple[str, ...]
     material: str
 
     def __post_init__(self) -> None:
-        for value in (self.course_title, self.coordinate, self.persona, self.material):
+        for value in (self.course_title, self.coordinate, self.material):
             _text(value, limit=100_000)
+        if self.persona is not None:
+            _text(self.persona)
         if type(self.tone) is not tuple or len(self.tone) > 32:
             raise TutorError(TutorErrorKind.CONTEXT, "Tone must be an immutable bounded tuple")
         for tone in self.tone:
@@ -75,7 +77,7 @@ class NarrationContext:
         return cls(
             snapshot.course.title,
             snapshot.position.coordinate,
-            tutor.persona if tutor and tutor.persona else "A patient, clear tutor",
+            tutor.persona if tutor else None,
             tuple(tutor.tone) if tutor else (),
             json.dumps(material, ensure_ascii=False, sort_keys=True),
         )

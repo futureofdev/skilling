@@ -80,7 +80,7 @@ class SkillingRunner:
             narration,
             objectives,
             homework,
-            deepcopy(usage_limits) if usage_limits else UsageLimits(request_limit=3),
+            deepcopy(usage_limits) if usage_limits else UsageLimits(request_limit=8),
         )
 
     async def _run(
