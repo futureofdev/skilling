@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from ..course import (
     Course,
     ParsedLesson,
@@ -11,15 +13,36 @@ from ..course import (
     parse_lesson,
     parse_quiz,
 )
-from ..delivery import Beat, LessonShape, LessonState, legal_inputs, should_offer_revisit
-from ._loading import Scratch
+from ..delivery import (
+    Beat,
+    IllegalTransition,
+    Input,
+    LessonShape,
+    LessonState,
+    advance,
+    legal_inputs,
+    should_offer_revisit,
+)
+from ..store import (
+    ActionOperation,
+    ActionOrigin,
+    AdvanceOutcome,
+    OutcomePosition,
+    PendingFeedback,
+    QuizAnswerOutcome,
+    pending_pointer,
+)
+from ._errors import RefusalKind, SessionRefusal
+from ._loading import RuntimeSession, Scratch
 from ._types import (
     BeatView,
     CourseView,
     OptionView,
     PositionView,
+    PresentationBeat,
     QuestionView,
     SessionSnapshot,
+    TrustedAction,
     TutorView,
 )
 
@@ -68,7 +91,11 @@ def question_view(question: QuizQuestion) -> QuestionView:
 
 
 def snapshot_view(
-    course: Course, record: Record, revision: str | None, scratch: Scratch
+    course: Course,
+    record: Record,
+    revision: str | None,
+    scratch: Scratch,
+    pending_feedback: PendingFeedback | None = None,
 ) -> SessionSnapshot:
     position = record.position
     if _course_complete(course, record):
@@ -122,6 +149,8 @@ def snapshot_view(
             objective,
         )
         legal = legal_inputs(state)
+    if pending_feedback is not None:
+        beat, legal = BeatView(PresentationBeat.PENDING_FEEDBACK), ()
     tutor = course.manifest.tutor
     return SessionSnapshot(
         CourseView(course.id, course.version, course.manifest.title),
@@ -133,4 +162,106 @@ def snapshot_view(
         course.completed_count(record.completed),
         course.lesson_count,
         TutorView(tutor.persona, tuple(tutor.tone)) if tutor else None,
+        pending_feedback.outcome if pending_feedback else None,
+    )
+
+
+class PreparedAction(NamedTuple):
+    record: Record
+    scratch: Scratch
+    outcome: AdvanceOutcome | QuizAnswerOutcome
+
+
+def guard_feedback(session: RuntimeSession) -> None:
+    if session.pending_feedback is not None:
+        raise SessionRefusal(
+            RefusalKind.ILLEGAL,
+            "pending-feedback",
+            "present and acknowledge canonical quiz feedback before continuing",
+        )
+
+
+def prepare_action(session: RuntimeSession, action: TrustedAction) -> PreparedAction:
+    """Runtime computes authored semantics; the journal only checks supplied descriptors."""
+    guard_feedback(session)
+    if _course_complete(session.course, session.record):
+        raise SessionRefusal(RefusalKind.ILLEGAL, "course-complete", "the course is complete")
+    parsed = parse_lesson(session.lesson.path)
+    current = _lesson_state(
+        session.record, session.scratch, _shape(session.course, session.lesson, parsed)
+    )
+    if action.origin is ActionOrigin.PRESENTATION and current.beat not in (
+        Beat.WELCOME,
+        Beat.OBJECTIVES,
+        Beat.CONCEPT,
+        Beat.EXERCISE,
+    ):
+        raise SessionRefusal(
+            RefusalKind.ILLEGAL, "presentation-origin", "a gate requires learner control"
+        )
+    feedback = None
+    if action.operation is ActionOperation.ANSWER:
+        questions = _questions(parsed)
+        if current.beat is not Beat.QUIZ or current.question_index >= len(questions):
+            raise SessionRefusal(
+                RefusalKind.ILLEGAL, "illegal-transition", "no quiz question is open"
+            )
+        question = questions[current.question_index]
+        if question.number != action.question_number:
+            raise SessionRefusal(
+                RefusalKind.CONFLICT, "action-binding", "displayed question changed"
+            )
+        if action.payload not in question.labels:
+            raise SessionRefusal(
+                RefusalKind.INVALID, "unknown-option", "label is not an authored option"
+            )
+        correct = action.payload == question.answer_label
+        state = advance(current, Input.ANSWER_CORRECT if correct else Input.ANSWER_WRONG)
+        fm = parsed.frontmatter
+        objectives = (
+            tuple(o.text for o in fm.objectives_for_question(question.number))
+            if not correct and fm and fm.objectives
+            else ()
+        )
+        feedback = QuizAnswerOutcome(
+            question.number,
+            action.payload,
+            correct,
+            question.answer_reason,
+            False if correct else should_offer_revisit(state),
+            objectives,
+        )
+    else:
+        if current.beat is Beat.QUIZ:
+            raise SessionRefusal(
+                RefusalKind.ILLEGAL,
+                "quiz-answer-required",
+                "capture a displayed answer label with the trusted answer operation",
+            )
+        if current.beat in (Beat.COMPLETE, Beat.CEREMONY):
+            raise SessionRefusal(
+                RefusalKind.ILLEGAL, "illegal-transition", "complete the finished lesson"
+            )
+        try:
+            state = advance(current, Input(action.payload))
+        except IllegalTransition as exc:
+            raise SessionRefusal(RefusalKind.ILLEGAL, "illegal-transition", str(exc)) from exc
+    position = session.record.position.model_copy(
+        update={
+            "beat": str(state.beat),
+            "question_index": state.question_index
+            if state.beat in (Beat.QUIZ, Beat.REMEDIATE)
+            else None,
+        }
+    )
+    pointer = pending_pointer(action.identity(), feedback) if feedback else None
+    scratch = Scratch(
+        state.wrong_count,
+        state.returning_to_quiz,
+        pending_feedback=pointer,
+        presented_feedback=session.scratch.presented_feedback,
+    )
+    outcome = feedback or AdvanceOutcome(action.payload, OutcomePosition(**position.model_dump()))
+    return PreparedAction(
+        session.record.model_copy(update={"position": position}), scratch, outcome
     )
