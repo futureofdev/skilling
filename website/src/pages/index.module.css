@@ -1,0 +1,284 @@
+.hero {
+  padding: 4.5rem 0 4rem;
+  border-bottom: 1px solid var(--site-line);
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 3.5rem;
+  align-items: center;
+}
+
+.eyebrow {
+  font-family: var(--sk-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+  margin-bottom: 0.75rem;
+}
+
+.title {
+  font-family: var(--sk-display);
+  font-variation-settings: var(--sk-display-vf);
+  font-weight: 800;
+  font-size: clamp(2.3rem, 5vw, 3.6rem);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+
+.lede {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  max-width: 36rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.75rem 0 1rem;
+}
+
+.secondary {
+  font-weight: 600;
+}
+
+.small {
+  font-size: 0.9rem;
+  color: var(--site-muted);
+  margin: 0;
+}
+
+/* Example session: a Cloud panel, Signal only on the command. */
+.session {
+  background: var(--site-panel);
+  border: 1px solid var(--site-line);
+}
+
+.sessionBar {
+  font-family: var(--sk-mono);
+  font-size: 0.8rem;
+  color: var(--site-muted);
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--site-line);
+  background: var(--ifm-background-color);
+}
+
+.sessionBody {
+  margin: 0;
+  padding: 1.25rem 1rem 0.5rem;
+}
+
+.turn {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.turn dt {
+  font-family: var(--sk-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--site-muted);
+  padding-top: 0.15rem;
+}
+
+.turn dd {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.command {
+  font-family: var(--sk-mono);
+  font-weight: 600;
+  color: var(--ifm-link-color);
+}
+
+.band {
+  padding: 3.5rem 0;
+  background: var(--site-panel);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.promptHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.promptHead p {
+  max-width: 44rem;
+  margin: 0;
+}
+
+.prompt {
+  font-family: var(--sk-mono);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--site-line);
+  border-left: 4px solid var(--ifm-color-primary);
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 1rem;
+  overflow-wrap: anywhere;
+}
+
+.section {
+  padding: 4rem 0;
+  border-bottom: 1px solid var(--site-line);
+}
+
+.tinted {
+  background: var(--site-panel);
+}
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.steps > li:not(.connector) {
+  border: 1px solid var(--site-line);
+  background: var(--site-panel);
+  padding: 1.25rem;
+  margin: 0;
+}
+
+.steps strong {
+  display: block;
+  font-size: 1.1rem;
+  margin: 0.4rem 0;
+}
+
+.steps p {
+  margin: 0;
+  color: var(--site-muted);
+}
+
+.stepLabel {
+  font-family: var(--sk-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+}
+
+/* Accent appears only in diagrams. */
+.connector {
+  align-self: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--site-diagram);
+  margin: 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card {
+  background: var(--ifm-background-color);
+  border: 1px solid var(--site-line);
+  padding: 1.25rem;
+}
+
+.card h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+}
+
+.card p {
+  margin: 0;
+  color: var(--site-muted);
+}
+
+.authorGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.status {
+  padding: 3rem 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0 0 1.25rem;
+}
+
+.facts > div {
+  border-top: 2px solid var(--ifm-font-color-base);
+  padding-top: 0.75rem;
+}
+
+.facts dt {
+  font-family: var(--sk-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--site-muted);
+}
+
+.facts dd {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+}
+
+@media (max-width: 996px) {
+  .heroGrid,
+  .authorGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .connector {
+    justify-self: center;
+    line-height: 1;
+  }
+
+  .cards,
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .promptHead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero {
+    padding: 3rem 0;
+  }
+
+  .cards,
+  .facts {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,52 @@
+---
+title: Start learning
+description: Set up Skilling and take your first lesson in Claude Code or Codex.
+---
+
+import {StartPrompt, StartCommands} from '@site/src/components/StartPrompt';
+
+# Start learning
+
+Skilling turns Claude Code or Codex into a one-to-one tutor. You'll have your first lesson
+running in a few minutes.
+
+## What you need
+
+- [Git](https://git-scm.com/downloads)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), a small tool for installing Python programs
+- Claude Code or Codex, signed in as usual
+
+Skilling has no language model of its own and needs no API key. Your coding assistant supplies
+the model, using its normal account and network access.
+
+## Paste one prompt
+
+Copy this into your coding assistant. It checks your setup, installs Skilling, creates a
+learning folder called `my-learning`, and starts teaching you.
+
+<StartPrompt />
+
+Your first course is *Welcome to Skilling*: two five-minute lessons on how to get the most out
+of being tutored.
+
+## Type the commands yourself
+
+If you'd rather run the setup by hand, these are the same steps:
+
+<StartCommands />
+
+Then open the `my-learning` folder in your assistant and type:
+
+- `/learn` in Claude Code
+- `$learn` in Codex
+
+:::tip[Already had the assistant open?]
+Skilling installs its skills inside the new folder. If your assistant was already running,
+close it and reopen that exact folder so it finds them.
+:::
+
+## What happens next
+
+The tutor explains one idea, asks you something, and waits for your real reply before it moves
+on. Read [your first lesson](first-lesson) for what to expect, or
+[troubleshooting](troubleshooting) if the setup didn't work.

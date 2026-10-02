@@ -1,0 +1,189 @@
+/*
+ * Skilling theme for Docusaurus. Every colour comes from the brand tokens
+ * (brand/assets/tokens/skilling-tokens.css); this file only maps them onto Infima.
+ *
+ * Colour meanings: Ink for type, Signal for links and navigation, Build lime for learner
+ * action and completed evidence only, Cloud for panels, Accent for diagrams only.
+ */
+@import '../../../brand/assets/tokens/skilling-tokens.css';
+
+:root {
+  --ifm-color-primary: var(--sk-signal);
+  --ifm-color-primary-dark: #3a4cf5;
+  --ifm-color-primary-darker: var(--sk-signal-700);
+  --ifm-color-primary-darkest: #2433c0;
+  --ifm-color-primary-light: #5b6bff;
+  --ifm-color-primary-lighter: #6c7aff;
+  --ifm-color-primary-lightest: var(--sk-signal-300);
+
+  --ifm-font-family-base: var(--sk-body);
+  --ifm-heading-font-family: var(--sk-body);
+  --ifm-font-family-monospace: var(--sk-mono);
+  --ifm-heading-font-weight: 700;
+  --ifm-font-color-base: var(--sk-ink);
+  --ifm-heading-color: var(--sk-ink);
+  --ifm-color-content-secondary: var(--sk-graphite-deep);
+  --ifm-background-color: var(--sk-base);
+  --ifm-background-surface-color: var(--sk-base);
+  --ifm-toc-border-color: var(--sk-hairline);
+  --ifm-color-emphasis-200: var(--sk-hairline);
+  --ifm-color-emphasis-300: var(--sk-hairline);
+  --ifm-hr-background-color: var(--sk-hairline);
+  --ifm-table-border-color: var(--sk-hairline);
+  --ifm-table-stripe-background: var(--sk-cloud);
+  --ifm-code-background: var(--sk-cloud);
+  --ifm-code-font-size: 90%;
+  --ifm-navbar-shadow: none;
+  --ifm-footer-background-color: var(--sk-cloud);
+  --ifm-menu-color-background-active: var(--sk-signal-050);
+  --ifm-menu-color-active: var(--sk-signal-700);
+  --ifm-link-color: var(--sk-signal);
+  --ifm-link-hover-color: var(--sk-signal-700);
+
+  /* Border radius is zero everywhere. */
+  --ifm-global-radius: 0;
+  --ifm-button-border-radius: 0;
+  --ifm-code-border-radius: 0;
+  --ifm-card-border-radius: 0;
+  --ifm-badge-border-radius: 0;
+  --ifm-pagination-nav-border-radius: 0;
+  --ifm-alert-border-radius: 0;
+  --ifm-breadcrumb-border-radius: 0;
+
+  --docusaurus-highlighted-code-line-bg: var(--sk-signal-050);
+
+  --site-panel: var(--sk-cloud);
+  --site-line: var(--sk-hairline);
+  --site-muted: var(--sk-graphite-deep);
+  --site-diagram: var(--sk-cyan-700);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: var(--sk-signal-300);
+  --ifm-color-primary-dark: #7987ff;
+  --ifm-color-primary-darker: #6c7aff;
+  --ifm-color-primary-darkest: #5b6bff;
+  --ifm-color-primary-light: #9da8ff;
+  --ifm-color-primary-lighter: #aab3ff;
+  --ifm-color-primary-lightest: #c4cbff;
+
+  --ifm-font-color-base: var(--sk-cloud);
+  --ifm-heading-color: var(--sk-cloud);
+  --ifm-color-content-secondary: #9ca3af;
+  --ifm-background-color: var(--sk-void);
+  --ifm-background-surface-color: var(--sk-void);
+  --ifm-toc-border-color: var(--sk-dark-line);
+  --ifm-color-emphasis-200: var(--sk-dark-line);
+  --ifm-color-emphasis-300: var(--sk-dark-line);
+  --ifm-hr-background-color: var(--sk-dark-line);
+  --ifm-table-border-color: var(--sk-dark-line);
+  --ifm-table-stripe-background: var(--sk-slate);
+  --ifm-code-background: var(--sk-slate);
+  --ifm-footer-background-color: var(--sk-slate);
+  --ifm-menu-color-background-active: var(--sk-slate);
+  --ifm-menu-color-active: var(--sk-signal-300);
+  --ifm-link-color: var(--sk-signal-300);
+  --ifm-link-hover-color: #aab3ff;
+
+  --docusaurus-highlighted-code-line-bg: var(--sk-slate);
+
+  --site-panel: var(--sk-slate);
+  --site-line: var(--sk-dark-line);
+  --site-muted: #9ca3af;
+  --site-diagram: var(--sk-accent);
+}
+
+/* Square corners on everything Infima or a plugin might round. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+.navbar {
+  border-bottom: 1px solid var(--site-line);
+}
+
+.navbar__title {
+  font-family: var(--sk-display);
+  font-variation-settings: var(--sk-display-vf);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* The tile already carries its own padding; keep the bare mark the same optical size. */
+.navbar__logo {
+  height: 28px;
+}
+
+.markdown h1 {
+  letter-spacing: -0.02em;
+}
+
+code {
+  border: 1px solid var(--site-line);
+}
+
+pre code,
+.prism-code code {
+  border: 0;
+}
+
+.theme-code-block {
+  border: 1px solid var(--site-line);
+  box-shadow: none;
+}
+
+.alert {
+  border-width: 1px;
+  border-left-width: 4px;
+  box-shadow: none;
+}
+
+.footer {
+  border-top: 1px solid var(--site-line);
+}
+
+.footer__copyright {
+  font-size: 0.85rem;
+  color: var(--site-muted);
+}
+
+/* Lime is reserved for learner action: the start-learning button. */
+.button--learn {
+  background: var(--sk-build);
+  border: 1px solid var(--sk-ink);
+  color: var(--sk-ink);
+  font-weight: 700;
+}
+
+.button--learn:hover,
+.button--learn:focus-visible {
+  background: var(--sk-build);
+  color: var(--sk-ink);
+  box-shadow: 4px 4px 0 var(--sk-ink);
+}
+
+[data-theme='dark'] .button--learn {
+  border-color: var(--sk-build);
+}
+
+[data-theme='dark'] .button--learn:hover,
+[data-theme='dark'] .button--learn:focus-visible {
+  box-shadow: 4px 4px 0 var(--sk-cloud);
+}
+
+/* The start prompt is prose for an assistant, so it wraps instead of scrolling. */
+.start-prompt code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Links inside running text are underlined, so they never rely on colour alone. */
+main p a,
+main li a,
+main td a,
+footer .footer__copyright a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
