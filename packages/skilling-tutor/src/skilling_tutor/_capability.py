@@ -137,6 +137,20 @@ class TutorInstructions(AbstractCapability[DepsT], Generic[DepsT]):
             "producer's declared output contract; do not change it."
         )
         binding = {
+            TutorPurpose.CONVERSATION: (
+                "Respond to the latest learner message within the producer's declared output "
+                "contract, using supplied history for continuity. Choose the applicable bundled "
+                "learn, progress or homework policy through native activation and reference reads. "
+                "The current safe context supersedes historical material, progress and review "
+                "evidence. Supplied scoped review evidence is distinct from the latest utterance; "
+                "never present it as that utterance or as work you inspected. Ordinary questions "
+                "may receive a reply without an assessment. Include "
+                "optional objective/homework feedback only when the corresponding current scoped "
+                "criteria and actual evidence are supplied; cover every supplied identity exactly "
+                "once, with required and stretch results separate. These are informal opinions, "
+                "never settlement, consent, grading, submission or certification. Ask for missing "
+                "facts or clarification instead of inventing work or progress."
+            ),
             TutorPurpose.NARRATION: (
                 "Activate learn. Narrate the current complete turn within the producer's "
                 "declared output contract."

@@ -12,15 +12,17 @@ from ._advice import AdviceItem, AdviceVerdict, HomeworkAdvice, ObjectiveAdvice
 from ._capability import SkillingCapability, SkillingRunDeps
 from ._context import (
     AdviceIdentity,
+    ConversationContext,
     HomeworkAdviceContext,
     LearnerEvidence,
     NarrationContext,
     ObjectiveAdviceContext,
+    ProgressContext,
     SafeContext,
     TutorPurpose,
 )
 from ._errors import TutorError, TutorErrorKind
-from ._narration import TutorResult, TutorStatus, TutorUsage
+from ._narration import ConversationReply, ConversationResult, TutorResult, TutorStatus, TutorUsage
 from ._runner import SkillingRunner
 
 __version__ = "0.1.0"
@@ -29,12 +31,16 @@ __all__ = [
     "AdviceIdentity",
     "AdviceItem",
     "AdviceVerdict",
+    "ConversationContext",
+    "ConversationReply",
+    "ConversationResult",
     "HomeworkAdvice",
     "HomeworkAdviceContext",
     "LearnerEvidence",
     "NarrationContext",
     "ObjectiveAdvice",
     "ObjectiveAdviceContext",
+    "ProgressContext",
     "SafeContext",
     "SkillingCapability",
     "SkillingRunDeps",
