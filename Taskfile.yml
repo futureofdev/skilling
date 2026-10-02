@@ -8,6 +8,13 @@ tasks:
     cmds:
       - task --list
 
+  site:
+    desc: Build the Docusaurus site in website/ (needs Node 20+; fails on broken links)
+    dir: website
+    cmds:
+      - npm ci
+      - npm run build
+
   test:
     desc: "Run the test suite. Extra pytest args after --, e.g. `task test -- -k quiz`"
     cmds:

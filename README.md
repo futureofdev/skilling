@@ -24,6 +24,7 @@
   <a href="#start-learning"><b>Start learning</b></a> ·
   <a href="#find-a-course">Find a course</a> ·
   <a href="#write-a-course">Write a course</a> ·
+  <a href="https://futureofdev.github.io/skilling/">Docs</a> ·
   <a href="spec/README.md">Specification</a>
 </p>
 

@@ -37,6 +37,8 @@ is a one-line `uv run` wrapper — read `Taskfile.yml` and run those directly.
   with zero findings. The 64-lesson origin course moved to `../futureofdev/courses/`.
 - A record changes course version only through `skilling upgrade --yes` (fresh fetch, then the
   journaled `commit_upgrade`); verbs refuse a mismatch, and plain resolution keeps refs as snapshots.
+- `website/` is the Docusaurus site (GitHub Pages, `.github/workflows/docs.yml`). It renders `spec/`
+  in place and reads the start prompt from `README.md`; never copy normative text into it.
 - `packages/skilling` stays LLM-free: no model, agent-framework, or API-key dependency, ever.
   New runtime deps must earn their place; tooling goes in dependency groups.
 
