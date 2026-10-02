@@ -29,7 +29,7 @@ from .._io import _fsync_dir
 from .._io import _write_bytes_atomic as _write_bytes_atomic
 from .._paths import checked_path
 from .._protocol import Conflict, HomeworkWrite, RecoveryRequired
-from ._actions import ReservationV2, parse_receipt
+from ._actions import ActionReservation, parse_receipt
 from ._transition import (
     Boundary,
     Reservation,
@@ -197,9 +197,9 @@ class UpgradeJournal:
             self.preflight(value)
         return value
 
-    def bound_keys(self, stream: Stream, scratch: bytes) -> list[Reservation | ReservationV2]:
+    def bound_keys(self, stream: Stream, scratch: bytes) -> list[Reservation | ActionReservation]:
         """Every key the old stream consumed: keyed receipts, reservations, legacy scratch."""
-        keys: dict[tuple[int, str], Reservation | ReservationV2] = {}
+        keys: dict[tuple[int, str], Reservation | ActionReservation] = {}
         directory = self.path(RECEIPTS)
         if directory.is_dir():
             for child in sorted(directory.iterdir()):
@@ -207,7 +207,9 @@ class UpgradeJournal:
                 assert raw is not None
                 data = yaml.safe_load(raw)
                 found = parse_receipt(data)
-                owner = found if isinstance(found, (Reservation, ReservationV2)) else found.identity
+                owner = (
+                    found if isinstance(found, (Reservation, ActionReservation)) else found.identity
+                )
                 if owner.key is None or child.name != receipt_name(owner, owner.key):
                     raise ValueError("transition receipt name does not match its identity")
                 if (owner.learner_id, owner.course_id, owner.course_version) == (
@@ -215,7 +217,7 @@ class UpgradeJournal:
                     stream.course_id,
                     stream.course_version,
                 ):
-                    reservation_type = ReservationV2 if found.version == 2 else Reservation
+                    reservation_type = ActionReservation if found.version == 2 else Reservation
                     keys[(found.version, owner.key)] = reservation_type.model_validate(
                         {
                             "version": found.version,
@@ -264,7 +266,7 @@ class UpgradeJournal:
                 if item.before is not None or item.after is None:
                     raise ValueError("an upgrade only adds key reservations")
                 reserved = parse_receipt(yaml.safe_load(item.after))
-                if not isinstance(reserved, (Reservation, ReservationV2)):
+                if not isinstance(reserved, (Reservation, ActionReservation)):
                     raise ValueError("upgrade target must be a key reservation")
                 if (reserved.learner_id, reserved.course_id, reserved.course_version) != (
                     new_stream.learner_id,

@@ -20,21 +20,21 @@ from .._paths import checked_path
 from .._protocol import Conflict, RecoveryRequired, StoreError
 from ._actions import (
     AcknowledgementStatus,
+    ActionBoundary,
     ActionIdentity,
     ActionOperation,
     ActionOrigin,
+    ActionReceipt,
+    ActionReservation,
     AdvanceBoundary,
     AnswerBoundary,
-    CommittedV2,
+    CommittedAction,
     FeedbackAcknowledgement,
     FeedbackRef,
-    IdentityV2,
     OriginalOutcome,
     PendingFeedback,
     PendingReference,
-    PreparedV2,
-    ReceiptV2,
-    ReservationV2,
+    PreparedAction,
     Scratch,
     outcome_boundary,
     parse_receipt,
@@ -131,7 +131,7 @@ def receipt_version(stream: Stream, version: Literal[1, 2] | None = None) -> Lit
         version
         if version is not None
         else 2
-        if isinstance(stream, (IdentityV2, ReservationV2))
+        if isinstance(stream, (ActionBoundary, ActionReservation))
         else 1
     )
 
@@ -208,7 +208,7 @@ class TransitionJournal:
 
     def load_receipt(
         self, stream: Stream, key: str, *, version: Literal[1, 2] | None = None
-    ) -> Receipt | ReceiptV2 | Reservation | ReservationV2 | None:
+    ) -> Receipt | ActionReceipt | Reservation | ActionReservation | None:
         wire_version = receipt_version(stream, version)
         raw = self.raw("transition-receipts", receipt_name(stream, key, version=wire_version))
         if raw is None:
@@ -216,7 +216,7 @@ class TransitionJournal:
         value = parse_receipt(yaml.safe_load(raw))
         if value.version != wire_version:
             raise ValueError("transition receipt wire namespace mismatch")
-        identity = value if isinstance(value, (Reservation, ReservationV2)) else value.identity
+        identity = value if isinstance(value, (Reservation, ActionReservation)) else value.identity
         if (identity.learner_id, identity.course_id, identity.course_version, identity.key) != (
             stream.learner_id,
             stream.course_id,
@@ -226,7 +226,9 @@ class TransitionJournal:
             raise ValueError("transition receipt stream/key mismatch")
         return value
 
-    def refuse_other_key_namespace(self, identity: Identity | IdentityV2, scratch: bytes) -> None:
+    def refuse_other_key_namespace(
+        self, identity: Identity | ActionBoundary, scratch: bytes
+    ) -> None:
         """Both compatibility forms claim one event under the same course lock."""
         if identity.key is None:
             return
@@ -244,7 +246,7 @@ class TransitionJournal:
             raw = self.raw("transition-receipts", child.name)
             assert raw is not None
             found = parse_receipt(yaml.safe_load(raw))
-            owner = found if isinstance(found, (Reservation, ReservationV2)) else found.identity
+            owner = found if isinstance(found, (Reservation, ActionReservation)) else found.identity
             if owner.key is None or child.name != receipt_name(owner, owner.key):
                 raise ValueError("transition receipt name does not match its identity")
             if found.version == 1 and (
@@ -270,7 +272,7 @@ class TransitionJournal:
         rev: str,
         *,
         pending: bool,
-        inline: ReceiptV2 | None = None,
+        inline: ActionReceipt | None = None,
     ) -> PendingFeedback:
         if pending and pointer.origin_course_version != record.course_version:
             raise ValueError("pending feedback origin does not match record version")
@@ -293,7 +295,9 @@ class TransitionJournal:
         receipt = (
             inline if inline_matches else self.load_receipt(stream, pointer.answer_key, version=2)
         )
-        if not isinstance(receipt, ReceiptV2) or not isinstance(receipt.outcome, AnswerBoundary):
+        if not isinstance(receipt, ActionReceipt) or not isinstance(
+            receipt.outcome, AnswerBoundary
+        ):
             raise ValueError("pending feedback requires an immutable answer outcome")
         if pending and receipt.identity.coordinate != record.position.coordinate:
             raise ValueError("pending feedback coordinate mismatch")
@@ -323,11 +327,11 @@ class TransitionJournal:
         raw_key = identity.key
         assert raw_key is not None
         found = self.load_receipt(boundary, raw_key)
-        if isinstance(found, (Reservation, ReservationV2)):
+        if isinstance(found, (Reservation, ActionReservation)):
             raise IdempotencyKeyConflict("Consumed key is reserved; use a fresh key")
         if found is None:
             return None
-        if not isinstance(found, ReceiptV2) or found.identity != boundary:
+        if not isinstance(found, ActionReceipt) or found.identity != boundary:
             raise IdempotencyKeyConflict(
                 "Key already belongs to a different complete action identity"
             )
@@ -350,20 +354,20 @@ class TransitionJournal:
         if hashed is not None:
             raise IdempotencyKeyConflict("Key belongs to a trusted action or consumed reservation")
         found = self.load_receipt(stream, key)
-        if isinstance(found, (Reservation, ReservationV2, ReceiptV2)):
+        if isinstance(found, (Reservation, ActionReservation, ActionReceipt)):
             raise IdempotencyKeyConflict("Legacy key has no trustworthy input; use a fresh key")
         return found.identity.value() if found is not None else None
 
-    def inspect(self) -> Prepared | PreparedV2 | Committed | CommittedV2 | None:
+    def inspect(self) -> Prepared | PreparedAction | Committed | CommittedAction | None:
         raw = self.raw("transition.yaml")
         if raw is None:
             return None
         data = yaml.safe_load(raw)
         if isinstance(data, dict) and data.get("version") == 2:
             value = (
-                PreparedV2.model_validate(data)
+                PreparedAction.model_validate(data)
                 if data.get("kind") == "prepared"
-                else CommittedV2.model_validate(data)
+                else CommittedAction.model_validate(data)
             )
         else:
             value = (
@@ -373,16 +377,16 @@ class TransitionJournal:
             )
         if value.identity.course_id != self.course_id:
             raise ValueError("transition intent course mismatch")
-        if isinstance(value, (Prepared, PreparedV2)):
+        if isinstance(value, (Prepared, PreparedAction)):
             self.preflight(value)
         else:
             raw_record = self.raw("record.yaml")
             if raw_record is None:
                 raise ValueError("committed transition has no record stream")
             record = record_value(raw_record, value.identity)
-            if isinstance(value, CommittedV2) and value.identity.key is not None:
+            if isinstance(value, CommittedAction) and value.identity.key is not None:
                 receipt = self.load_receipt(value.identity, value.identity.key)
-                if not isinstance(receipt, ReceiptV2) or receipt.identity != value.identity:
+                if not isinstance(receipt, ActionReceipt) or receipt.identity != value.identity:
                     raise ValueError("committed action requires its immutable original outcome")
             scratch = self.raw("scratch.yaml") or b""
             self.feedback(record, scratch, revision(raw_record))
@@ -391,7 +395,7 @@ class TransitionJournal:
                 self.resolve_feedback(record, presented, revision(raw_record), pending=False)
         return value
 
-    def preflight(self, value: Prepared | PreparedV2) -> None:
+    def preflight(self, value: Prepared | PreparedAction) -> None:
         identity = value.identity
         before = record_value(value.record_before, identity)
         after = record_value(value.record_after, identity)
@@ -400,7 +404,7 @@ class TransitionJournal:
         self.refuse_other_key_namespace(identity, value.scratch_before or b"")
         before_scratch = scratch_value(value.scratch_before or b"")
         after_scratch = scratch_value(value.scratch_after)
-        if isinstance(value, PreparedV2):
+        if isinstance(value, PreparedAction):
             identity = value.identity
             if identity.expected_revision != revision(value.record_before):
                 raise ValueError("action revision does not bind its before-image")
@@ -459,7 +463,7 @@ class TransitionJournal:
             if existing is not None and existing != value.receipt:
                 raise ValueError("transition receipt already holds different bytes")
             if (
-                isinstance(value, PreparedV2)
+                isinstance(value, PreparedAction)
                 and existing is not None
                 and self.raw("transition-receipts", receipt_name(identity, identity.key))
                 != dump(value.receipt.model_dump() if value.receipt else None)
@@ -473,7 +477,7 @@ class TransitionJournal:
                 after,
                 after_scratch,
                 value.record_after,
-                value.receipt if isinstance(value, PreparedV2) else None,
+                value.receipt if isinstance(value, PreparedAction) else None,
             ),
         ):
             for pointer, pending in (
@@ -485,10 +489,10 @@ class TransitionJournal:
                         record, pointer, revision(raw_record), pending=pending, inline=inline
                     )
 
-    def publish(self, value: Prepared | PreparedV2 | Committed | CommittedV2) -> None:
+    def publish(self, value: Prepared | PreparedAction | Committed | CommittedAction) -> None:
         _write_bytes_atomic(self.path("transition.yaml"), dump(value.model_dump()))
 
-    def apply(self, value: Prepared | PreparedV2) -> None:
+    def apply(self, value: Prepared | PreparedAction) -> None:
         self.reserve_legacy(value.scratch_before or b"")
         for name, raw in (
             ("record.yaml", value.record_after),
@@ -505,8 +509,8 @@ class TransitionJournal:
                     dump(value.receipt.model_dump()),
                 )
         marker = (
-            CommittedV2(version=2, kind="committed", identity=value.identity)
-            if isinstance(value, PreparedV2)
+            CommittedAction(version=2, kind="committed", identity=value.identity)
+            if isinstance(value, PreparedAction)
             else Committed(version=1, kind="committed", identity=value.identity)
         )
         self.publish(marker)
@@ -560,7 +564,7 @@ class TransitionJournal:
             raw = self.raw("transition-receipts", receipt_name(stream, ref._answer_key, version=2))
             receipt = self.load_receipt(stream, ref._answer_key, version=2)
             if (
-                not isinstance(receipt, ReceiptV2)
+                not isinstance(receipt, ActionReceipt)
                 or not isinstance(receipt.outcome, AnswerBoundary)
                 or raw is None
                 or hashlib.sha256(raw).hexdigest() != ref._receipt_digest
@@ -608,7 +612,7 @@ class TransitionJournal:
         if current is None:
             raise Conflict("record.yaml", commit.expected_record_revision, None)
         self.refuse_other_key_namespace(identity, current.scratch)
-        if isinstance(identity, IdentityV2) and identity.key is not None:
+        if isinstance(identity, ActionBoundary) and identity.key is not None:
             replay = self.action_result(identity.value())
             if replay is not None:
                 return replay
@@ -617,10 +621,10 @@ class TransitionJournal:
             if legacy is not None and legacy.key == identity.key:
                 raise IdempotencyKeyConflict("Legacy key has no trustworthy input; use a fresh key")
             found = self.load_receipt(identity, identity.key)
-            if isinstance(found, (Reservation, ReservationV2)):
+            if isinstance(found, (Reservation, ActionReservation)):
                 raise IdempotencyKeyConflict("Legacy key has no trustworthy input; use a fresh key")
             if found is not None:
-                if isinstance(identity, IdentityV2) or isinstance(found, ReceiptV2):
+                if isinstance(identity, ActionBoundary) or isinstance(found, ActionReceipt):
                     raise IdempotencyKeyConflict(
                         "Key already belongs to a different action identity"
                     )
@@ -639,24 +643,24 @@ class TransitionJournal:
         before = self.raw("record.yaml")
         assert before is not None
         receipt = (
-            ReceiptV2(
+            ActionReceipt(
                 version=2,
                 kind="receipt",
                 identity=identity,
                 outcome=outcome_boundary(commit.outcome),
             )
-            if isinstance(identity, IdentityV2) and commit.outcome is not None
+            if isinstance(identity, ActionBoundary) and commit.outcome is not None
             else Receipt(version=1, kind="receipt", identity=identity)
             if isinstance(identity, Identity) and identity.key is not None
             else None
         )
         record_after = dump(commit.record.model_dump(mode="json"))
-        if isinstance(identity, IdentityV2) and identity.verb == "feedback-acknowledgement":
+        if isinstance(identity, ActionBoundary) and identity.verb == "feedback-acknowledgement":
             if commit.record.model_dump() != current.record.model_dump():
                 raise ValueError("acknowledgement cannot change learner record")
             record_after = before
         data = {
-            "version": 2 if isinstance(identity, IdentityV2) else 1,
+            "version": 2 if isinstance(identity, ActionBoundary) else 1,
             "kind": "prepared",
             "identity": identity.model_dump(),
             "record_before": before,
@@ -669,8 +673,8 @@ class TransitionJournal:
             "receipt": receipt.model_dump() if receipt else None,
         }
         value = (
-            PreparedV2.model_validate(data)
-            if isinstance(identity, IdentityV2)
+            PreparedAction.model_validate(data)
+            if isinstance(identity, ActionBoundary)
             else Prepared.model_validate(data)
         )
         self.preflight(value)
@@ -681,21 +685,21 @@ class TransitionJournal:
         return TransitionResult(snapshot, False, commit.outcome)
 
 
-def identity_boundary(identity: TransitionIdentity | ActionIdentity) -> Identity | IdentityV2:
+def identity_boundary(identity: TransitionIdentity | ActionIdentity) -> Identity | ActionBoundary:
     return (
-        IdentityV2.model_validate(asdict(identity))
+        ActionBoundary.model_validate(asdict(identity))
         if isinstance(identity, ActionIdentity)
         else Identity.model_validate(asdict(identity))
     )
 
 
 def validate_outcome(
-    identity: Identity | IdentityV2, outcome: OriginalOutcome | None
+    identity: Identity | ActionBoundary, outcome: OriginalOutcome | None
 ) -> OriginalOutcome | None:
-    if isinstance(identity, IdentityV2) and identity.key is not None:
+    if isinstance(identity, ActionBoundary) and identity.key is not None:
         if outcome is None:
             raise ValueError("keyed action requires original outcome")
-        return ReceiptV2(
+        return ActionReceipt(
             version=2, kind="receipt", identity=identity, outcome=outcome_boundary(outcome)
         ).outcome.value()
     if outcome is not None:

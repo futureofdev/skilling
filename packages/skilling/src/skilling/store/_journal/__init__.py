@@ -40,6 +40,9 @@ from ._actions import (
     AcknowledgementStatus as AcknowledgementStatus,
 )
 from ._actions import (
+    ActionBoundary as ActionBoundary,
+)
+from ._actions import (
     ActionIdentity as ActionIdentity,
 )
 from ._actions import (
@@ -61,9 +64,6 @@ from ._actions import (
     FeedbackRef as FeedbackRef,
 )
 from ._actions import (
-    IdentityV2 as _ActionBoundary,
-)
-from ._actions import (
     LegacyOutcomeUnavailable as LegacyOutcomeUnavailable,
 )
 from ._actions import (
@@ -75,7 +75,7 @@ from ._actions import (
 from ._actions import (
     PendingReference as PendingReference,
 )
-from ._actions import PreparedV2 as PreparedTransitionV2
+from ._actions import PreparedAction
 from ._actions import (
     QuizAnswerOutcome as QuizAnswerOutcome,
 )
@@ -118,8 +118,6 @@ from ._upgrade import UpgradeIdentity as UpgradeIdentity
 from ._upgrade import UpgradeJournal as UpgradeJournal
 from ._upgrade import UpgradeResult as UpgradeResult
 from ._upgrade import validate_upgrade_commit as validate_upgrade_commit
-
-ActionBoundary = _ActionBoundary
 
 
 class Boundary(BaseModel):
@@ -461,7 +459,7 @@ def recover_journals(root: Path, course_id: str) -> None:
             sum(
                 (
                     isinstance(old, Prepared),
-                    isinstance(new, (PreparedTransition, PreparedTransitionV2)),
+                    isinstance(new, (PreparedTransition, PreparedAction)),
                     isinstance(submitted, PreparedSubmission),
                     isinstance(upgrading, PreparedUpgrade),
                 )
@@ -471,7 +469,7 @@ def recover_journals(root: Path, course_id: str) -> None:
             raise ValueError("multiple prepared runtime journals")
         if isinstance(old, Prepared):
             completion._apply(old)
-        if isinstance(new, (PreparedTransition, PreparedTransitionV2)):
+        if isinstance(new, (PreparedTransition, PreparedAction)):
             transition.apply(new)
         if isinstance(submitted, PreparedSubmission):
             submission.apply(submitted)

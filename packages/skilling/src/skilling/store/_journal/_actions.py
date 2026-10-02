@@ -164,7 +164,7 @@ class AnswerBoundary(Boundary):
         )
 
 
-class IdentityV2(Stream):
+class ActionBoundary(Stream):
     coordinate: str = Field(pattern=r"^(0|[1-9][0-9]*)\.[1-9][0-9]*$")
     verb: Literal["advance", "answer", "feedback-acknowledgement"]
     input: str = Field(min_length=1)
@@ -174,7 +174,7 @@ class IdentityV2(Stream):
     question_number: StrictInt | None = Field(ge=1)
 
     @model_validator(mode="after")
-    def operation(self) -> IdentityV2:
+    def operation(self) -> ActionBoundary:
         if self.verb == "feedback-acknowledgement":
             if self.origin != "runtime-presentation" or self.key is not None:
                 raise ValueError("acknowledgement requires runtime origin and no learner key")
@@ -225,14 +225,14 @@ class IdentityV2(Stream):
         )
 
 
-class ReceiptV2(Boundary):
+class ActionReceipt(Boundary):
     version: Literal[2]
     kind: Literal["receipt"]
-    identity: IdentityV2
+    identity: ActionBoundary
     outcome: AdvanceBoundary | AnswerBoundary = Field(discriminator="kind")
 
     @model_validator(mode="after")
-    def binding(self) -> ReceiptV2:
+    def binding(self) -> ActionReceipt:
         identity, outcome = self.identity, self.outcome
         if identity.verb != outcome.kind:
             raise ValueError("outcome operation mismatch")
@@ -262,37 +262,37 @@ class Scratch(Boundary):
     presented_feedback: PendingReference | None = None
 
 
-class ReservationV2(Stream):
+class ActionReservation(Stream):
     version: Literal[2]
     kind: Literal["reserved"]
     key: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
-class PreparedV2(Boundary):
+class PreparedAction(Boundary):
     version: Literal[2]
     kind: Literal["prepared"]
-    identity: IdentityV2
+    identity: ActionBoundary
     record_before: StrictBytes
     record_after: StrictBytes
     scratch_before: StrictBytes | None
     scratch_after: StrictBytes
     receipt_path: str | None
-    receipt: ReceiptV2 | None
+    receipt: ActionReceipt | None
 
 
-class CommittedV2(Boundary):
+class CommittedAction(Boundary):
     version: Literal[2]
     kind: Literal["committed"]
-    identity: IdentityV2
+    identity: ActionBoundary
 
 
-def parse_receipt(data: object) -> Receipt | ReceiptV2 | Reservation | ReservationV2:
+def parse_receipt(data: object) -> Receipt | ActionReceipt | Reservation | ActionReservation:
 
     if isinstance(data, dict) and data.get("version") == 2:
         return (
-            ReservationV2.model_validate(data)
+            ActionReservation.model_validate(data)
             if data.get("kind") == "reserved"
-            else ReceiptV2.model_validate(data)
+            else ActionReceipt.model_validate(data)
         )
     return (
         Reservation.model_validate(data)
@@ -314,16 +314,16 @@ def outcome_boundary(outcome: OriginalOutcome) -> AdvanceBoundary | AnswerBounda
 def pending_pointer(identity: ActionIdentity, outcome: QuizAnswerOutcome) -> FeedbackPointer:
     from dataclasses import asdict
 
-    receipt = ReceiptV2(
+    receipt = ActionReceipt(
         version=2,
         kind="receipt",
-        identity=IdentityV2.model_validate(asdict(identity)),
+        identity=ActionBoundary.model_validate(asdict(identity)),
         outcome=outcome_boundary(outcome),
     )
     return FeedbackPointer(identity.course_version, identity.key or "", receipt_digest(receipt))
 
 
-def receipt_digest(receipt: ReceiptV2) -> str:
+def receipt_digest(receipt: ActionReceipt) -> str:
     import yaml
 
     raw = yaml.safe_dump(
