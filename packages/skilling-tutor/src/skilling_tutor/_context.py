@@ -13,6 +13,7 @@ from ._errors import TutorError, TutorErrorKind
 
 
 class TutorPurpose(StrEnum):
+    CONVERSATION = "conversation"
     NARRATION = "narration"
     OBJECTIVE_ADVICE = "objective-advice"
     HOMEWORK_ADVICE = "homework-advice"
@@ -180,11 +181,117 @@ class HomeworkAdviceContext:
         )
 
 
-SafeContext = NarrationContext | ObjectiveAdviceContext | HomeworkAdviceContext
+@dataclass(frozen=True)
+class ProgressContext:
+    """Current public counts only; no record, learner identity or future material."""
+
+    completed_count: int
+    lesson_count: int
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.completed_count) is not int
+            or type(self.lesson_count) is not int
+            or self.lesson_count < 1
+            or not 0 <= self.completed_count <= self.lesson_count
+        ):
+            raise TutorError(TutorErrorKind.CONTEXT, "Expected valid current progress counts")
+
+    @classmethod
+    def from_snapshot(cls, snapshot: SessionSnapshot) -> ProgressContext:
+        return cls(snapshot.completed_count, snapshot.lesson_count)
+
+
+@dataclass(frozen=True)
+class ConversationContext:
+    """Fresh safe facts and optional actual review evidence for one conversational turn."""
+
+    teaching: NarrationContext
+    revision: str | None
+    progress: ProgressContext | None = None
+    objectives: ObjectiveAdviceContext | None = None
+    homework: HomeworkAdviceContext | None = None
+    homework_revision: str | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.teaching) is not NarrationContext:
+            raise TutorError(TutorErrorKind.CONTEXT, "Expected safe current teaching context")
+        self.teaching.__post_init__()
+        if self.revision is not None:
+            _text(self.revision, limit=256)
+        if self.progress is not None:
+            if type(self.progress) is not ProgressContext:
+                raise TutorError(TutorErrorKind.CONTEXT, "Expected safe current progress")
+            self.progress.__post_init__()
+        if self.objectives is not None:
+            if type(self.objectives) is not ObjectiveAdviceContext:
+                raise TutorError(TutorErrorKind.CONTEXT, "Expected safe objective advice context")
+            self.objectives.__post_init__()
+            if self.revision is None or self.objectives.revision != self.revision:
+                raise TutorError(
+                    TutorErrorKind.CONTEXT, "Objective advice needs the current record revision"
+                )
+        if self.homework_revision is not None:
+            _text(self.homework_revision, limit=256)
+        if self.homework is not None:
+            if type(self.homework) is not HomeworkAdviceContext:
+                raise TutorError(TutorErrorKind.CONTEXT, "Expected safe homework advice context")
+            self.homework.__post_init__()
+            if self.homework_revision is None or self.homework.revision != self.homework_revision:
+                raise TutorError(
+                    TutorErrorKind.CONTEXT, "Homework advice needs the current slot revision"
+                )
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: SessionSnapshot,
+        *,
+        objectives: ObjectiveAdviceContext | None = None,
+        homework: HomeworkAdviceContext | None = None,
+        homework_check: HomeworkCheck | None = None,
+    ) -> ConversationContext:
+        slot_revision = None
+        if homework_check is not None:
+            if (
+                type(homework_check) is not HomeworkCheck
+                or homework_check.course != snapshot.course
+            ):
+                raise TutorError(
+                    TutorErrorKind.CONTEXT, "Expected a current homework check for this course"
+                )
+            slot_revision = homework_check.revision
+        if homework is not None:
+            if type(homework) is not HomeworkAdviceContext:
+                raise TutorError(TutorErrorKind.CONTEXT, "Expected safe homework advice context")
+            homework.__post_init__()
+            if homework_check is None:
+                raise TutorError(
+                    TutorErrorKind.CONTEXT, "Homework context needs a fresh public homework check"
+                )
+            expected = HomeworkAdviceContext.from_check(homework_check, evidence=homework.evidence)
+            if homework != expected:
+                raise TutorError(
+                    TutorErrorKind.CONTEXT, "Homework context does not match the current slot"
+                )
+        return cls(
+            NarrationContext.from_snapshot(snapshot),
+            snapshot.revision,
+            ProgressContext.from_snapshot(snapshot),
+            objectives,
+            homework,
+            slot_revision,
+        )
+
+
+SafeContext = (
+    NarrationContext | ObjectiveAdviceContext | HomeworkAdviceContext | ConversationContext
+)
 
 
 def validate_context(context: SafeContext, purpose: TutorPurpose) -> SafeContext:
     expected = {
+        TutorPurpose.CONVERSATION: ConversationContext,
         TutorPurpose.NARRATION: NarrationContext,
         TutorPurpose.OBJECTIVE_ADVICE: ObjectiveAdviceContext,
         TutorPurpose.HOMEWORK_ADVICE: HomeworkAdviceContext,

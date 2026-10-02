@@ -1,4 +1,4 @@
-# Optional Python tutor
+# Conversational Python tutor
 
 `skilling-tutor` 0.1.0 is an experimental optional adapter for a trusted Python producer.
 Its matching core is `skilling>=0.8.0,<0.9.0`, the first allocated minor containing the public
@@ -6,6 +6,53 @@ session facade. This source change does not publish either distribution or execu
 The adapter supports `pydantic-ai-slim>=2.52.0,<2.53.0` and
 `pydantic-ai-harness[skills]>=0.52.0,<0.53.0`; provider SDKs/extras are explicitly
 selected and installed by the producer. The core remains LLM-free.
+
+Use `SkillingRunner.chat` for ordinary learner messages. A single native conversational Agent
+selects the applicable shared skill policy and replies with text and optional validated informal
+objective/homework feedback. The application does not select a teaching mode. This shares the
+bundled tutoring policy with Claude Code/Codex; synthetic tests do not establish identical real
+model quality. Genuine provider/learner acceptance remains separate.
+
+```python
+from skilling_tutor import ConversationContext, SkillingRunner
+
+runner = SkillingRunner.create(selected_model)
+history = ()
+# Refresh public state before each turn; context stays stable during that turn.
+context = ConversationContext.from_snapshot(session.snapshot())
+turn = await runner.chat(learner_message, context, history=history)
+print(turn.output.text)
+history = turn.history  # complete copied transcript, including previous turns
+```
+
+`ConversationContext.from_snapshot` copies current teaching/feedback, revision and the public
+snapshot's completed/total lesson counts. It adds no assumed streak, phase or other progress facts.
+A manually created context can omit progress. Optional `objectives` and `homework` arguments are
+existing safe advice contexts containing current scoped criteria and actual producer-selected
+evidence. Objective advice must match the current snapshot/record revision. Homework slots have
+a separate revision: pass a freshly read public `homework_check` alongside `homework` to
+`from_snapshot`. The factory checks that slot's revision and active criteria against the supplied
+safe review context, then copies only the slot revision. It retains no check, token or queued work.
+A manually constructed conversation context must supply the separate current `homework_revision`;
+never use an old advice context as its own freshness witness. Missing data leads to
+clarification or a producer-refresh request. Scoped evidence remains distinct from the latest
+learner utterance. The tutor may answer an ordinary question without assessing it even when
+review context is available.
+
+`ConversationReply` contains `text` and optional `objectives`/`homework` advice. Every emitted
+feedback block must cover the supplied identities exactly once and is bound to that context's
+actual evidence digest/revision. No feedback can be emitted for an absent review context.
+`ConversationReply.output_type()` and `from_output` support equivalent direct native Agents;
+producer Agents can retain their own output contract instead. `ConversationResult.history` is a
+copied accumulated native transcript; store it per learner and pass it to the next call, or pass
+`[]` to reset. The runner retains no transcript. Its conversational operation passes the actual
+bounded latest learner message to `Agent.run`.
+
+The producer owns identity/session binding, fresh trusted reads, transcript storage, model/provider,
+UI, file inspection, permission/consent, presentation acknowledgement and every learning-state
+mutation. Conversation, feedback and model recommendations cannot advance a gate, acknowledge
+pending feedback, settle an objective or submit homework. Explicit learner controls remain separate.
+The advanced purpose-specific methods below remain available for explicitly scoped integrations.
 
 Copy the current session into a narrow context. Keep the session, Course, paths, credentials,
 action event identities, feedback references and homework submission token in the controller.
@@ -60,7 +107,7 @@ security guarantee. Material, history and learner text are untrusted content. Ne
 instructions nor model output can authorize controller operations, settle objectives, submit work
 or acknowledge feedback.
 
-On pinned 2.52.0, IDs are `skilling-narration`, `skilling-objective-advice` and
+On pinned 2.52.0, IDs are `skilling-conversation`, `skilling-narration`, `skilling-objective-advice` and
 `skilling-homework-advice`. Equivalent duplicate configuration is combined; different getters for
 the same purpose refuse. Upstream per-run same-ID capabilities replace the agent registration
 wholly. The adapter checks the public registered capability tree through `for_agent` and refuses
@@ -73,7 +120,7 @@ return only safe context, even when the producer deps also contain privileged ob
 from skilling_tutor import LearnerEvidence, HomeworkAdviceContext, SkillingRunner
 from pydantic_ai.usage import UsageLimits
 
-runner = SkillingRunner.create(selected_model, usage_limits=UsageLimits(request_limit=8))
+runner = SkillingRunner.create(selected_model, usage_limits=UsageLimits(request_limit=16))
 turn = await runner.narrate(context, history=[])  # complete async turn
 # Optional next-turn history is explicitly producer-owned:
 next_turn = await runner.narrate(context, history=turn.new_messages)
@@ -84,7 +131,8 @@ advice_context = HomeworkAdviceContext.from_check(
 advice = await runner.advise_homework(advice_context)
 ```
 
-The runner owns three Agents sharing the selected model/config and the same native capability.
+The runner owns one primary conversational Agent plus three advanced purpose Agents sharing the
+selected model/config and the same native capability.
 Narration returns text. Objective/homework advice returns frozen informal advice with exactly one
 bounded reason/verdict per required identity, separate stretch results, evidence digest and revision.
 Missing, unknown or duplicate identities refuse. `ObjectiveAdvice.output_type()` and
@@ -100,8 +148,9 @@ Framework messages are mutable producer-owned objects, copied on runner input/ou
 never retains them. Keep histories isolated by learner/purpose, redact before selecting them,
 and pass no history or `[]` to clear it. A producer-configured Model must itself support safe
 concurrent use. Settings/limits are copied and usage starts afresh each run. The runner defaults
-to eight requests: activation, five sequential `learn` reference reads and output use seven;
-references can also be read in parallel. Explicit producer limits remain unchanged and may refuse
+to sixteen requests (previously eight): three skill activations, all eight sequential reference
+reads and output use twelve, leaving bounded retry room. Normal turns can activate fewer skills
+and read references in parallel. Explicit producer limits remain unchanged and may refuse
 a turn before completion. The runner disables Agent instrumentation and emits no learner logs or
 automatic tracing.
 Explicit producer instrumentation of a selected Model remains producer-owned.
@@ -125,7 +174,8 @@ task package:tutor:smoke
 The smoke creates fresh environments outside the checkout, installs local wheel and sdist pairs
 in the same resolver operation, disables real model requests, inspects metadata/license/typing,
 and exercises native activation, all original triad references, direct attachment, runner narration
-and both advice operations. A separate core-only
+and both advice operations, plus a retained multi-turn conversation switching learning, objective
+review, current progress and homework review without caller-selected modes. A separate core-only
 install proves that neither tutor nor framework is required by the core. CI retains the full source
 matrix and runs matching installed artifacts on Linux/macOS/Windows at Python 3.11/3.14; local
 results establish only the tested host/interpreter, never published artifacts or other platforms.

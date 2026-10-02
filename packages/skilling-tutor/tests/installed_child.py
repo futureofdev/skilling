@@ -7,6 +7,8 @@ import hashlib
 import importlib.metadata
 import json
 import sys
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from pydantic_ai import Agent, models
@@ -17,6 +19,7 @@ from pydantic_ai.messages import (
     TextPart,
     ToolCallPart,
     ToolReturnPart,
+    UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
@@ -26,10 +29,12 @@ import skilling_tutor
 from skilling.skills import ROOT, skill_files
 from skilling_tutor import (
     AdviceIdentity,
+    ConversationContext,
     HomeworkAdviceContext,
     LearnerEvidence,
     NarrationContext,
     ObjectiveAdviceContext,
+    ProgressContext,
     SkillingCapability,
     SkillingRunDeps,
     SkillingRunner,
@@ -37,6 +42,189 @@ from skilling_tutor import (
 )
 
 models.ALLOW_MODEL_REQUESTS = False
+
+
+@dataclass
+class ConversationJourney:
+    captures: list[tuple[list[ModelMessage], AgentInfo]]
+    skills: list[str]
+
+    @classmethod
+    def create(cls) -> ConversationJourney:
+        return cls([], [])
+
+    async def respond(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        await asyncio.sleep(0)
+        self.captures.append((deepcopy(messages), info))
+        assert {tool.name for tool in info.function_tools} == {
+            "load_capability",
+            "read_skill_reference",
+        }
+        assert info.instructions is not None
+        data = json.JSONDecoder().raw_decode(
+            info.instructions.split("SAFE CONTEXT (data):\n", 1)[1]
+        )[0]
+        latest = next(
+            part.content
+            for message in reversed(messages)
+            if isinstance(message, ModelRequest)
+            for part in reversed(message.parts)
+            if isinstance(part, UserPromptPart)
+        )
+        assert isinstance(latest, str)
+        skill = (
+            "progress" if "progress" in latest else "homework" if "homework" in latest else "learn"
+        )
+        reference = {
+            "progress": "references/reading-progress.md",
+            "homework": "references/workflows.md",
+            "learn": "references/objectives.md"
+            if "objectives" in latest
+            else "references/delivery-loop.md",
+        }[skill]
+        returns = [
+            part
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if not any(
+            part.tool_name == "load_capability"
+            and isinstance(part.content, dict)
+            and f"# Skill: {skill}" in part.content.get("instructions", "")
+            for part in returns
+        ):
+            self.skills.append(skill)
+            return ModelResponse(parts=[ToolCallPart("load_capability", {"id": skill})])
+        reference_text = (ROOT / skill / reference).read_bytes().decode("utf-8")
+        if not any(
+            part.tool_name == "read_skill_reference" and part.content == reference_text
+            for part in returns
+        ):
+            return ModelResponse(
+                parts=[
+                    ToolCallPart("read_skill_reference", {"skill": skill, "reference": reference})
+                ]
+            )
+        output: dict[str, object] = {"text": f"{latest}: {data['teaching']['material']}"}
+        if skill == "progress":
+            progress = data["progress"]
+            output["text"] = (
+                f"Current progress: {progress['completed_count']}/{progress['lesson_count']}"
+                if progress
+                else "Please ask the producer to refresh current progress"
+            )
+
+        def item(identity, evidence):
+            return {
+                "id": identity["id"],
+                "verdict": "partial",
+                "reason": f"Actual supplied evidence: {evidence['text']}",
+            }
+
+        if "objectives" in latest:
+            review = data["objectives"]
+            if review is None:
+                output["text"] = "Please supply current objective criteria and actual evidence"
+            else:
+                output["objectives"] = {
+                    "objectives": [
+                        item(identity, review["evidence"]) for identity in review["objectives"]
+                    ]
+                }
+        if skill == "homework":
+            review = data["homework"]
+            if review is None:
+                output["text"] = "Please supply current homework criteria and actual evidence"
+            else:
+                output["homework"] = {
+                    "requirements": [
+                        item(identity, review["evidence"]) for identity in review["requirements"]
+                    ],
+                    "stretch_goals": [
+                        item(identity, review["evidence"]) for identity in review["stretch_goals"]
+                    ],
+                }
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
+
+    async def run(self) -> tuple[ModelMessage, ...]:
+        runner = SkillingRunner.create(FunctionModel(self.respond))
+        context = ConversationContext(
+            NarrationContext("Course", "1.1", None, (), "Initial material"),
+            "r1",
+            ProgressContext(0, 2),
+        )
+        history: tuple[ModelMessage, ...] = ()
+        for message in ("Explain this material", "Give me a hint", "Here is my reasoning"):
+            result = await runner.chat(message, context, history=history)
+            assert message in result.output.text
+            assert result.output.objectives is None and result.output.homework is None
+            assert len(result.history) > len(history)
+            history = result.history
+        evidence = LearnerEvidence.from_text("Current actual objective reasoning")
+        objective = ObjectiveAdviceContext(
+            (AdviceIdentity("objective", "Explain the result"),), evidence, "r2"
+        )
+        context = replace(
+            context,
+            teaching=replace(context.teaching, material="Refreshed material"),
+            revision="r2",
+            progress=ProgressContext(1, 2),
+            objectives=objective,
+        )
+        original = repr(history)
+        review = await runner.chat("Review my objectives", context, history=history)
+        assert review.output.objectives is not None
+        assert review.output.objectives.evidence_digest == evidence.digest
+        assert review.output.objectives.revision == "r2"
+        assert "Refreshed material" in review.output.text and repr(history) == original
+        updated_evidence = LearnerEvidence.from_text("Updated actual objective reasoning")
+        context = replace(
+            context,
+            revision="r3",
+            objectives=replace(objective, evidence=updated_evidence, revision="r3"),
+        )
+        refreshed_review = await runner.chat(
+            "Review my objectives again", context, history=review.history
+        )
+        assert refreshed_review.output.objectives is not None
+        assert refreshed_review.output.objectives.evidence_digest == updated_evidence.digest
+        assert refreshed_review.output.objectives.revision == "r3"
+        assert (
+            "Updated actual objective reasoning"
+            in refreshed_review.output.objectives.objectives[0].reason
+        )
+        assert (
+            "Current actual objective reasoning"
+            not in refreshed_review.output.objectives.objectives[0].reason
+        )
+        assert "Updated actual objective reasoning" not in refreshed_review.output.text
+        progress = await runner.chat(
+            "What is my progress?", context, history=refreshed_review.history
+        )
+        assert progress.output.text == "Current progress: 1/2"
+        homework_evidence = LearnerEvidence.from_text("Current actual homework work")
+        homework = HomeworkAdviceContext(
+            "Work",
+            "Practice",
+            (AdviceIdentity("required", "Do the work"),),
+            (AdviceIdentity("stretch", "Extend the work"),),
+            homework_evidence,
+            "homework-slot",
+        )
+        result = await runner.chat(
+            "Review my homework",
+            replace(context, homework=homework, homework_revision="homework-slot"),
+            history=progress.history,
+        )
+        assert result.output.homework is not None
+        assert result.output.homework.evidence_digest == homework_evidence.digest
+        assert result.output.homework.requirements[0].id == "required"
+        assert result.output.homework.stretch_goals[0].id == "stretch"
+        assert {"learn", "progress", "homework"} == set(self.skills)
+        assert str(ROOT) not in repr(self.captures)
+        return result.history
 
 
 async def main() -> None:
@@ -135,6 +323,8 @@ async def main() -> None:
         TestModel(call_tools=[], custom_output_args={"requirements": [item], "stretch_goals": []})
     ).advise_homework(homework)
     assert result.output.requirements[0].id == "required"
+    conversation = ConversationJourney.create()
+    transcript = await conversation.run()
     print(
         json.dumps(
             {
@@ -148,6 +338,9 @@ async def main() -> None:
                 "harness": importlib.metadata.version("pydantic-ai-harness"),
                 "policy_resources": digests,
                 "native_activation_requests": len(captures),
+                "conversation_turns": 7,
+                "conversation_messages": len(transcript),
+                "conversation_skills": conversation.skills,
             }
         )
     )
