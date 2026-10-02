@@ -571,7 +571,7 @@ def test_key_replay_after_full_course_completion(clean_dir: Path, tmp_path: Path
 def test_complete_renders_coherent_snapshot_after_interleaved_advance(
     clean_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from skilling.cli.runtime import _session
+    from skilling.session import _companion
 
     state = tmp_path / "state"
     _walk_to_complete(clean_dir, state, LESSON_WITH_EXERCISE)
@@ -582,7 +582,7 @@ def test_complete_renders_coherent_snapshot_after_interleaved_advance(
         assert advanced.returncode == 0, advanced.stderr
         return outcome
 
-    monkeypatch.setattr(_session, "complete_lesson", complete)
+    monkeypatch.setattr(_companion, "complete_lesson", complete)
     body = run(clean_dir, state, "complete")
     assert body["already_completed"] is False and body["completed_count"] == 1
     assert body["position"]["lesson"] == 2 and body["beat"]["name"] == "objectives"

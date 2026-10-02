@@ -7,9 +7,7 @@ what the host already found, and only when it is honest about how: the capabilit
 come from repeated ``--capability`` flags, and ``settle_objective`` enforces them mechanically;
 what makes the record trustworthy is the attestation, not the enforcement.
 
-``settle_objective`` raises ``ValueError`` naming the failed precondition rather than a typed
-exception, so ``_map_settle_error`` below turns its message back into a stable refusal code —
-matched by substring, since the exception itself carries no machine-readable reason.
+Delivery errors carry typed reasons; the shared session maps them to existing CLI codes.
 """
 
 from __future__ import annotations
@@ -18,10 +16,18 @@ from pathlib import Path
 
 import typer
 
-from ...course import Attestation, Capability, Objective
-from ...delivery import objectives_of, settle_objective, settleable
+from ...course import Capability
+from ...session import SessionRefusal
 from ...store import LOCAL_LEARNER
-from ._common import ExitCode, emit, fail, now_override, open_session
+from ._common import (
+    ExitCode,
+    emit,
+    fail,
+    now_override,
+    open_file_session,
+    refuse_session,
+    view_data,
+)
 
 COURSE_HELP = "Path to the course directory."
 STATE_HELP = "Where to keep the learner's progress record."
@@ -34,43 +40,6 @@ _LearnerOption = typer.Option(LOCAL_LEARNER, "--learner", help=LEARNER_HELP)
 _EVIDENCE_VALUES = ("explained", "observed", "homework")
 
 app = typer.Typer(no_args_is_help=True, help="Evidence for one lesson's objectives.")
-
-
-def _map_settle_error(message: str) -> tuple[ExitCode, str]:
-    """``settle_objective``'s ``ValueError`` text, back to (exit code, refusal code).
-
-    Order matters: check the more specific substrings before the ones they could contain.
-    """
-    if "has no objective" in message:
-        return ExitCode.INVALID, "objective-unknown"
-    if "settles nothing" in message:
-        # Unreachable while every ObjectiveKind maps to a capability in SETTLES — kept as the
-        # honest fallback for a kind that stops doing so.
-        return ExitCode.ILLEGAL, "unsettleable-kind"
-    if "has no verify clause" in message:
-        return ExitCode.ILLEGAL, "no-verify"
-    if "does not hold" in message:
-        return ExitCode.ILLEGAL, "capability-missing"
-    if "requires provenance" in message:
-        return ExitCode.INVALID, "missing-provenance"
-    return ExitCode.ERROR, "settle-failed"
-
-
-def _attestation_from(
-    objective: Objective | None, evidence: str, attested_by: str | None, checked: str | None
-) -> Attestation | None:
-    """Build the provenance record from what the host supplied, or ``None`` when any of the
-    three is missing — leaving ``settle_objective`` to raise its own provenance refusal rather
-    than this verb guessing at a substitute.
-
-    The ``verify`` sentence comes from the objective itself, verbatim, never from a flag: a
-    host attests to *what it checked*, not to which sentence the objective declares.
-    """
-    if evidence != "observed" or objective is None or not objective.verify:
-        return None
-    if not attested_by or not checked:
-        return None
-    return Attestation(checked=checked, verify=objective.verify, attested_by=attested_by)
 
 
 @app.command("settle")
@@ -111,40 +80,30 @@ def settle(
     except ValueError as exc:
         fail(ExitCode.INVALID, "capability-unknown", str(exc))
 
-    session = open_session(course, state, learner)
-    lesson = session.lesson
-    objective = next((o for o in objectives_of(lesson) if o.id == objective_id), None)
-    attestation = _attestation_from(objective, evidence, attested_by, checked)
-
+    service = open_file_session(course, state, learner)
     try:
-        outcome = settle_objective(
-            session.store,
-            session.record,
-            session.revision,
-            lesson,
+        result = service.settle_objective(
             objective_id,
             capabilities,
-            attestation=attestation,
+            checked=checked if evidence == "observed" else None,
+            attested_by=attested_by if evidence == "observed" else None,
             now=now_override(),
         )
-    except ValueError as exc:
-        code, error = _map_settle_error(str(exc))
-        fail(code, error, str(exc))
-
-    entry = next(o for o in outcome.record.objectives_met if o.id == objective_id)
+    except SessionRefusal as exc:
+        refuse_session(exc, course)
     emit(
         {
             "ok": True,
             "verb": "settle",
-            "course": {"id": session.course.id, "version": session.course.version},
+            "course": {"id": result.course.id, "version": result.course.version},
             "objective": {
-                "id": entry.id,
-                "evidence": entry.evidence,
-                "at": str(entry.at),
-                "provenance": entry.provenance.model_dump() if entry.provenance else None,
+                "id": result.id,
+                "evidence": result.evidence,
+                "at": str(result.at),
+                "provenance": view_data(result.provenance) if result.provenance else None,
             },
-            "newly_met": objective_id in outcome.newly_met,
-            "revision": outcome.revision,
+            "newly_met": result.newly_met,
+            "revision": result.revision,
         }
     )
 
@@ -158,32 +117,23 @@ def show(
         None, "--capability", help="A capability this runtime holds, for settleable_now."
     ),
 ) -> None:
-    """The current lesson's objectives: id, kind, verify sentence, check proposal, and whether
-    the held capabilities could settle each one right now. Read-only — ``check`` is printed,
-    never executed; running it is the host's decision, through the host's own permissions."""
+    """Show authored checks as proposals; the runtime never executes them."""
     try:
         capabilities = [Capability(c) for c in (capability or [])]
     except ValueError as exc:
         fail(ExitCode.INVALID, "capability-unknown", str(exc))
-
-    session = open_session(course, state, learner)
-    lesson = session.lesson
-    permitted = {o.id for o in settleable(lesson, capabilities)}
-
+    service = open_file_session(course, state, learner)
+    try:
+        objectives = service.objectives(capabilities)
+    except SessionRefusal as exc:
+        refuse_session(exc, course)
     emit(
         {
             "ok": True,
             "verb": "show",
-            "course": {"id": session.course.id, "version": session.course.version},
+            "course": {"id": service.course.id, "version": service.course.version},
             "objectives": [
-                {
-                    "id": o.id,
-                    "kind": o.kind,
-                    "verify": o.verify,
-                    "check": o.check,
-                    "settleable_now": o.id in permitted,
-                }
-                for o in objectives_of(lesson)
+                {k: v for k, v in view_data(o).items() if k != "text"} for o in objectives
             ],
         }
     )

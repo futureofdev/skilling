@@ -2,7 +2,7 @@
   "$defs": {
     "Artifact": {
       "additionalProperties": false,
-      "description": "A pointer to work the learner built. Since 1.4; meaningful only within a workspace\n(spec/workspace.md#artifacts).\n\nRecorded only through the CLI, at the two moments the loop already owns \u2014 phase ceremony\nand confirmed homework submission \u2014 and never gating the flow: no beat waits on one, no\ncompletion requires one. A pointer and a title, never a judgement.",
+      "description": "A pointer to work the learner built. Since 1.4; meaningful only within a workspace\n(spec/workspace.md#artifacts).\n\nRecorded through the runtime-owned CLI or public file-session facade, at the two\nmoments the loop already owns \u2014 phase ceremony and confirmed homework submission \u2014 and\nnever gating the flow: no beat waits on one, no\ncompletion requires one. A pointer and a title, never a judgement.",
       "properties": {
         "added_at": {
           "format": "date-time",
