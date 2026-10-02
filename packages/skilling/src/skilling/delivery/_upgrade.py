@@ -49,6 +49,7 @@ class UpgradeRefusal(StrEnum):
     DOWNGRADE = "downgrade"
     MAJOR = "major"
     MISSING = "missing-coordinates"
+    PENDING_FEEDBACK = "pending-feedback"
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,10 @@ class UpgradePlan:
         return f"Progress is not resumable ({name}): {self.reason()}"
 
     def reason(self) -> str:
+        if self.refusal is UpgradeRefusal.PENDING_FEEDBACK:
+            return (
+                "quiz feedback must be presented and acknowledged before changing course version."
+            )
         if self.refusal is UpgradeRefusal.DOWNGRADE:
             return (
                 f"{self.to_version} is older than the {self.from_version} this record was "
@@ -281,6 +286,14 @@ def preview_upgrade(
     snapshot = store.read_runtime_snapshot(learner_id, course.id)
     if snapshot is None or snapshot.record.course_version == course.version:
         return RollForward(None, snapshot)
+    if snapshot.feedback is not None:
+        base = UpgradePlan(
+            course.id,
+            snapshot.record.course_version,
+            course.version,
+            declared_level(snapshot.record.course_version, course.version),
+        )
+        return RollForward(_refused(base, UpgradeRefusal.PENDING_FEEDBACK), snapshot)
     log = store.get_log(learner_id, course.id)
     slot, _ = store.get_homework(learner_id, course.id)
     return RollForward(
@@ -303,6 +316,14 @@ def roll_forward(
     snapshot = store.read_runtime_snapshot(learner_id, course.id)
     if snapshot is None or snapshot.record.course_version == course.version:
         return RollForward(None, snapshot)
+    if snapshot.feedback is not None:
+        base = UpgradePlan(
+            course.id,
+            snapshot.record.course_version,
+            course.version,
+            declared_level(snapshot.record.course_version, course.version),
+        )
+        return RollForward(_refused(base, UpgradeRefusal.PENDING_FEEDBACK), snapshot)
     log = store.get_log(learner_id, course.id)
     slot, slot_revision = store.get_homework(learner_id, course.id)
     plan = plan_upgrade(snapshot.record, log, slot, UpgradeTarget.of(course), mapping)

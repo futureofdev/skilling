@@ -24,7 +24,14 @@ from pydantic import BaseModel
 from ..course import CompletionEntry, HomeworkArchiveEntry, HomeworkSlot, Record
 from ._io import _fsync_dir, _write_bytes_atomic
 from ._journal import (
+    AcknowledgementStatus,
+    ActionBoundary,
+    ActionIdentity,
+    FeedbackAcknowledgement,
+    FeedbackRef,
     Journal,
+    PendingFeedback,
+    PendingReference,
     RuntimeSnapshot,
     SubmissionJournal,
     TransitionCommit,
@@ -405,3 +412,61 @@ class FileProgressStore:
                 )
             except (ValueError, TypeError, yaml.YAMLError) as exc:
                 raise RecoveryRequired(f"Invalid submission intent: {exc}") from exc
+
+    def get_action_result(self, identity: ActionIdentity) -> TransitionResult | None:
+        ActionBoundary.model_validate(
+            {
+                "learner_id": identity.learner_id,
+                "course_id": identity.course_id,
+                "course_version": identity.course_version,
+                "coordinate": identity.coordinate,
+                "verb": identity.verb,
+                "input": identity.input,
+                "key": identity.key,
+                "origin": identity.origin,
+                "expected_revision": identity.expected_revision,
+                "question_number": identity.question_number,
+            }
+        )
+        self.ensure_course_paths(identity.course_id)
+        if not self.course_dir(identity.course_id).is_dir():
+            return None
+        with self._locked_course(identity.course_id):
+            try:
+                return TransitionJournal(self.state_root, identity.course_id).action_result(
+                    identity
+                )
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid action receipt: {exc}") from exc
+
+    def pending_feedback(self, learner_id: str, course_id: str) -> PendingFeedback | None:
+        snapshot = self.read_runtime_snapshot(learner_id, course_id)
+        return snapshot.feedback if snapshot else None
+
+    def acknowledge_feedback(
+        self, ref: FeedbackRef, expected_revision: str
+    ) -> FeedbackAcknowledgement:
+        if not isinstance(ref, FeedbackRef):
+            raise RecoveryRequired("Acknowledgement requires an opaque FeedbackRef")
+        PendingReference(
+            version=1,
+            origin_course_version=ref._course_version,
+            answer_key=ref._answer_key,
+            receipt_digest=ref._receipt_digest,
+        )
+        if not isinstance(expected_revision, str) or not re.fullmatch(
+            r"[a-f0-9]{16}", expected_revision
+        ):
+            raise RecoveryRequired("Acknowledgement requires an exact record revision")
+        if not re.fullmatch(r"[a-f0-9]{64}", ref._receipt_digest):
+            raise RecoveryRequired("Invalid feedback receipt identity")
+        self.ensure_course_paths(ref._course_id)
+        if not self.course_dir(ref._course_id).is_dir():
+            return FeedbackAcknowledgement(AcknowledgementStatus.NO_PENDING, None)
+        with self._locked_course(ref._course_id):
+            try:
+                return TransitionJournal(self.state_root, ref._course_id).acknowledge(
+                    ref, expected_revision
+                )
+            except (ValueError, TypeError, yaml.YAMLError) as exc:
+                raise RecoveryRequired(f"Invalid acknowledgement: {exc}") from exc

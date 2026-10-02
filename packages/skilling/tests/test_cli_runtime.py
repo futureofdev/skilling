@@ -695,11 +695,11 @@ def test_console_entrypoint_controls_late_state_errors(clean_dir: Path, tmp_path
     injection = tmp_path / "injection"
     injection.mkdir()
     (injection / "sitecustomize.py").write_text(
-        "from skilling.cli.runtime import _session\n"
+        "from skilling.session import _service\n"
         "from skilling.store import StatePathError\n"
         "def refuse(*args, **kwargs):\n"
         "    raise StatePathError('test late scratch refusal')\n"
-        "_session.commit_runtime = refuse\n",
+        "_service.commit_runtime = refuse\n",
         encoding="utf-8",
     )
     executable = Path(sys.executable).parent / ("skilling.exe" if os.name == "nt" else "skilling")
@@ -731,14 +731,14 @@ def test_session_source_io_failures_are_controlled(
     monkeypatch: pytest.MonkeyPatch,
     stage: str,
 ) -> None:
-    from skilling.cli.runtime import _common
     from skilling.course import Course
+    from skilling.session import _loading
 
     def unreadable(*args):
         raise PermissionError("source unreadable")
 
     if stage == "validate":
-        monkeypatch.setattr(_common, "validate_course", unreadable)
+        monkeypatch.setattr(_loading, "validate_course", unreadable)
     else:
         monkeypatch.setattr(Course, "load", unreadable)
     result = runner.invoke(
@@ -782,3 +782,40 @@ def test_state_root_construction_refusal_is_controlled(
     result = runner.invoke(app, args)
     assert result.exit_code == 2, result.output
     assert json.loads(result.stdout)["error"]["code"] == "state-invalid"
+
+
+@pytest.mark.parametrize("verb", ["next", "progress"])
+def test_runtime_keeps_file_uri_state_selection(
+    clean_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    verb: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    state = tmp_path / "uri-state"
+    result = runner.invoke(
+        app, [verb, "--course", str(clean_dir), "--state", f"file:{state}"], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+    assert (state / "clean-course" / "record.yaml").is_file()
+    assert not (Path.cwd() / "file:").exists()
+
+
+@pytest.mark.parametrize("verb", ["next", "progress"])
+def test_runtime_backend_uri_is_not_reinterpreted_as_a_path(
+    clean_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    verb: str,
+) -> None:
+    from skilling.store import UnknownScheme
+
+    monkeypatch.chdir(tmp_path)
+    before = set(tmp_path.iterdir())
+    result = runner.invoke(
+        app, [verb, "--course", str(clean_dir), "--state", "postgres://server/database"]
+    )
+    assert result.exit_code != 0
+    assert isinstance(result.exception, UnknownScheme)
+    assert set(tmp_path.iterdir()) == before
+    assert not (tmp_path / "postgres:").exists()

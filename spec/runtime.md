@@ -183,6 +183,9 @@ when it isn't, and the `skilling upgrade` command to run. A `next` envelope may 
 non-fatal `upgrade` hint (`available`, `level`, `command`) when a newer version of the course
 is already present in the workspace. Computing that hint never touches the network.
 
+Pending keyed quiz feedback must be presented and acknowledged before an upgrade, including
+a lesson-shape restart; see the file-runtime presentation extension below.
+
 Operations bound to the earlier version do not cross an upgrade. A keyed transition retried
 after it does not apply twice: its key stays bound and reuse refuses. A homework submission
 token checked against the earlier version is refused, so the learner checks the assignment
@@ -232,7 +235,7 @@ telemetry:               # since 1.1
 |---|---|
 | `position` | Must always name a lesson that exists in the manifest. Beat-level position is optional; when recorded it must be a beat of the [delivery loop](#the-delivery-loop) and must stay consistent with it — a gate that was open is recorded as that gate. `question_index` (since 1.3) is optional and meaningful only when `beat` is `quiz` or `remediate`: the 0-based quiz question awaiting an answer. Additive, like `beat` itself — a record without it resumes at question 0. |
 | `completed` | A set of coordinates. Order is not significant. |
-| `artifacts` | Since 1.4; optional, and meaningful only within a [workspace](workspace.md#artifacts). Pointers to work the learner built: a workspace-relative POSIX `path`, a `title`, the `coordinate` it was recorded at, and `added_at`. Written only through the CLI, at phase ceremony and confirmed homework submission; artifacts never gate the delivery loop, and a record without the field loads unchanged. |
+| `artifacts` | Since 1.4; optional, and meaningful only within a [workspace](workspace.md#artifacts). Pointers to work the learner built: a workspace-relative POSIX `path`, a `title`, the `coordinate` it was recorded at, and `added_at`. Written through the runtime-owned CLI or public file-session facade, at phase ceremony and confirmed homework submission; artifacts never gate the delivery loop, and a record without the field loads unchanged. |
 | Derived values | Completed counts, remaining counts, percentages, and phase boundaries must be **derived** from the manifest plus `completed`, never stored as authoritative fields. Cache them only if the cache is disposable and recomputable. |
 
 **No conversation transcript is ever required.** The record and log must be fully reconstructible without any message history. Transcripts are a runtime's convenience; they are not part of the learner's record, and nothing on this page may depend on one. This is what lets a learner change tutor, model, or product and keep their history.
@@ -647,6 +650,51 @@ that key is reserved and refused, its cached envelope is never replayed, and a f
 works. A later committed operation retains the reservation before clearing legacy scratch.
 No historical input or missing receipt is invented.
 
+### Version-two producer actions and feedback presentation
+
+The public file-session producer path accepts a trusted normalized action bound to event,
+origin, learner/course/version, coordinate, displayed question when applicable, original
+expected record revision, operation and payload. Learner origin attests an explicit learner
+control. Runtime-presentation origin may advance one successfully delivered non-gate beat;
+it cannot stand in for a gate response. This attestation is not proof of human identity.
+Version-one CLI transitions remain compatible and keep their existing retry semantics.
+
+A new keyed producer advance or answer publishes version-two transition intent and an
+immutable version-two receipt. Before any prepared recovery effects, an existing v2 receipt
+must match the immutable inline receipt bytes; semantic equality alone is insufficient.
+All before/after pending and presented references are validated against their corresponding
+record and outcome bytes, including references the operation clears. A new after-image
+pending reference may bind its validated inline answer receipt before publication.
+Version-one receipt filenames retain their existing hash
+preimage; version-two filenames add a fixed wire-version tag. Distinct raw legacy keys and
+hashed producer keys therefore occupy separate namespaces, including consumed reservations;
+the same logical event cannot be claimed across both interfaces. The original copied outcome is separate from a fresh current
+snapshot: advance records its accepted input and resulting position; answer records the
+question/label, correctness, authored reason and remediation objective texts. A complete
+identity retry returns that original outcome before checking today's position/revision and
+performs no second effect. Any changed identity conflicts. Version-one keyed advances have
+no stored outcome: it is explicitly unavailable, never reconstructed; unkeyed answers gain
+no retroactive identity. New v2 keys and consumed-key reservations are hashed private metadata,
+never caller paths or model context. No raw event key or future question is retained in v2.
+
+A keyed answer commits record, scratch and outcome together. Scratch retains a versioned
+pointer with originating course version, hashed answer identity and exact receipt-byte digest.
+Locked lookup validates its recorded stream, coordinate, immutable answer outcome and digest;
+missing, corrupt or mismatched metadata raises `RecoveryRequired` before effects. The public
+snapshot exposes canonical pending feedback through a presentation-only view with no next
+question or completion/homework controls, while preserving its actual durable position.
+Continuation, answer, completion and submission through that facade refuse while pending.
+
+Successful rendering is a separate controller acknowledgement using an opaque exact feedback
+reference and expected revision. Its version-two journal has runtime-presentation origin,
+unchanged record bytes and clearance of only the matching scratch pointer; it writes no learner
+log event or hook. Wrong references/stale revisions conflict, and no-pending/already-presented
+results are explicit. Recovery validates its before/after images with the same shared journal
+rules. Cancellation or narration failure never acknowledges automatically or retries the answer.
+These guards are a file-session extension, not a new universal `ProgressStore` presentation
+contract. Objective/artifact writes remain revision-controlled and require reconciliation after
+an ambiguous result rather than invented universal keyed receipts.
+
 ### Recoverable version roll-forward
 
 The reference file runtime commits a [course version roll-forward](#course-version-changes)
@@ -660,13 +708,21 @@ identity replays the current snapshot.
 
 The durable order is a prepared `upgrade.yaml` intent with exact before/after bytes, then the
 key reservations, retired markers, homework, scratch and record, then a committed marker. For
-every key the earlier stream consumed (keyed receipts, reservations and a legacy scratch
+every key the earlier stream consumed (v1/v2 keyed receipts, reservations and a legacy scratch
 `last_key`), the store writes a `reserved` receipt under the new stream. It retires the
 committed completion, transition and submission markers that name the earlier version,
 keeping their bytes in the committed upgrade marker. An upgrade never retires a pending
 journal: recovery runs first. `upgrade.yaml` joins the journals that every cooperating
 operation validates before recovering any of them, and the same `RecoveryRequired` rules
 apply.
+
+Before planning or committing a runtime upgrade, pending quiz feedback refuses with typed
+`UpgradeRefusal.PENDING_FEEDBACK`, including a change that would restart the lesson and clear
+scratch. Read-only lookup and controller acknowledgement by state root, learner and course id
+use the record's originating version without selected course content. Once actually rendered
+and acknowledged, explicit upgrade may proceed; earlier outcomes never become new-version
+actions. The file store mechanically validates supplied upgrade after-images and reservations;
+this presentation policy belongs to the runtime.
 
 ### Portable learner files
 

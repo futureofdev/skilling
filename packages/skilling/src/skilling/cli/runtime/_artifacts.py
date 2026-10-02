@@ -18,9 +18,8 @@ from pathlib import Path
 
 import typer
 import yaml
-from pydantic import ValidationError
 
-from ...course import Artifact, utc_now
+from ...session import SessionRefusal
 from ...store import LOCAL_LEARNER, Conflict
 from ...workspace import find_workspace, load_manifest, resolve_course_location
 from ._common import (
@@ -28,9 +27,10 @@ from ._common import (
     emit,
     fail,
     now_override,
-    open_chronology_session,
-    open_session,
-    select_completed_coordinate,
+    open_file_chronology_session,
+    open_file_session,
+    refuse_session,
+    view_data,
 )
 
 COURSE_REF_HELP = (
@@ -103,54 +103,30 @@ def add(
             "directory or any parent",
         )
 
-    session = open_chronology_session(_course_ref(course, workspace), state, learner)
-
-    given = Path(path)
-    absolute = (given if given.is_absolute() else Path.cwd() / given).resolve()
-    if not absolute.exists():
-        fail(ExitCode.INVALID, "artifact-missing", f"{path!r} does not exist")
-
-    workspace_resolved = workspace.resolve()
-    if not absolute.is_relative_to(workspace_resolved):
-        fail(
-            ExitCode.INVALID,
-            "artifact-outside-workspace",
-            f"{path!r} resolves to {absolute}, outside the workspace root {workspace_resolved}",
-        )
-    relative = absolute.relative_to(workspace_resolved).as_posix()
-
-    resolved_coordinate = select_completed_coordinate(session, learner, coordinate)
-
+    ref = _course_ref(course, workspace)
+    service = open_file_chronology_session(ref, state, learner)
     try:
-        new_artifact = Artifact(
-            path=relative,
-            title=title,
-            coordinate=resolved_coordinate,
-            added_at=now_override() or utc_now(),
+        result = service.artifact_add(
+            Path(path),
+            title,
+            workspace_root=workspace,
+            path_base=Path.cwd(),
+            coordinate=coordinate,
+            now=now_override(),
         )
-    except ValidationError as exc:
-        fail(ExitCode.INVALID, "artifact-invalid", str(exc))
-
-    kept = [a for a in session.record.artifacts if a.path != new_artifact.path]
-    updated_record = session.record.model_copy(update={"artifacts": [*kept, new_artifact]})
-
-    try:
-        new_revision = session.store.put_record(updated_record, session.revision)
+    except SessionRefusal as exc:
+        refuse_session(exc, ref)
     except Conflict as exc:
         fail(ExitCode.CONFLICT, "conflict", str(exc))
-
     emit(
         {
             "ok": True,
             "verb": "artifact-add",
-            "course": {"id": session.course.id, "version": session.course.version},
-            "artifact": new_artifact.model_dump(mode="json"),
-            "revision": new_revision,
+            "course": {"id": result.course.id, "version": result.course.version},
+            "artifact": view_data(result.artifact),
+            "revision": result.revision,
         }
     )
-
-
-# ------------------------------------------------------------------------------------ list
 
 
 @artifact.command("list")
@@ -159,17 +135,18 @@ def list_artifacts(
     state: Path | None = _StateOption,
     learner: str = _LearnerOption,
 ) -> None:
-    """List artifacts using the same course and state selection as ``add``.
-
-    Like other session verbs, initializes a progress record on first use. Explicit course
-    references work outside a workspace; omission selects the workspace's sole course.
-    """
-    session = open_session(_course_ref(course, find_workspace()), state, learner)
+    """List pointers; first use initializes progress like the existing CLI."""
+    ref = _course_ref(course, find_workspace())
+    service = open_file_session(ref, state, learner)
+    try:
+        artifacts = service.artifacts()
+    except SessionRefusal as exc:
+        refuse_session(exc, ref)
     emit(
         {
             "ok": True,
             "verb": "artifact-list",
-            "course": {"id": session.course.id, "version": session.course.version},
-            "artifacts": [a.model_dump(mode="json") for a in session.record.artifacts],
+            "course": {"id": service.course.id, "version": service.course.version},
+            "artifacts": [view_data(a) for a in artifacts],
         }
     )

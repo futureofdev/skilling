@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 import yaml
 
 from skilling.cli import main
+from skilling.session import ActionOperation, ActionOrigin, FileSession, TrustedAction, load_course
 from skilling.store import FileProgressStore, TransitionCommit, TransitionResult
 from skilling.store._journal import _transition
 
@@ -25,11 +28,12 @@ def boundary_for(path: Path, data: bytes) -> str:
 
 def main_worker() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("verb", choices=("advance", "answer", "inspect"))
+    parser.add_argument("verb", choices=("advance", "answer", "inspect", "trusted", "ack"))
     parser.add_argument("--course", required=True)
     parser.add_argument("--state", required=True)
     parser.add_argument("--input", default="next")
     parser.add_argument("--key")
+    parser.add_argument("--action-file", type=Path)
     parser.add_argument("--fault", choices=("none", "error", "exit", "hold"), default="none")
     parser.add_argument("--boundary", default="record")
     parser.add_argument("--marker", type=Path)
@@ -69,6 +73,22 @@ def main_worker() -> None:
             return real_commit(self, commit)
 
         FileProgressStore.commit_transition = commit_at_barrier
+    if args.verb in ("trusted", "ack"):
+        service = FileSession.open(
+            load_course(Path(args.course)), state_root=Path(args.state), learner_id="local"
+        )
+        if args.verb == "trusted":
+            data = json.loads(args.action_file.read_text())
+            data["origin"] = ActionOrigin(data["origin"])
+            data["operation"] = ActionOperation(data["operation"])
+            result = service.act(TrustedAction(**data))
+            print(json.dumps(asdict(result), default=str))
+        else:
+            pending = service.pending_feedback()
+            assert pending is not None
+            result = service.acknowledge_feedback(pending.feedback_id, pending.revision)
+            print(json.dumps(asdict(result), default=str))
+        return
     base = ["--course", args.course, "--state", args.state]
     if args.verb == "advance":
         command = ["advance", "--input", args.input, *base]
