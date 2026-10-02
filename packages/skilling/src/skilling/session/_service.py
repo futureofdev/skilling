@@ -2,22 +2,29 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ..course import Course, QuizQuestion, Record, parse_lesson
+import yaml
+
+from ..course import Capability, Course, QuizQuestion, Record, parse_lesson
 from ..delivery import Beat, IllegalTransition, Input, LessonState, should_offer_revisit
 from ..delivery import advance as apply_input
 from ..store import (
     Conflict,
     IdempotencyKeyConflict,
+    InvalidSubmissionToken,
+    RecoveryRequired,
+    SubmissionToken,
     TransitionCommit,
     TransitionIdentity,
     TransitionResult,
     TransitionVerb,
 )
 from ..workspace import workspace_read
+from . import _companion, _workspace
 from ._errors import RefusalKind, SessionRefusal
 from ._loading import RuntimeSession, Scratch, load_runtime, parse_scratch, serialize_scratch
 from ._teaching import (
@@ -28,7 +35,23 @@ from ._teaching import (
     question_view,
     snapshot_view,
 )
-from ._types import ActionResult, QuestionView, QuizFeedback, SessionSnapshot
+from ._types import (
+    ActionResult,
+    ArtifactResult,
+    ArtifactView,
+    CeremonyView,
+    CompletionResult,
+    CourseView,
+    HomeworkArchiveView,
+    HomeworkCheck,
+    ObjectiveResult,
+    ObjectiveView,
+    ProgressView,
+    QuestionView,
+    QuizFeedback,
+    SessionSnapshot,
+    TelemetryView,
+)
 
 
 def commit_runtime(
@@ -117,12 +140,17 @@ class FileSession:
             service._load()
         return service
 
-    def _load(self) -> RuntimeSession:
+    @property
+    def course(self) -> CourseView:
+        """Copied identity metadata; no raw Course crosses this boundary."""
+        return _companion.course_view(self._course)
+
+    def _load(self, *, initialize: bool | None = None) -> RuntimeSession:
         return load_runtime(
             self._course,
             self._state_root,
             self._learner_id,
-            initialize=self._initialize,
+            initialize=self._initialize if initialize is None else initialize,
             now=self._now,
         )
 
@@ -267,3 +295,103 @@ class FileSession:
                 key,
             ),
         )
+
+    def _chronology_load(self) -> RuntimeSession:
+        try:
+            return self._load(initialize=False)
+        except (RecoveryRequired, ValueError, TypeError, OSError, yaml.YAMLError) as exc:
+            raise SessionRefusal(
+                RefusalKind.INVALID, "chronology-invalid", f"cannot read completion history: {exc}"
+            ) from exc
+
+    def complete(
+        self, expected_revision: str | None, *, now: datetime | None = None
+    ) -> CompletionResult:
+        with workspace_read(self._course.root):
+            return _companion.complete(self._load(), expected_revision, now or self._now)
+
+    def ceremony(
+        self, coordinate: str | None = None, *, workspace_root: Path | None = None
+    ) -> CeremonyView:
+        with workspace_read(self._course.root):
+            return _workspace.ceremony(
+                self._chronology_load(), coordinate, workspace_root or self._workspace_root
+            )
+
+    def homework_check(self) -> HomeworkCheck:
+        """Read the active assignment and controller-only token; no evaluation or consent."""
+        with workspace_read(self._course.root):
+            return _companion.homework_check(self._load(initialize=False))
+
+    def homework_submit(self, token: str, *, now: datetime | None = None) -> HomeworkArchiveView:
+        # Validate token binding before recovery or any learner-state access.
+        identity = SubmissionToken.parse(token)
+        if (identity.learner_id, identity.course_id, identity.course_version) != (
+            self._learner_id,
+            self._course.id,
+            self._course.version,
+        ):
+            raise InvalidSubmissionToken("Token belongs to a different record stream")
+        with workspace_read(self._course.root):
+            return _companion.homework_submit(self._load(initialize=False), token, now or self._now)
+
+    def objectives(self, capabilities: Iterable[Capability] = ()) -> tuple[ObjectiveView, ...]:
+        with workspace_read(self._course.root):
+            return _companion.objective_views(self._load(), capabilities)
+
+    def settle_objective(
+        self,
+        objective_id: str,
+        capabilities: Iterable[Capability],
+        *,
+        checked: str | None = None,
+        attested_by: str | None = None,
+        expected_revision: str | None = None,
+        now: datetime | None = None,
+    ) -> ObjectiveResult:
+        with workspace_read(self._course.root):
+            return _companion.settle(
+                self._load(),
+                objective_id,
+                capabilities,
+                checked,
+                attested_by,
+                expected_revision,
+                now or self._now,
+            )
+
+    def progress(self) -> ProgressView:
+        with workspace_read(self._course.root):
+            return _companion.progress(self._load())
+
+    def telemetry(self, opt_in: bool | None = None) -> TelemetryView:
+        """None reads the ternary answer; bool records actual learner consent via CAS."""
+        with workspace_read(self._course.root):
+            return _companion.telemetry(self._load(), opt_in)
+
+    def artifact_add(
+        self,
+        path: Path,
+        title: str,
+        *,
+        workspace_root: Path,
+        path_base: Path,
+        coordinate: str | None = None,
+        expected_revision: str | None = None,
+        now: datetime | None = None,
+    ) -> ArtifactResult:
+        with workspace_read(self._course.root):
+            return _workspace.artifact_add(
+                self._chronology_load(),
+                path,
+                title,
+                workspace_root,
+                path_base,
+                coordinate,
+                expected_revision,
+                now or self._now,
+            )
+
+    def artifacts(self) -> tuple[ArtifactView, ...]:
+        with workspace_read(self._course.root):
+            return tuple(_workspace.artifact_view(a) for a in self._load().record.artifacts)

@@ -6,6 +6,15 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Runtime-owned artifact writes — 2026-10-01
+
+**Erratum.** The reference public file-session facade now performs the same exercised artifact
+writes as the CLI. [Runtime record](runtime.md#the-progress-record) and
+[workspace artifacts](workspace.md#artifacts) name both runtime-owned entry points. Permitted
+moments remain phase ceremony and confirmed homework submission, with the same workspace
+containment, validated completion chronology, CAS/upsert behavior and non-gating rule. This
+does not bind all Python API signatures, add a timing gate or promote the draft spec version.
+
 ### Course upgrade path — 2026-10-01
 
 **Minor.** Fixes #99 and refs #96. Before this, the reference runtime refused every course

@@ -15,7 +15,8 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime
+from dataclasses import asdict, is_dataclass
+from datetime import date, datetime
 from enum import IntEnum
 from pathlib import Path
 from typing import NoReturn
@@ -94,6 +95,21 @@ def now_override() -> datetime | None:
 def emit(payload: dict[str, object]) -> None:
     """The one and only way any runtime verb writes to stdout: one JSON object, one line."""
     sys.stdout.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+def view_data(value: object) -> dict[str, object]:
+    """Serialize copied dataclass outputs only at the CLI JSON boundary."""
+    if not is_dataclass(value) or isinstance(value, type):
+        raise TypeError("expected a session view")
+
+    def json_default(item: object) -> str:
+        if isinstance(item, datetime):
+            return item.isoformat().replace("+00:00", "Z")
+        if isinstance(item, date):
+            return item.isoformat()
+        raise TypeError(f"unsupported view field: {type(item).__name__}")
+
+    return json.loads(json.dumps(asdict(value), default=json_default))
 
 
 def fail(
@@ -185,15 +201,29 @@ def file_state_root(state: Path | None) -> Path:
     return store.state_root
 
 
-def open_file_session(course_ref: str, state: Path | None, learner: str) -> FileSession:
+def open_file_session(
+    course_ref: str | Course,
+    state: Path | None,
+    learner: str,
+    *,
+    initialize: bool = True,
+) -> FileSession:
     try:
         return FileSession.open(
-            load_session_course(course_ref),
+            load_session_course(course_ref) if isinstance(course_ref, str) else course_ref,
             state_root=file_state_root(state),
             learner_id=learner,
+            initialize=initialize,
         )
     except SessionRefusal as exc:
-        refuse_session(exc, course_ref)
+        refuse_session(exc, course_ref if isinstance(course_ref, str) else str(course_ref.root))
+
+
+def open_file_chronology_session(course_ref: str, state: Path | None, learner: str) -> FileSession:
+    try:
+        return open_file_session(course_ref, state, learner, initialize=False)
+    except (RecoveryRequired, ValueError, TypeError, OSError, yaml.YAMLError) as exc:
+        fail(ExitCode.INVALID, "chronology-invalid", f"cannot read completion history: {exc}")
 
 
 def load_session_course(course_ref: str) -> Course:

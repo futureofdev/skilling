@@ -173,12 +173,12 @@ def test_recovery_cli_does_not_use_completed_list_order(tmp_path: Path, workbenc
     before = _snapshot(store.state_root)
     # Observe only target selection; the wrapper delegates all actual persistence/replay.
     prefix = (
-        "from skilling.cli.runtime import _session\n"
-        "original = _session.complete_lesson\n"
+        "from skilling.session import _companion\n"
+        "original = _companion.complete_lesson\n"
         "def checked(store, course, record, revision, lesson, **kwargs):\n"
         "    assert lesson.coordinate == '1.2', lesson.coordinate\n"
         "    return original(store, course, record, revision, lesson, **kwargs)\n"
-        "_session.complete_lesson = checked\n"
+        "_companion.complete_lesson = checked\n"
     )
     body = _body(_cli(tmp_path, _args("complete", workbench, store.state_root), prefix=prefix))
     assert body["already_completed"] is True
@@ -258,10 +258,10 @@ def test_recovery_legacy_cli_replay_is_noop_without_tail_guess(
     )
     before = _snapshot(store.state_root)
     prefix = (
-        "from skilling.cli.runtime import _session\n"
+        "from skilling.session import _companion\n"
         "def no_guessed_target(*args, **kwargs):\n"
         "    raise AssertionError('legacy replay must not choose a lesson target')\n"
-        "_session.complete_lesson = no_guessed_target\n"
+        "_companion.complete_lesson = no_guessed_target\n"
     )
     body = _body(_cli(tmp_path, _args("complete", workbench, store.state_root), prefix=prefix))
     assert body["already_completed"] is True
