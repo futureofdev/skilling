@@ -3,8 +3,9 @@
 `skilling.session` is an experimental Python API for a trusted producer controller. It is
 LLM-free and uses the same file runtime as the teaching, completion and companion CLI
 commands. The runtime specification remains authoritative; these Python signatures are not a
-new conformance class. Use a build containing this API; the previously allocated core 0.7.0
-release does not by itself establish that the API is present in published artifacts.
+new conformance class. Core 0.8.0 is allocated for builds containing this API;
+the previously allocated 0.7.0 has no public facade. Published artifacts are not established
+by these source changes. See [the optional tutor guide](python-tutor.md) for the separate adapter.
 
 Give the controller explicit absolute paths and a validated course. The facade does not
 choose a workspace, consult state-root environment variables or change the current directory.
