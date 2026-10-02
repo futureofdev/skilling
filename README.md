@@ -29,7 +29,7 @@
 
 <br>
 
-# Learn with a tutor that remembers you
+# Turn your coding assistant into a tutor
 
 Good tutoring is a conversation. The tutor explains one idea, asks you a question, listens to
 your answer, and goes back over whatever didn't land. Skilling brings that to
@@ -40,7 +40,7 @@ assistant teaches you a course one lesson at a time.
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/how-it-works-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/readme/how-it-works-light.svg">
-    <img alt="Your coding host plus a course folder becomes a tutor that remembers where you are" src="docs/assets/readme/how-it-works-light.svg" width="100%">
+    <img alt="Your coding host plus a course folder becomes a tutor that picks up where you left off" src="docs/assets/readme/how-it-works-light.svg" width="100%">
   </picture>
 </p>
 
@@ -96,11 +96,11 @@ usual account and network access.
 ```text
 you    /learn
 tutor  Welcome back. You finished lesson 1 yesterday, so today is lesson 2:
-       keeping what you learn. First, in your own words, why does a tutor ask
-       you a question after explaining something?
-you    so it can tell what I actually got?
-tutor  That's it. The question shows both of us what's clear and what needs
-       another look. Let's try one...
+       keeping what you learn. Your progress is already saved. What's one
+       goal you'd like to keep from this course, in your own words?
+you    I want to stop rushing to the answer and ask more questions
+tutor  Good one. Let's write that down in your showcase folder so it's
+       there next time...
 ```
 
 The tutor waits for your real answers, and you can ask for a slower pace or a different
@@ -119,7 +119,8 @@ example at any point. Along the way you'll meet:
 - **Your work.** Notes, code and anything else you make go in `showcase/`. Keep it, share it
   or commit it.
 - **Your choice of tutor.** The same workspace works in Claude Code and in Codex. Switch
-  between them, or move the whole folder to another machine.
+  between them, or move the whole folder, hidden files included, to another machine with
+  Skilling installed.
 
 Once a course is set up, the CLI, the course and your progress all work locally. A
 cloud-hosted model still needs its normal network access.
@@ -165,7 +166,7 @@ skilling init my-course
 skilling validate ./my-course --strict
 ```
 
-The validator says exactly what's wrong and links to the rule behind it. Every finding has a
+The validator says what's wrong and links to the rule behind it. Every finding has a
 stable [error code](docs/error-codes.md), so `validate --strict` is safe to keep in CI.
 
 Then take your own course the way a learner would:
@@ -194,7 +195,7 @@ A few habits make a course teach well:
 
 The [authoring walkthrough](docs/authoring-a-course.md) goes from an empty folder to a
 published course. [Hello, Skilling](examples/hello-skilling/) is a small course to copy from,
-and [Workbench](examples/workbench/) uses every feature the format has.
+and [Workbench](examples/workbench/) exercises the whole format in one compact course.
 
 Once your course is out, you can add this badge to its README:
 
@@ -209,7 +210,7 @@ Once your course is out, you can add this badge to its README:
 Skilling is an open format. This repository holds its specification and a reference
 implementation. The `skilling` package is **LLM-free**: typed models, a loader, a validator, a
 pure delivery state machine, a progress store and the learner CLI. It has no agent framework,
-model or API key, so it runs happily in CI or a reporting job.
+model or API key, so it runs in CI or a reporting job.
 
 Specification **1.4.0-draft** is the normative text. Start with the
 [specification index](spec/README.md), then the [course format](spec/course-format.md),
