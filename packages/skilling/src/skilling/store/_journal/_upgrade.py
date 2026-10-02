@@ -29,9 +29,9 @@ from .._io import _fsync_dir
 from .._io import _write_bytes_atomic as _write_bytes_atomic
 from .._paths import checked_path
 from .._protocol import Conflict, HomeworkWrite, RecoveryRequired
+from ._actions import ActionReservation, parse_receipt
 from ._transition import (
     Boundary,
-    Receipt,
     Reservation,
     RuntimeSnapshot,
     Stream,
@@ -197,21 +197,19 @@ class UpgradeJournal:
             self.preflight(value)
         return value
 
-    def bound_keys(self, stream: Stream, scratch: bytes) -> list[str]:
+    def bound_keys(self, stream: Stream, scratch: bytes) -> list[Reservation | ActionReservation]:
         """Every key the old stream consumed: keyed receipts, reservations, legacy scratch."""
-        keys: set[str] = set()
+        keys: dict[tuple[int, str], Reservation | ActionReservation] = {}
         directory = self.path(RECEIPTS)
         if directory.is_dir():
             for child in sorted(directory.iterdir()):
                 raw = self.raw(f"{RECEIPTS}/{child.name}")
                 assert raw is not None
                 data = yaml.safe_load(raw)
-                found = (
-                    Reservation.model_validate(data)
-                    if isinstance(data, dict) and data.get("kind") == "reserved"
-                    else Receipt.model_validate(data)
+                found = parse_receipt(data)
+                owner = (
+                    found if isinstance(found, (Reservation, ActionReservation)) else found.identity
                 )
-                owner = found if isinstance(found, Reservation) else found.identity
                 if owner.key is None or child.name != receipt_name(owner, owner.key):
                     raise ValueError("transition receipt name does not match its identity")
                 if (owner.learner_id, owner.course_id, owner.course_version) == (
@@ -219,11 +217,19 @@ class UpgradeJournal:
                     stream.course_id,
                     stream.course_version,
                 ):
-                    keys.add(owner.key)
+                    reservation_type = ActionReservation if found.version == 2 else Reservation
+                    keys[(found.version, owner.key)] = reservation_type.model_validate(
+                        {
+                            "version": found.version,
+                            "kind": "reserved",
+                            "key": owner.key,
+                            **stream.model_dump(),
+                        }
+                    )
         legacy = self.transitions.legacy_reservation(scratch)
         if legacy is not None:
-            keys.add(legacy.key)
-        return sorted(keys)
+            keys[(1, legacy.key)] = legacy
+        return [keys[k] for k in sorted(keys)]
 
     def preflight(self, value: Prepared) -> None:
         identity = value.identity
@@ -259,7 +265,9 @@ class UpgradeJournal:
             elif item.path.startswith(RECEIPTS + "/"):
                 if item.before is not None or item.after is None:
                     raise ValueError("an upgrade only adds key reservations")
-                reserved = Reservation.model_validate(yaml.safe_load(item.after))
+                reserved = parse_receipt(yaml.safe_load(item.after))
+                if not isinstance(reserved, (Reservation, ActionReservation)):
+                    raise ValueError("upgrade target must be a key reservation")
                 if (reserved.learner_id, reserved.course_id, reserved.course_version) != (
                     new_stream.learner_id,
                     new_stream.course_id,
@@ -313,12 +321,11 @@ class UpgradeJournal:
         new_stream = identity.stream(identity.to_version)
         record_value(dump(current.record.model_dump(mode="json")), old_stream)
         mutations: list[Mutation] = []
-        for key in self.bound_keys(old_stream, current.scratch):
-            name = f"{RECEIPTS}/{receipt_name(new_stream, key)}"
+        for consumed in self.bound_keys(old_stream, current.scratch):
+            key = consumed.key
+            name = f"{RECEIPTS}/{receipt_name(new_stream, key, version=consumed.version)}"
             if self.raw(name) is None:
-                reserved = Reservation(
-                    version=1, kind="reserved", key=key, **new_stream.model_dump()
-                )
+                reserved = consumed.model_copy(update=new_stream.model_dump())
                 mutations.append(
                     Mutation(path=name, before=None, after=dump(reserved.model_dump()))
                 )

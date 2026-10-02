@@ -44,7 +44,13 @@ def ceremony(
             showcase_dir(workspace_root, session.course.id).relative_to(workspace_root).as_posix()
         )
     return CeremonyView(
-        snapshot_view(session.course, session.record, session.revision, session.scratch),
+        snapshot_view(
+            session.course,
+            session.record,
+            session.revision,
+            session.scratch,
+            session.pending_feedback,
+        ),
         selected,
         phase.number if phase else None,
         phase.name if phase else None,
