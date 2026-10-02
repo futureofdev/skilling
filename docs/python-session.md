@@ -68,10 +68,10 @@ even after intervening actions or completion. It does not retain an original out
 an id for another input refuses. New learner actions need fresh event ids. Unkeyed `advance`
 and `answer(label)` are recoverable writes but are not safe retries: a repeated answer may
 answer a later question. `answer` returns correctness, the authored reason and remediation
-objectives/revisit offer; it never settles objectives. This extraction does not add durable
-pending feedback, acknowledgement or keyed-answer recovery. Preserve the returned feedback
-and present it before fetching another question; do not blindly retry after presentation or
-model failure.
+objectives/revisit offer; it never settles objectives. The compatibility `answer` does not create pending feedback or a retry identity. Preserve
+its returned feedback and present it before fetching another question; do not blindly retry
+after presentation or model failure. For durable producer feedback recovery use the trusted
+action path below.
 
 `SessionRefusal` has a typed `kind` (`RefusalKind.INVALID`, `CONFLICT` or `ILLEGAL`), a `code`
 and an explanatory exception message. `VersionMismatch` additionally carries `course_id`,
@@ -121,3 +121,52 @@ values; send models only the assignment or relative showcase content needed for 
 Optional `expected_revision` arguments reject stale writes with the existing `Conflict`
 exception. Read-only homework checks preserve record, queue, receipts and scratch bytes;
 prepared file operations may still recover as described above.
+
+Use `TrustedAction.create(snapshot, event_id=..., operation=ActionOperation.ANSWER,
+payload=learner_label)` only after displaying that snapshot's question and receiving the
+learner's explicit control. The constructor normalizes answer labels and captures learner,
+course/version, coordinate, question, original record revision and origin. `session.act(action)`
+accepts that complete identity or refuses; a new request never silently rebases a stale revision.
+`ActionOrigin.LEARNER` attests learner controls. `ActionOrigin.PRESENTATION` may acknowledge
+one successfully rendered non-gate beat with an advance `next`; it cannot pass a learner gate.
+This is caller attestation, not cryptographic detection of a human.
+
+Version-two action results separate `original_outcome` from the fresh current `snapshot`.
+`AdvanceOutcome` retains the accepted input and original resulting position; `QuizAnswerOutcome`
+retains the displayed question/label, correctness, authored reason and remediation. Retrying the
+exact captured action returns that same outcome without another effect, including after
+intervening actions, completion or restart. Reusing its event with changed origin, revision,
+coordinate, question or payload conflicts. Event identifiers stay controller-side; persistent
+v2 filenames and reservations contain hashes. Version-one keyed `advance` compatibility
+receipts return `LegacyOutcomeUnavailable` on replay; their original response is never invented.
+
+A keyed answer atomically retains a pending pointer to its immutable canonical outcome.
+The snapshot then has the presentation-only `PresentationBeat.PENDING_FEEDBACK` and no legal
+inputs or future question. Its `pending_feedback` is safe copied feedback, while its position
+continues to describe durable machine state. `question`, continuation, answer, completion and
+homework controls refuse until presentation. After a render failure or cancellation, reopen
+and retrieve `session.pending_feedback()` without a transcript or remembered event key.
+
+Only after the renderer successfully presents the canonical feedback, call
+`session.acknowledge_feedback(pending.feedback_id, pending.revision)`. The opaque exact
+`FeedbackRef` stays on the trusted controller; it is neither model context nor an answer key.
+Acknowledgement journals unchanged record bytes and clearance of only the matching pointer;
+it emits no learner log event or hook. Wrong references or stale revisions conflict; repeated
+presentation and no-pending states are explicit. Rendering cancellation never acknowledges
+automatically. Merely reading or narrating feedback never reapplies the learner action.
+
+Pending old-version feedback prevents explicit upgrade, including a lesson-shape restart,
+with `UpgradeRefusal.PENDING_FEEDBACK`. If selected course content already differs, use
+`FileSession.pending_feedback_at(state_root=..., learner_id=..., course_id=...)` and
+`FileSession.acknowledge_feedback_at(ref, revision, state_root=..., learner_id=..., course_id=...)`.
+These methods use the record's version without requiring selected authored content. After
+actual presentation/acknowledgement, explicit upgrade can proceed and reserves consumed v1
+and v2 keys in the new version. An old outcome never becomes a new-version learner action.
+
+Completion and submission retain their existing receipts. Objective and artifact mutations
+remain revision-controlled operations requiring reconciliation after an ambiguous result: inspect
+current stored evidence or artifact entries before deciding what to do next. They have no
+universal event receipt; pass the captured `expected_revision` and never blindly rebase a retry.
+File-only presentation guards do not impose a universal claim on low-level transforms or other
+`ProgressStore` implementations. Existing unkeyed CLI commands preserve their one-response
+semantics; switching interfaces is no automatic proof of browser presentation.

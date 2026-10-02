@@ -13,7 +13,14 @@ import yaml
 from ..conformance import validate_course
 from ..course import Course, CourseLoadError, Record, ResolvedLesson, is_course_id
 from ..delivery import load_or_create, preview_upgrade
-from ..store import FileProgressStore, RecoveryRequired, StatePathError
+from ..store import (
+    FeedbackPointer,
+    FileProgressStore,
+    PendingFeedback,
+    PendingReference,
+    RecoveryRequired,
+    StatePathError,
+)
 from ..workspace import workspace_read
 from ._errors import RefusalKind, SessionRefusal, VersionMismatch
 
@@ -37,6 +44,8 @@ class Scratch:
     returning_to_quiz: bool = False
     last_key: str | None = None
     last_result: dict[str, object] | None = None
+    pending_feedback: FeedbackPointer | None = None
+    presented_feedback: FeedbackPointer | None = None
 
 
 class RuntimeSession(NamedTuple):
@@ -47,6 +56,7 @@ class RuntimeSession(NamedTuple):
     revision: str | None
     scratch: Scratch
     scratch_bytes: bytes
+    pending_feedback: PendingFeedback | None = None
 
 
 def load_course(path: Path, *, workspace_root: Path | None = None) -> Course:
@@ -109,7 +119,13 @@ def load_runtime(
         store.ensure_course_paths(course.id)
         snapshot = store.read_runtime_snapshot(learner_id, course.id)
         # Validate residuals before first-use initialization can publish a record.
-        parse_scratch(snapshot.scratch if snapshot else store.read_runtime_state(course.id))
+        residual = parse_scratch(
+            snapshot.scratch if snapshot else store.read_runtime_state(course.id)
+        )
+        if snapshot is None and (
+            residual.pending_feedback is not None or residual.presented_feedback is not None
+        ):
+            raise RecoveryRequired("Feedback references require their recorded stream")
         if snapshot is None and initialize:
             load_or_create(store, course, learner_id, now=now)
             snapshot = store.read_runtime_snapshot(learner_id, course.id)
@@ -141,7 +157,16 @@ def load_runtime(
             "position-invalid",
             f"{record.position.coordinate} is not a lesson in {course.id}",
         )
-    return RuntimeSession(course, lesson, store, record, revision, scratch, scratch_bytes)
+    return RuntimeSession(
+        course,
+        lesson,
+        store,
+        record,
+        revision,
+        scratch,
+        scratch_bytes,
+        snapshot.feedback if snapshot else None,
+    )
 
 
 def parse_scratch(raw: bytes) -> Scratch:
@@ -166,16 +191,33 @@ def parse_scratch(raw: bytes) -> Scratch:
         and not isinstance(result, dict)
     ):
         raise RecoveryRequired("Invalid teaching scratch fields")
-    return Scratch(wrong, returning, key, result)
+    try:
+        pending = (
+            PendingReference.model_validate(data["pending_feedback"]).value()
+            if data.get("pending_feedback") is not None
+            else None
+        )
+        presented = (
+            PendingReference.model_validate(data["presented_feedback"]).value()
+            if data.get("presented_feedback") is not None
+            else None
+        )
+    except (ValueError, TypeError) as exc:
+        raise RecoveryRequired("Invalid feedback scratch reference") from exc
+    return Scratch(wrong, returning, key, result, pending, presented)
 
 
 def serialize_scratch(scratch: Scratch) -> bytes:
-    return yaml.safe_dump(
-        {
-            "wrong_count": scratch.wrong_count,
-            "returning_to_quiz": scratch.returning_to_quiz,
-            "last_key": scratch.last_key,
-            "last_result": scratch.last_result,
-        },
-        sort_keys=False,
-    ).encode("utf-8")
+    from dataclasses import asdict
+
+    data = {
+        "wrong_count": scratch.wrong_count,
+        "returning_to_quiz": scratch.returning_to_quiz,
+        "last_key": scratch.last_key,
+        "last_result": scratch.last_result,
+    }
+    if scratch.pending_feedback is not None:
+        data["pending_feedback"] = asdict(scratch.pending_feedback)
+    if scratch.presented_feedback is not None:
+        data["presented_feedback"] = asdict(scratch.presented_feedback)
+    return yaml.safe_dump(data, sort_keys=False).encode("utf-8")

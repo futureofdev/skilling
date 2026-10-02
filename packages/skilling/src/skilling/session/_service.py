@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -13,9 +13,13 @@ from ..course import Capability, Course, QuizQuestion, Record, parse_lesson
 from ..delivery import Beat, IllegalTransition, Input, LessonState, should_offer_revisit
 from ..delivery import advance as apply_input
 from ..store import (
+    ActionIdentity,
+    AdvanceOutcome,
     Conflict,
     IdempotencyKeyConflict,
     InvalidSubmissionToken,
+    LegacyOutcomeUnavailable,
+    QuizAnswerOutcome,
     RecoveryRequired,
     SubmissionToken,
     TransitionCommit,
@@ -32,6 +36,8 @@ from ._teaching import (
     _lesson_state,
     _questions,
     _shape,
+    guard_feedback,
+    prepare_action,
     question_view,
     snapshot_view,
 )
@@ -42,15 +48,19 @@ from ._types import (
     CeremonyView,
     CompletionResult,
     CourseView,
+    FeedbackAcknowledgement,
+    FeedbackRef,
     HomeworkArchiveView,
     HomeworkCheck,
     ObjectiveResult,
     ObjectiveView,
+    PendingFeedback,
     ProgressView,
     QuestionView,
     QuizFeedback,
     SessionSnapshot,
     TelemetryView,
+    TrustedAction,
 )
 
 
@@ -58,7 +68,8 @@ def commit_runtime(
     session: RuntimeSession,
     record: Record,
     scratch: Scratch,
-    identity: TransitionIdentity,
+    identity: TransitionIdentity | ActionIdentity,
+    outcome: AdvanceOutcome | QuizAnswerOutcome | None = None,
 ) -> TransitionResult:
     if session.revision is None:
         raise SessionRefusal(
@@ -72,6 +83,7 @@ def commit_runtime(
                 session.scratch_bytes,
                 record,
                 serialize_scratch(scratch),
+                outcome,
             )
         )
     except IdempotencyKeyConflict as exc:
@@ -81,7 +93,9 @@ def commit_runtime(
 
 
 def view(session: RuntimeSession) -> SessionSnapshot:
-    return snapshot_view(session.course, session.record, session.revision, session.scratch)
+    return snapshot_view(
+        session.course, session.record, session.revision, session.scratch, session.pending_feedback
+    )
 
 
 def committed_session(session: RuntimeSession, result: TransitionResult) -> RuntimeSession:
@@ -99,6 +113,7 @@ def committed_session(session: RuntimeSession, result: TransitionResult) -> Runt
         snapshot.revision,
         parse_scratch(snapshot.scratch),
         snapshot.scratch,
+        snapshot.feedback,
     )
 
 
@@ -161,6 +176,7 @@ class FileSession:
     def question(self) -> QuestionView:
         with workspace_read(self._course.root):
             session = self._load()
+            guard_feedback(session)
             parsed = parse_lesson(session.lesson.path)
             current = _lesson_state(
                 session.record, session.scratch, _shape(session.course, session.lesson, parsed)
@@ -181,6 +197,105 @@ class FileSession:
             raise SessionRefusal(RefusalKind.ILLEGAL, "quiz-finished", "no question is open")
         return questions[index]
 
+    def act(self, action: TrustedAction) -> ActionResult:
+        """Retry one complete captured identity; never silently rebase a new learner event."""
+        try:
+            if not isinstance(action, TrustedAction):
+                raise ValueError("action must be a TrustedAction captured by the controller")
+            identity = action.identity()
+            action = replace(action, origin=identity.origin, operation=identity.verb)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise SessionRefusal(RefusalKind.INVALID, "action-invalid", str(exc)) from exc
+        if (identity.learner_id, identity.course_id, identity.course_version) != (
+            self._learner_id,
+            self._course.id,
+            self._course.version,
+        ):
+            raise SessionRefusal(
+                RefusalKind.CONFLICT, "action-binding", "action belongs to another stream"
+            )
+        with workspace_read(self._course.root):
+            session = self._load()
+            _companion.require_record(session)
+            try:
+                replay = session.store.get_action_result(identity)
+                if replay is not None:
+                    return ActionResult(
+                        view(committed_session(session, replay)), True, replay.outcome
+                    )
+                previous = session.store.get_transition_identity(
+                    self._learner_id, self._course.id, action.event_id
+                )
+                if previous is not None:
+                    raise IdempotencyKeyConflict(
+                        "Version-one key has no full trusted action identity"
+                    )
+            except IdempotencyKeyConflict as exc:
+                raise SessionRefusal(
+                    RefusalKind.CONFLICT, "idempotency-key-conflict", str(exc)
+                ) from exc
+            if session.revision != action.expected_revision:
+                raise SessionRefusal(
+                    RefusalKind.CONFLICT, "conflict", "captured record revision is stale"
+                )
+            if session.lesson.coordinate != action.coordinate:
+                raise SessionRefusal(
+                    RefusalKind.CONFLICT, "action-binding", "captured coordinate changed"
+                )
+            prepared = prepare_action(session, action)
+            result = commit_runtime(
+                session, prepared.record, prepared.scratch, identity, prepared.outcome
+            )
+            return ActionResult(
+                view(committed_session(session, result)), result.replayed, result.outcome
+            )
+
+    @classmethod
+    def pending_feedback_at(
+        cls, *, state_root: Path, learner_id: str, course_id: str
+    ) -> PendingFeedback | None:
+        """Read recorded-version feedback without selected course content or a remembered key."""
+        from ._loading import file_store
+
+        return file_store(state_root).pending_feedback(learner_id, course_id)
+
+    def pending_feedback(self) -> PendingFeedback | None:
+        return self.pending_feedback_at(
+            state_root=self._state_root, learner_id=self._learner_id, course_id=self._course.id
+        )
+
+    @classmethod
+    def acknowledge_feedback_at(
+        cls,
+        feedback_id: FeedbackRef,
+        expected_revision: str,
+        *,
+        state_root: Path,
+        learner_id: str,
+        course_id: str,
+    ) -> FeedbackAcknowledgement:
+        from ._loading import file_store
+
+        if not isinstance(feedback_id, FeedbackRef) or (
+            feedback_id._learner_id,
+            feedback_id._course_id,
+        ) != (learner_id, course_id):
+            raise SessionRefusal(
+                RefusalKind.CONFLICT, "feedback-binding", "feedback belongs to another stream"
+            )
+        return file_store(state_root).acknowledge_feedback(feedback_id, expected_revision)
+
+    def acknowledge_feedback(
+        self, feedback_id: FeedbackRef, expected_revision: str
+    ) -> FeedbackAcknowledgement:
+        return self.acknowledge_feedback_at(
+            feedback_id,
+            expected_revision,
+            state_root=self._state_root,
+            learner_id=self._learner_id,
+            course_id=self._course.id,
+        )
+
     def advance(self, input: Input | str, *, event_id: str | None = None) -> ActionResult:
         with workspace_read(self._course.root):
             session = self._load()
@@ -194,11 +309,16 @@ class FileSession:
                         if previous.verb != "advance" or previous.input != given_input:
                             raise IdempotencyKeyConflict("Key already belongs to a different input")
                         result = commit_runtime(session, session.record, session.scratch, previous)
-                        return ActionResult(view(committed_session(session, result)), True)
+                        return ActionResult(
+                            view(committed_session(session, result)),
+                            True,
+                            LegacyOutcomeUnavailable(),
+                        )
                 except IdempotencyKeyConflict as exc:
                     raise SessionRefusal(
                         RefusalKind.CONFLICT, "idempotency-key-conflict", str(exc)
                     ) from exc
+            guard_feedback(session)
             if _course_complete(session.course, session.record):
                 raise SessionRefusal(
                     RefusalKind.ILLEGAL,
@@ -237,6 +357,7 @@ class FileSession:
         """Unkeyed compatibility answer. Repetition is a new action, not a safe retry."""
         with workspace_read(self._course.root):
             session = self._load()
+            guard_feedback(session)
             parsed = parse_lesson(session.lesson.path)
             current = _lesson_state(
                 session.record, session.scratch, _shape(session.course, session.lesson, parsed)
@@ -308,7 +429,9 @@ class FileSession:
         self, expected_revision: str | None, *, now: datetime | None = None
     ) -> CompletionResult:
         with workspace_read(self._course.root):
-            return _companion.complete(self._load(), expected_revision, now or self._now)
+            session = self._load()
+            guard_feedback(session)
+            return _companion.complete(session, expected_revision, now or self._now)
 
     def ceremony(
         self, coordinate: str | None = None, *, workspace_root: Path | None = None
@@ -321,7 +444,9 @@ class FileSession:
     def homework_check(self) -> HomeworkCheck:
         """Read the active assignment and controller-only token; no evaluation or consent."""
         with workspace_read(self._course.root):
-            return _companion.homework_check(self._load(initialize=False))
+            session = self._load(initialize=False)
+            guard_feedback(session)
+            return _companion.homework_check(session)
 
     def homework_submit(self, token: str, *, now: datetime | None = None) -> HomeworkArchiveView:
         # Validate token binding before recovery or any learner-state access.
@@ -333,7 +458,9 @@ class FileSession:
         ):
             raise InvalidSubmissionToken("Token belongs to a different record stream")
         with workspace_read(self._course.root):
-            return _companion.homework_submit(self._load(initialize=False), token, now or self._now)
+            session = self._load(initialize=False)
+            guard_feedback(session)
+            return _companion.homework_submit(session, token, now or self._now)
 
     def objectives(self, capabilities: Iterable[Capability] = ()) -> tuple[ObjectiveView, ...]:
         with workspace_read(self._course.root):

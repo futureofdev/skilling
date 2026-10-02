@@ -1,4 +1,4 @@
-"""Copied, immutable teaching views; no course, parser, store or action handle."""
+"""Frozen copied teaching values and explicit controller-only action identities."""
 
 from __future__ import annotations
 
@@ -7,6 +7,34 @@ from datetime import date, datetime
 from enum import StrEnum
 
 from ..delivery import Beat, Input
+from ..store import (
+    AcknowledgementStatus as AcknowledgementStatus,
+)
+from ..store import (
+    ActionBoundary,
+    ActionIdentity,
+    ActionOperation,
+    ActionOrigin,
+    key_digest,
+)
+from ..store import (
+    AdvanceOutcome as AdvanceOutcome,
+)
+from ..store import (
+    FeedbackAcknowledgement as FeedbackAcknowledgement,
+)
+from ..store import (
+    FeedbackRef as FeedbackRef,
+)
+from ..store import (
+    LegacyOutcomeUnavailable as LegacyOutcomeUnavailable,
+)
+from ..store import (
+    PendingFeedback as PendingFeedback,
+)
+from ..store import (
+    QuizAnswerOutcome as QuizAnswerOutcome,
+)
 
 
 @dataclass(frozen=True)
@@ -47,9 +75,13 @@ class QuestionView:
     options: tuple[OptionView, ...]
 
 
+class PresentationBeat(StrEnum):
+    PENDING_FEEDBACK = "pending-feedback"
+
+
 @dataclass(frozen=True)
 class BeatView:
-    name: Beat
+    name: Beat | PresentationBeat
     coordinate: str | None = None
     title: str | None = None
     body: str | None = None
@@ -96,6 +128,7 @@ class SessionSnapshot:
     completed_count: int
     lesson_count: int
     tutor: TutorView | None = None
+    pending_feedback: QuizAnswerOutcome | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +143,7 @@ class QuizFeedback:
 class ActionResult:
     snapshot: SessionSnapshot
     replayed: bool
+    original_outcome: AdvanceOutcome | QuizAnswerOutcome | LegacyOutcomeUnavailable | None = None
 
 
 @dataclass(frozen=True)
@@ -252,3 +286,65 @@ class ArtifactResult:
     course: CourseView
     artifact: ArtifactView
     revision: str | None
+
+
+@dataclass(frozen=True)
+class TrustedAction:
+    """Controller attestation bound to the displayed state, never model-supplied authority."""
+
+    event_id: str
+    origin: ActionOrigin
+    learner_id: str
+    course_id: str
+    course_version: str
+    coordinate: str
+    question_number: int | None
+    expected_revision: str
+    operation: ActionOperation
+    payload: str
+
+    @classmethod
+    def create(
+        cls,
+        snapshot: SessionSnapshot,
+        *,
+        event_id: str,
+        operation: ActionOperation,
+        payload: str,
+        origin: ActionOrigin = ActionOrigin.LEARNER,
+    ) -> TrustedAction:
+        if snapshot.revision is None:
+            raise ValueError("trusted actions require an initialized record")
+        question = snapshot.beat.question
+        action = cls(
+            event_id,
+            origin,
+            snapshot.learner_id,
+            snapshot.course.id,
+            snapshot.course.version,
+            snapshot.position.coordinate,
+            question.number if operation is ActionOperation.ANSWER and question else None,
+            snapshot.revision,
+            operation,
+            payload.strip().lower() if operation is ActionOperation.ANSWER else str(payload),
+        )
+        action.identity()
+        return action
+
+    def identity(self) -> ActionIdentity:
+        if self.operation is ActionOperation.ACKNOWLEDGE:
+            raise ValueError("presentation acknowledgement requires an exact FeedbackRef")
+        return ActionBoundary.model_validate(
+            {
+                "learner_id": self.learner_id,
+                "course_id": self.course_id,
+                "course_version": self.course_version,
+                "coordinate": self.coordinate,
+                "verb": self.operation,
+                "input": self.payload,
+                "key": key_digest(self.event_id),
+                "origin": self.origin,
+                "expected_revision": self.expected_revision,
+                "question_number": self.question_number,
+            }
+        ).value()

@@ -116,7 +116,11 @@ def complete(
     assert snapshot is not None
     return CompletionResult(
         snapshot_view(
-            session.course, snapshot.record, snapshot.revision, parse_scratch(snapshot.scratch)
+            session.course,
+            snapshot.record,
+            snapshot.revision,
+            parse_scratch(snapshot.scratch),
+            snapshot.feedback,
         ),
         outcome.already_completed,
         tuple(outcome.badges_awarded),

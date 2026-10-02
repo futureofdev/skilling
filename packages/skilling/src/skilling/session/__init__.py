@@ -1,5 +1,6 @@
 """Experimental, LLM-free file session API for trusted producer controllers."""
 
+from ..store import ActionOperation, ActionOrigin
 from ._errors import RefusalKind, SessionRefusal, VersionMismatch
 from ._loading import RuntimeSession as _RuntimeSession
 from ._loading import Scratch as _Scratch
@@ -12,7 +13,9 @@ from ._service import commit_runtime as _commit_runtime
 from ._teaching import _course_complete, _lesson_state, _shape
 from ._teaching import snapshot_view as _snapshot_view
 from ._types import (
+    AcknowledgementStatus,
     ActionResult,
+    AdvanceOutcome,
     ArtifactResult,
     ArtifactView,
     AssignmentView,
@@ -21,25 +24,43 @@ from ._types import (
     CompletionResult,
     CourseView,
     EvidenceKind,
+    FeedbackAcknowledgement,
+    FeedbackRef,
     HomeworkArchiveView,
     HomeworkCheck,
+    LegacyOutcomeUnavailable,
     ObjectiveResult,
     ObjectiveType,
     ObjectiveView,
     OptionView,
+    PendingFeedback,
     PositionView,
+    PresentationBeat,
     ProgressView,
     ProvenanceView,
     QuestionView,
+    QuizAnswerOutcome,
     QuizFeedback,
     RequirementVerdict,
     RequirementView,
     SessionSnapshot,
     TelemetryView,
+    TrustedAction,
     TutorView,
 )
 
 __all__ = [
+    "TrustedAction",
+    "PresentationBeat",
+    "AdvanceOutcome",
+    "QuizAnswerOutcome",
+    "LegacyOutcomeUnavailable",
+    "FeedbackRef",
+    "PendingFeedback",
+    "FeedbackAcknowledgement",
+    "AcknowledgementStatus",
+    "ActionOrigin",
+    "ActionOperation",
     "_RuntimeSession",
     "_Scratch",
     "_commit_runtime",
