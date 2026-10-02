@@ -192,7 +192,7 @@ function Status({specVersion}: {specVersion: string}): ReactNode {
           <div>
             <dt>Independent implementations</dt>
             <dd>
-              <Link to="/docs/how-it-works/implementations">0 so far</Link>
+              <Link to="/docs/write/status">0 so far</Link>
             </dd>
           </div>
           <div>

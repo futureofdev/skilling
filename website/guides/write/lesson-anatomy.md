@@ -1,25 +1,46 @@
 ---
 title: Anatomy of a lesson
-description: The frontmatter and the fixed sections every lesson uses.
+description: The parts of a lesson file, what each one is for, and how to leave a part out on purpose.
 ---
 
 # Anatomy of a lesson
 
-A lesson is one markdown file: some YAML frontmatter, then a set of sections with exact
-headings, always in the same order.
+A lesson is one text file with two parts: a short header (called **frontmatter**) and a fixed
+list of sections.
 
-Why so strict? The tutor teaching your course has never seen it before and can't ask you what
-you meant. Because every lesson has the same shape, it always knows where the concept, the
+```mermaid
+flowchart TB
+    subgraph Lesson ["lesson-01-water-and-time.md"]
+      direction TB
+      FM["<b>Frontmatter</b><br/>title, number, objectives,<br/>which optional parts exist"]
+      LO["## Learning Objectives<br/><i>required, unless in frontmatter</i>"]
+      CO["## The Concept<br/><i>required</i>"]
+      KT["## Key Terms<br/><i>optional</i>"]
+      EX["## Hands-On Exercise<br/><i>optional</i>"]
+      QQ["## Quick Quiz<br/><i>required</i>"]
+      HW["## Homework Assignment<br/><i>only with homework: true</i>"]
+      NU["## Next Up<br/><i>optional</i>"]
+      FM --> LO --> CO --> KT --> EX --> QQ --> HW --> NU
+    end
+```
+
+The headings must be spelled exactly like this and appear in this order. You can't add new
+`##` sections, but you can use `###` subheadings inside any section.
+
+**Why so strict?** The tutor teaching your course has never seen it before and can't ask you
+what you meant. Because every lesson has the same shape, it always knows where the idea, the
 exercise and the quiz are.
 
-## Frontmatter
+## The frontmatter
+
+The frontmatter sits between two `---` lines at the top:
 
 ```yaml
 ---
-title: First Steps
+title: Water and Time
 phase: 1
 lesson: 1
-duration_minutes: 15
+duration_minutes: 10
 prerequisites: []
 skills_unlocked: []
 sections:
@@ -29,54 +50,55 @@ sections:
 ---
 ```
 
-`title`, `phase` and `lesson` must match the manifest. The validator compares them, so a lesson
-that gets renumbered in one place but not the other fails straight away instead of being taught
-as the wrong lesson.
-
-## The sections
-
-| Heading | When |
+| Field | Meaning |
 |---|---|
-| `## Learning Objectives` | Required, unless you use [structured objectives](objectives-quizzes-homework#objectives) |
-| `## The Concept` | Required |
-| `## Key Terms` | Optional |
-| `## Hands-On Exercise` | Optional |
-| `## Quick Quiz` | Required |
-| `## Homework Assignment` | Only when the manifest says `homework: true` |
-| `## Next Up` | Optional |
+| `title`, `phase`, `lesson` | Must match `course.yaml`. The validator checks this, so a renumbered lesson can't go out wrong. |
+| `duration_minutes` | Roughly how long the lesson takes. |
+| `prerequisites` | Lessons that must come first, written as `"phase.lesson"`, like `["1.1"]`. |
+| `skills_unlocked` | Badges the learner earns by finishing this lesson. |
+| `objectives` | Optional. Named objectives the tutor can aim at. See [objectives](objectives-quizzes-homework#objectives). |
+| `sections` | Says which optional sections this lesson has. |
 
-Use `###` subheadings freely inside a section. You can't add new `##` sections or change the
-order.
+## Each section's job
 
-## Say when something is missing on purpose
+| Section | Its job | Tips |
+|---|---|---|
+| **Learning Objectives** | What the learner will be able to do by the end. | Write from the learner's side: "Explain why...", "Brew one cup...". |
+| **The Concept** | Teach the idea. | One idea, a concrete example, enough to explain twice. |
+| **Key Terms** | Define new words. | One line each. |
+| **Hands-On Exercise** | Let the learner try it. | Give them a decision to make, not a page to copy. |
+| **Quick Quiz** | Check understanding. | Exactly 3 questions, 4 options, an answer with a reason. |
+| **Homework Assignment** | A task at the end of a phase. | A checklist the tutor can give feedback on. |
+| **Next Up** | Tease the next lesson. | One or two sentences. No numbers. |
 
-Every optional section has to be declared in `sections`, either as present or as absent with a
-reason:
+## Leaving a section out on purpose
+
+Every optional section must be listed under `sections`. If you leave one out, say so and say
+why:
 
 ```yaml
 sections:
-  key_terms: present
-  exercise:
+  key_terms:
     status: none
-    intent: "Project phase: the learner's own build is the exercise."
-  next_up: present
+    intent: "No new words in this lesson; it applies the terms from lesson 1."
+  exercise: present
+  next_up:
+    status: none
+    intent: "Last lesson of the course, so there is nothing to tease."
 ```
 
-Leaving a section out is fine. Leaving it out *silently* isn't, because then nobody can tell a
-decision from an oversight. A tutor that finds no exercise and no explanation might improvise
-one, and then every learner gets a different course.
+```mermaid
+flowchart LR
+    A["Optional section<br/>missing"] --> B{"Declared in<br/>sections?"}
+    B -- "yes, with a reason" --> C["Fine. The tutor<br/>knows it's on purpose."]
+    B -- "no" --> D["Validator error.<br/>Nobody can tell if<br/>it was forgotten."]
+```
 
-## Write the concept to be taught twice
+The `intent` is shown to the learner in place of the missing part, so write it for them to read.
 
-The tutor goes back to `## The Concept` when a learner asks to go deeper or gets a question
-wrong. A thin concept section can only be taught once. Give it a concrete example, and enough
-substance that a second explanation can come at it from a different angle.
+If a tutor finds no exercise and no reason, it might make one up, and then every learner gets a
+different course. A short reason prevents that.
 
-## Write exercises for a tutor
+**On the last lesson of a course,** declare `next_up` absent. There's nothing to tease.
 
-The tutor can do the typing, so write exercises around decisions. Ask the learner to classify,
-predict, justify or critique something, and let the tutor turn that into a file or a command.
-Save learner-only steps for things the assistant can't or mustn't do, such as entering a
-password or approving something important.
-
-The complete rules are in the [course format specification](/spec/course-format#lesson-files).
+The full rules are in the [course format specification](/spec/course-format#lesson-files).

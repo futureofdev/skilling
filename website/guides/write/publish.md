@@ -1,47 +1,84 @@
 ---
 title: Publish and share
-description: Tag a release, test the start command, and tell learners how to begin.
+description: Put your course in Git, tag a version, test the start command, and tell learners how to begin.
 ---
 
 # Publish and share
 
-## Put it in Git and tag it
+Publishing a Skilling course means putting it in a Git repository and telling people one
+command to start it.
 
-Commit your course to a Git repository. It can sit at the root, or in a subfolder if you use
-GitHub. Tag the commit you've reviewed:
+```mermaid
+flowchart LR
+    A["Commit to Git"] --> B["Push to GitHub"] --> C["Tag a version<br/>v1.0.0"] --> D["Test the start<br/>command"] --> E["Share it"]:::learner
+    classDef learner stroke-width:1px
+```
+
+## Step 1: put it in Git
+
+If you haven't used Git before, your assistant can do this for you. Open your course folder in
+Claude Code or Codex and ask: "Put this course in a new Git repository and push it to my
+GitHub account." It will explain each step and ask before it runs anything.
+
+Or run it yourself. A **commit** is a saved snapshot of your files:
+
+```bash
+cd better-tea
+git init
+git add .
+git commit -m "First version of the tea course"
+```
+
+Then create an empty repository on [GitHub](https://github.com/new) and follow its "push an
+existing repository" instructions. To **push** means to upload your commits.
+
+A course can be the whole repository, or a folder inside it (for example `courses/better-tea`).
+
+## Step 2: tag a version
+
+A tag is a permanent label on one exact version of your files.
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-## Test the exact command learners will run
+Learners who use this tag always get exactly what you tested.
 
-Start it from a clean folder, the way a stranger would:
+## Step 3: test the exact command
+
+From a clean folder, run the command a stranger would:
 
 ```bash
-skilling start 'gh:you/your-repo@v1.0.0#courses/my-course' clean-preview --json
+skilling start 'gh:you/your-repo@v1.0.0#courses/better-tea' clean-test --json
 ```
 
-Leave off `#courses/my-course` if the course is at the root of the repository. A full commit
-works in place of the tag. Don't advertise a branch as if it were fixed, and don't offer a ZIP
-download as a source, because Skilling doesn't fetch those.
+Leave off `#courses/better-tea` if the course is at the top of the repository. Then open
+`clean-test` in your assistant and check the first lesson starts.
 
-## Write a README for learners
+:::warning
+Don't share a branch name (like `main`) as if it were fixed. A branch is a line of work that
+keeps changing; a tag never moves. Don't offer a ZIP download
+either, because Skilling doesn't fetch those.
+:::
 
-Say what the course teaches, who it's for, what they need first, how to start, and where to get
-help. Include the tested start command and a licence for the content. Then add the badge:
+## Step 4: write a README for learners
+
+Your repository's `README.md` is the first thing learners see. Include:
+
+- what the course teaches, and who it's for,
+- what they need first,
+- the tested start command,
+- where to get help,
+- a licence for your content.
+
+Then add the badge:
 
 ```markdown
 [![built with Skilling](https://raw.githubusercontent.com/futureofdev/skilling/main/brand/assets/github/badges/built-with-skilling.svg)](https://github.com/futureofdev/skilling)
 ```
 
-## Shipping updates
+You can also point learners to [start learning](../learn/start), which explains everything
+from installing the tools onwards.
 
-Bump `version` for every change, even a typo fix. Skilling refuses different content that
-claims a version a learner already has. Learners can then move up with
-`skilling upgrade --course <id>` or `/upgrade-skilling`, keeping their progress through patch
-and minor releases.
-
-The [authoring reference](https://github.com/futureofdev/skilling/blob/main/docs/authoring-a-course.md)
-has the full checklist.
+Next: [updating a published course](updates).

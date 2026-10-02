@@ -59,6 +59,7 @@ const config: Config = {
   markdown: {
     // .md is CommonMark (the spec and guides stay plain markdown); .mdx opts into JSX.
     format: 'detect',
+    mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: 'throw',
     },
@@ -78,6 +79,8 @@ const config: Config = {
   stylesheets: [
     'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap',
   ],
+
+  themes: ['@docusaurus/theme-mermaid'],
 
   presets: [
     [
@@ -130,7 +133,6 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'learn', position: 'left', label: 'Learn'},
         {type: 'docSidebar', sidebarId: 'write', position: 'left', label: 'Write a course'},
-        {type: 'docSidebar', sidebarId: 'howItWorks', position: 'left', label: 'How it works'},
         {type: 'docSidebar', sidebarId: 'spec', docsPluginId: 'spec', position: 'left', label: 'Specification'},
         {href: REPO, label: 'GitHub', position: 'right'},
       ],
@@ -141,14 +143,16 @@ const config: Config = {
         {
           title: 'Learn',
           items: [
-            {label: 'Start learning', to: '/docs/learn/start'},
-            {label: 'Find a course', to: '/docs/learn/courses'},
+            {label: 'Why learn this way', to: '/docs/learn/why'},
+            {label: 'Install your tools', to: '/docs/learn/install'},
+            {label: 'Start your first course', to: '/docs/learn/start'},
             {label: 'Troubleshooting', to: '/docs/learn/troubleshooting'},
           ],
         },
         {
           title: 'Write',
           items: [
+            {label: 'Why write a course', to: '/docs/write/why'},
             {label: 'Your first course', to: '/docs/write/first-course'},
             {label: 'Publish and share', to: '/docs/write/publish'},
             {label: 'Error codes', href: `${REPO}/blob/main/docs/error-codes.md`},
@@ -158,7 +162,7 @@ const config: Config = {
           title: 'Project',
           items: [
             {label: 'Specification', to: '/spec'},
-            {label: 'Implementations', to: '/docs/how-it-works/implementations'},
+            {label: 'Format status', to: '/docs/write/status'},
             {label: 'Contributing', href: `${REPO}/blob/main/CONTRIBUTING.md`},
             {label: 'GitHub', href: REPO},
           ],
@@ -166,6 +170,15 @@ const config: Config = {
       ],
       copyright:
         'Specification text CC BY 4.0. Reference implementation Apache-2.0. Skilling was created by Future of Dev.',
+    },
+    mermaid: {
+      // Colours come from custom.css (brand tokens, per colour mode); 'base' keeps Mermaid neutral.
+      theme: {light: 'base', dark: 'base'},
+      options: {
+        fontFamily: 'Inter, -apple-system, Segoe UI, Arial, sans-serif',
+        flowchart: {curve: 'linear', htmlLabels: true, padding: 14},
+        sequence: {mirrorActors: false},
+      },
     },
     prism: {
       theme: prismThemes.vsLight,

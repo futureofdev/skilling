@@ -187,3 +187,130 @@ footer .footer__copyright a {
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
+
+/* ---------------------------------------------------------------- diagrams
+ * Mermaid renders with its neutral 'base' theme; these rules repaint it from the
+ * brand tokens so diagrams follow light/dark mode. Accent is the diagram colour,
+ * lime marks only learner action or saved evidence (class "learner"/"saved").
+ */
+.docusaurus-mermaid-container {
+  margin: 1.5rem 0 2rem;
+  padding: 1.25rem;
+  background: var(--site-panel);
+  border: 1px solid var(--site-line);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.docusaurus-mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.docusaurus-mermaid-container svg rect,
+.docusaurus-mermaid-container svg .node rect,
+.docusaurus-mermaid-container svg .cluster rect {
+  rx: 0 !important;
+  ry: 0 !important;
+}
+
+.docusaurus-mermaid-container svg .node rect,
+.docusaurus-mermaid-container svg .node polygon,
+.docusaurus-mermaid-container svg .node circle,
+.docusaurus-mermaid-container svg .node path,
+.docusaurus-mermaid-container svg rect.actor,
+.docusaurus-mermaid-container svg .stateGroup rect,
+.docusaurus-mermaid-container svg g.stateGroup rect,
+.docusaurus-mermaid-container svg .statediagram-state rect.basic,
+.docusaurus-mermaid-container svg .statediagram-state > rect {
+  fill: var(--ifm-background-color) !important;
+  stroke: var(--ifm-font-color-base) !important;
+  stroke-width: 1px !important;
+}
+
+.docusaurus-mermaid-container svg .cluster rect {
+  fill: transparent !important;
+  stroke: var(--site-line) !important;
+  stroke-dasharray: 4 3;
+}
+
+.docusaurus-mermaid-container svg .node.learner rect,
+.docusaurus-mermaid-container svg .node.learner polygon,
+.docusaurus-mermaid-container svg .node.saved rect,
+.docusaurus-mermaid-container svg .node.saved polygon {
+  fill: var(--sk-build) !important;
+  stroke: var(--sk-ink) !important;
+}
+
+.docusaurus-mermaid-container svg .node.learner .nodeLabel,
+.docusaurus-mermaid-container svg .node.saved .nodeLabel,
+.docusaurus-mermaid-container svg .node.learner text,
+.docusaurus-mermaid-container svg .node.saved text {
+  color: var(--sk-ink) !important;
+  fill: var(--sk-ink) !important;
+}
+
+.docusaurus-mermaid-container svg .nodeLabel,
+.docusaurus-mermaid-container svg .label,
+.docusaurus-mermaid-container svg .cluster-label,
+.docusaurus-mermaid-container svg text,
+.docusaurus-mermaid-container svg .messageText,
+.docusaurus-mermaid-container svg .actor tspan,
+.docusaurus-mermaid-container svg .loopText,
+.docusaurus-mermaid-container svg .noteText {
+  color: var(--ifm-font-color-base) !important;
+  fill: var(--ifm-font-color-base) !important;
+  font-family: var(--sk-body) !important;
+}
+
+.docusaurus-mermaid-container svg .edgeLabel,
+.docusaurus-mermaid-container svg .edgeLabel p,
+.docusaurus-mermaid-container svg .edgeLabel rect,
+.docusaurus-mermaid-container svg .labelBkg {
+  background-color: var(--site-panel) !important;
+  fill: var(--site-panel) !important;
+  color: var(--site-muted) !important;
+}
+
+.docusaurus-mermaid-container svg .flowchart-link,
+.docusaurus-mermaid-container svg .transition,
+.docusaurus-mermaid-container svg .messageLine0,
+.docusaurus-mermaid-container svg .messageLine1,
+.docusaurus-mermaid-container svg .actor-line,
+.docusaurus-mermaid-container svg .relation {
+  stroke: var(--site-diagram) !important;
+  stroke-width: 1.5px !important;
+}
+
+.docusaurus-mermaid-container svg marker path,
+.docusaurus-mermaid-container svg .arrowheadPath,
+.docusaurus-mermaid-container svg #arrowhead path,
+.docusaurus-mermaid-container svg .marker {
+  fill: var(--site-diagram) !important;
+  stroke: var(--site-diagram) !important;
+}
+
+.docusaurus-mermaid-container svg .note {
+  fill: var(--site-panel) !important;
+  stroke: var(--site-line) !important;
+}
+
+.docusaurus-mermaid-container svg .state-start,
+.docusaurus-mermaid-container svg circle.state-start,
+.docusaurus-mermaid-container svg .state-end,
+.docusaurus-mermaid-container svg .end-state-inner {
+  fill: var(--ifm-font-color-base) !important;
+  stroke: var(--ifm-font-color-base) !important;
+}
+
+.docusaurus-mermaid-container svg .activation0,
+.docusaurus-mermaid-container svg .activation1 {
+  fill: var(--site-panel) !important;
+  stroke: var(--site-line) !important;
+}
+
+.docusaurus-mermaid-container svg .node.learner path,
+.docusaurus-mermaid-container svg .node.saved path {
+  fill: var(--sk-build) !important;
+  stroke: var(--sk-ink) !important;
+}

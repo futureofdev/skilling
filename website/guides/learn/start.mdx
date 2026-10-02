@@ -1,52 +1,159 @@
 ---
-title: Start learning
-description: Set up Skilling and take your first lesson in Claude Code or Codex.
+title: Start your first course
+description: Set up a learning folder and take your first lesson, by pasting one prompt or typing three commands.
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 import {StartPrompt, StartCommands} from '@site/src/components/StartPrompt';
 
-# Start learning
+# Start your first course
 
-Skilling turns Claude Code or Codex into a one-to-one tutor. You'll have your first lesson
-running in a few minutes.
+You'll set up a **learning folder** called `my-learning` and start the *Welcome to Skilling*
+course. It's two short lessons, about five minutes each, on how to get the most out of being
+tutored.
 
-## What you need
+Before you start, you need Git, uv and Claude Code or Codex. If you don't have them yet,
+[install your tools](install) first.
 
-- [Git](https://git-scm.com/downloads)
-- [uv](https://docs.astral.sh/uv/getting-started/installation/), a small tool for installing Python programs
-- Claude Code or Codex, signed in as usual
+There are two ways to do it. Both end up in the same place.
 
-Skilling has no language model of its own and needs no API key. Your coding assistant supplies
-the model, using its normal account and network access.
+## The easy way: paste one prompt
 
-## Paste one prompt
+**1. Open the terminal** and start your assistant:
 
-Copy this into your coding assistant. It checks your setup, installs Skilling, creates a
-learning folder called `my-learning`, and starts teaching you.
+<Tabs groupId="assistant">
+<TabItem value="claude" label="Claude Code" default>
+
+```bash
+claude
+```
+
+</TabItem>
+<TabItem value="codex" label="Codex">
+
+```bash
+codex
+```
+
+</TabItem>
+</Tabs>
+
+**2. Paste this prompt** into the assistant and press **Enter**. Use the copy button in the top
+corner of the box.
 
 <StartPrompt />
 
-Your first course is *Welcome to Skilling*: two five-minute lessons on how to get the most out
-of being tutored.
+**3. Say yes when it asks.** The assistant will want to run a few commands, such as
+`uv tool install skilling`. It usually asks your permission first. Read what it wants to run, then
+approve it.
+
+Here's what happens next:
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant AI as Your assistant
+    participant S as Skilling
+    You->>AI: Paste the prompt
+    AI->>AI: Check Git and uv are installed
+    AI->>S: Install Skilling (asks you first)
+    AI->>S: Create the my-learning folder
+    S-->>AI: Folder ready, course copied in
+    AI->>You: Start teaching, or ask you to reopen the folder
+```
+
+**4. You may need to reopen it.** Your assistant only notices new skills in a folder when it
+starts. If it tells you to reopen, do this:
+
+<Tabs groupId="assistant">
+<TabItem value="claude" label="Claude Code" default>
+
+Type `/exit` and press **Enter** to leave Claude Code. Then, back in the terminal:
+
+```bash
+cd my-learning
+claude
+```
+
+Then type `/learn` and press **Enter**.
+
+</TabItem>
+<TabItem value="codex" label="Codex">
+
+Type `/exit` and press **Enter** to leave Codex. Then, back in the terminal:
+
+```bash
+cd my-learning
+codex
+```
+
+Then type `$learn` and press **Enter**.
+
+</TabItem>
+</Tabs>
+
+The first time you open a folder, your assistant may ask whether you trust it. Your learning
+folder is safe to trust.
 
 ## Type the commands yourself
 
-If you'd rather run the setup by hand, these are the same steps:
+If you'd rather run the setup by hand, paste these into the terminal one at a time:
 
 <StartCommands />
 
-Then open the `my-learning` folder in your assistant and type:
+The last command prints a block of text. (`--json` just means "print the result in a tidy,
+machine-readable format".) Look for `"workspace"`: that's the **path**, the full address, of
+your new learning folder. Then go into it and start your assistant:
 
-- `/learn` in Claude Code
-- `$learn` in Codex
+<Tabs groupId="assistant">
+<TabItem value="claude" label="Claude Code" default>
 
-:::tip[Already had the assistant open?]
-Skilling installs its skills inside the new folder. If your assistant was already running,
-close it and reopen that exact folder so it finds them.
-:::
+```bash
+cd my-learning
+claude
+```
 
-## What happens next
+Type `/learn` and press **Enter**.
 
-The tutor explains one idea, asks you something, and waits for your real reply before it moves
-on. Read [your first lesson](first-lesson) for what to expect, or
-[troubleshooting](troubleshooting) if the setup didn't work.
+</TabItem>
+<TabItem value="codex" label="Codex">
+
+```bash
+cd my-learning
+codex
+```
+
+Type `$learn` and press **Enter**.
+
+</TabItem>
+</Tabs>
+
+## Where did everything go?
+
+The `my-learning` folder is created inside whichever folder your terminal was in, usually your
+home folder. You can see it in Finder, File Explorer or your file manager like any other folder.
+
+```mermaid
+flowchart TD
+    Home["Your home folder"] --> ML["my-learning<br/>(your learning folder)"]
+    ML --> Show["showcase<br/>your work"]:::saved
+    ML --> Hidden[".skilling<br/>the course and your progress"]
+    classDef saved stroke-width:1px
+```
+
+Learn more in [your workspace](your-workspace).
+
+## Coming back tomorrow
+
+Open the terminal, go into your folder, start your assistant, and ask for the next lesson:
+
+```bash
+cd my-learning
+claude
+```
+
+Then `/learn` (or `codex`, then `$learn`). The tutor checks your saved progress and carries on
+from where you stopped.
+
+Next: [your first lesson](first-lesson).

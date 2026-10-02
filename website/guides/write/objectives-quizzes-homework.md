@@ -1,85 +1,136 @@
 ---
 title: Objectives, quizzes and homework
-description: How to write objectives a tutor can act on, quizzes that teach, and homework.
+description: How to write objectives a tutor can act on, quizzes that teach, and homework a tutor can review.
 ---
 
 # Objectives, quizzes and homework
 
+These three work together. Objectives say what the learner should be able to do. The quiz
+checks for confusion along the way. Homework gives the learner something real to make.
+
+```mermaid
+flowchart LR
+    O["Objectives<br/><i>what they'll be able to do</i>"] --> Q["Quiz<br/><i>spots confusion</i>"]
+    O --> E["Exercise and homework<br/><i>real evidence</i>"]:::learner
+    Q -. "a wrong answer points<br/>back to an objective" .-> O
+    classDef learner stroke-width:1px
+```
+
 ## Objectives
 
-You can write objectives as a plain bullet list under `## Learning Objectives`. Or give them ids
-in the frontmatter, so a tutor can aim at a specific one:
+You can write objectives as a simple list:
+
+```markdown
+## Learning Objectives
+By the end of this lesson, you will:
+- Explain why green tea needs cooler water than black tea
+- Say what happens to tea when it steeps for too long
+```
+
+Or you can name them in the frontmatter, so the tutor can aim at each one:
 
 ```yaml
 objectives:
-  - id: what-a-terminal-is
+  - id: explain-temperature
     kind: knowledge
-    text: Say what the terminal is and why developers use it
-    about: [1, 3]
-  - id: open-a-terminal
+    text: Explain why green tea needs cooler water than black tea
+    about: [1, 2]
+  - id: brew-and-record
     kind: practice
-    text: Open the terminal on your own computer
-    verify: A terminal is open and its prompt responds to a command
+    text: Brew one cup on purpose and write down what you did and how it tasted
+    verify: A brewing note exists in the learner's showcase folder with the tea, temperature, time and a taste note
 ```
 
-If you use the frontmatter form, leave out the `## Learning Objectives` section. One source of
-truth is enough.
+Use one form or the other, not both. If you use the frontmatter form, leave out the
+`## Learning Objectives` section.
 
-There are two kinds:
+### Two kinds of objective
 
-- **`knowledge`**: something the learner can explain. A tutor checks it in conversation.
-- **`practice`**: something the learner does, or a state their machine is in. Only a tutor that
-  can look at files, Git or command output can confirm it.
+| Kind | It means the learner... | How a tutor checks |
+|---|---|---|
+| `knowledge` | can **explain** something | By talking with them |
+| `practice` | has **done** something, or their computer is in some state | By looking at files, Git or command output |
 
-`verify` describes what success looks like in a sentence. You can add a literal `check` command
-too, but treat it as a suggestion: the tutor may decline it, and it never runs without the
-learner's permission. `about` lists the quiz questions that relate to the objective, so a tutor
-can say "that one was about opening a terminal" instead of repeating the whole lesson.
+`practice` objectives are one reason Skilling uses coding assistants: they can actually look.
+
+### The other fields
+
+| Field | Use it to... |
+|---|---|
+| `about` | List the quiz questions (by number) that relate to this objective. The tutor can then say "that one was about water temperature" instead of repeating everything. |
+| `verify` | Describe what success looks like, in one sentence, for a `practice` objective. |
+| `check` | Optionally suggest a command that checks it, such as `node --version`. The tutor may decline, and never runs it without permission. |
+
+Only use `verify` when a tutor can really see the result. An objective with no `verify` is
+fine. It stays unconfirmed, which is more honest than a check that pretends.
 
 ## Quizzes
 
-Every quiz has exactly three questions, each with four options labelled `a)` to `d)`, and an
-answer line that gives the right option **and why**:
+Every lesson has exactly **three questions**. Each has **four options**, `a)` to `d)`, and one
+right answer. After the options comes an answer line with the right option **and the reason**:
 
 ```markdown
 ## Quick Quiz
-1. What does the terminal let you do?
-   - a) Edit photos
-   - b) Talk to your computer with text commands
-   - c) Browse the web
-   - d) Play music
+1. Why does green tea often taste bitter with boiling water?
+   - a) Boiling water removes the caffeine
+   - b) Very hot water pulls out the bitter parts too quickly
+   - c) Green tea leaves are always bitter
+   - d) Boiling water makes the tea weaker
 
-   **Answer:** b) Talk to your computer with text commands — it's a direct
-   text conversation with the operating system.
+   **Answer:** b) Very hot water pulls out the bitter parts too quickly — green tea is
+   delicate, so cooler water gives a softer taste.
 ```
 
-The reason matters most. The tutor reads it out even when the learner guessed right.
+The answer line must start with `**Answer:**`, then the option's letter, then its text, then
+the reason. The tutor reads the reason out as feedback.
 
-A quiz is a checkpoint, not proof. It surfaces confusion, and it never marks an objective as
-achieved on its own. After a wrong answer the tutor offers to explain the concept again, and a
-wrong answer never blocks a learner from finishing the lesson.
+```mermaid
+flowchart LR
+    A["Learner answers"]:::learner --> B{"Right?"}
+    B -- "yes" --> C["Reads out your reason"]
+    B -- "no" --> D["Reads out your reason,<br/>offers to re-explain"]
+    C --> E["Next question"]
+    D --> E
+    classDef learner stroke-width:1px
+```
+
+**A quiz is a checkpoint, not proof.** It never marks an objective as achieved by itself, and a
+wrong answer never stops the learner finishing. Three multiple-choice questions can't prove
+someone has learned something. They can show where they're confused, which is useful.
+
+Long questions and options can wrap onto the next line. Indent the continuation to line up with
+the text above it.
 
 ## Homework
 
-Homework belongs on the **last lesson of a phase**, where the tutor delivers it at the phase
-boundary. Set `homework: true` on that lesson in the manifest, then add a
-`## Homework Assignment` section:
+Homework goes on the **last lesson of a phase**. The tutor hands it out at the phase boundary.
+
+1. In `course.yaml`, add `homework: true` to that lesson.
+2. In the lesson, add a `## Homework Assignment` section after the quiz:
 
 ```markdown
 ## Homework Assignment
-### Build Your Profile Page
-**Objective:** Put the lesson's HTML into practice on something that's yours.
+### Brew and Record
+**Objective:** Brew one cup of tea on purpose and keep a note you can use next time.
 
-- [ ] A page using semantic HTML5 elements
-- [ ] A heading, a paragraph about you, and a list of three interests
+- [ ] A note naming the tea you used
+- [ ] The water temperature and steeping time you chose, and why
+- [ ] One sentence on how it tasted and what you'd change
 
 **Stretch Goals:**
-- [ ] Add a photo with meaningful alt text
+- [ ] Brew a second cup with one change and compare the two
 
-**Submission:** Tell your tutor when it's ready and share the file.
+**Submission:** Tell your tutor when your note is ready, and ask them to review it.
 ```
 
-Each `- [ ]` requirement gets its own feedback. Stretch goals get feedback too, but never hold a
-learner back. The tutor always asks before submitting anything.
+| Part | Meaning |
+|---|---|
+| `###` title | The assignment's name. |
+| `**Objective:**` | One line on what it's for. |
+| `- [ ]` items | The requirements. The tutor gives feedback on **each one** separately. |
+| `**Stretch Goals:**` | Optional extras. Reviewed, but they never hold a learner back. |
+| `**Submission:**` | How the learner hands it in. |
 
-The full rules are in the [course format specification](/spec/course-format#section-content).
+The tutor always reviews before submitting, and only submits when the learner clearly confirms.
+
+Full details: [course format: section content](/spec/course-format#section-content).

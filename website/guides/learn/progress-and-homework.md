@@ -1,18 +1,24 @@
 ---
 title: Progress and homework
-description: Check how you're doing, and how homework review and submission work.
+description: See how you're doing, and how homework is reviewed and submitted.
 ---
 
 # Progress and homework
 
-## Checking your progress
+## How am I doing?
 
-Ask the tutor "how am I doing?", or type `/progress` in Claude Code or `$progress` in Codex.
-You'll see the lessons you've finished, where you are in the course, and your streak.
+Just ask the tutor: **"How am I doing?"** Or type `/progress` in Claude Code, `$progress` in
+Codex. You'll see:
 
-Those numbers are read from the saved record each time you ask, never estimated from the
-conversation. You can see the same information yourself from anywhere inside the learning
-folder:
+- the lessons you've finished,
+- where you are in the course,
+- your streak (how many days in a row you've learned),
+- any badges you've earned.
+
+These numbers are read from your saved record **every time you ask**. The tutor never
+guesses them or remembers them from earlier in the chat.
+
+You can also check yourself from the terminal, from anywhere inside your learning folder:
 
 ```bash
 skilling courses --json
@@ -21,22 +27,35 @@ skilling progress --course welcome-skilling
 
 ## Homework
 
-Some lessons end a phase with homework: a short assignment with a checklist of requirements.
+Some courses set homework at the end of a phase. It's a short task with a checklist, like
+"write down one goal and one next step".
 
-When you get there, the tutor:
+```mermaid
+flowchart TD
+    A["Phase finished"] --> B["Tutor shows<br/>the homework"]
+    B --> C["You do the work"]:::learner
+    C --> D["Tutor reviews it,<br/>point by point"]
+    D --> E{"Ready to submit?"}
+    E -- "not yet" --> C
+    E -- "yes, I confirm" --> F["Submitted<br/>and saved"]:::saved
+    classDef learner stroke-width:1px
+    classDef saved stroke-width:1px
+```
 
-1. Shows you the assignment.
-2. Looks at what you made and gives feedback on each requirement in turn.
-3. Asks whether you want to submit.
+A few things to know:
 
-Reviewing your work isn't the same as submitting it. Nothing is submitted until you clearly
-say so. Stretch goals get feedback too, but they never hold you back.
+- **Reviewing isn't submitting.** The tutor gives feedback as often as you like. Nothing is
+  submitted until you clearly say so.
+- **Every checklist item gets its own feedback,** so you know exactly what's done and what
+  isn't yet.
+- **Stretch goals are optional.** They get feedback too, but never hold you back.
 
-You can also type `/homework` (or `$homework`) to ask what's due or to get feedback on it.
+Type `/homework` (or `$homework` in Codex) any time to ask what's due or to get feedback.
 
 ## Where your work goes
 
-Each course gets its own folder under `showcase/`. That's where your notes, code and anything
-else the course asks you to make should live. It's yours: keep it, share it, or put it in Git.
+Each course gets its own folder inside `showcase/` in your learning folder. That's where your
+notes, code and anything else you make should go. It's yours: keep it, share it, or put it in
+Git.
 
-Next: [your workspace](your-workspace).
+Next: [what happens behind the scenes](how-it-works).

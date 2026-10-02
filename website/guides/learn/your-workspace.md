@@ -1,65 +1,78 @@
 ---
 title: Your workspace
-description: What's in your learning folder, how to add courses, update, and move it.
+description: What's inside your learning folder, how to add courses, update, and move it.
 ---
 
 # Your workspace
 
-When you start a course, Skilling creates a learning folder (a *workspace*). Everything lives
-there:
+Your learning folder is called a **workspace**. Everything about your learning lives inside it.
 
-```text
-my-learning/
-├── CLAUDE.md          # instructions for Claude Code
-├── AGENTS.md          # instructions for Codex
-├── .claude/skills/    # /learn, /progress, /homework, /upgrade-skilling
-├── .agents/skills/    # the same skills for Codex ($learn, ...)
-├── showcase/          # your work, one folder per course
-└── .skilling/         # the course copy and your progress
+```mermaid
+flowchart TD
+    WS["my-learning/"] --> Claude["CLAUDE.md<br/>instructions for Claude Code"]
+    WS --> Agents["AGENTS.md<br/>instructions for Codex"]
+    WS --> Skills[".claude/ and .agents/<br/>the /learn, /progress,<br/>/homework skills"]
+    WS --> Show["showcase/<br/>your work"]:::saved
+    WS --> Sk[".skilling/<br/>course copies and<br/>your progress"]
+    classDef saved stroke-width:1px
 ```
 
-`showcase/` is yours. `.skilling/` is Skilling's machinery: please don't edit it by hand, and
-don't delete it, because it holds your progress.
+| Part | Whose is it? | Can I edit it? |
+|---|---|---|
+| `showcase/` | Yours | Yes. Put your notes and work here. |
+| `.skilling/` | Skilling's | **No.** Don't edit or delete it. It holds your progress. |
+| `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.agents/` | Your assistant's | No need. Skilling keeps them up to date. |
 
-You can work from any folder inside the workspace, such as `showcase/welcome-skilling/`, and
-Skilling still finds it.
+Folders that start with a dot (`.skilling`) are hidden by default. That's normal.
+
+You can work from any folder inside the workspace, for example `showcase/welcome-skilling/`,
+and Skilling still finds your progress.
 
 ## Adding another course
 
-Run `start` again from inside your workspace, with the new course and `.` as the folder:
+Go into your workspace and run `start` again, with the new course and a single dot (`.`),
+which means "this folder":
 
 ```bash
 cd my-learning
 skilling start 'gh:owner/repository@v1.0.0#path/to/course' . --json
 ```
 
-This adds the course alongside your existing ones. It never replaces your other courses,
-progress or showcase folders. See [finding courses](courses) for the kinds of source you can
-use.
+Course authors usually give you this exact command. It adds the new course next to your
+existing ones and never replaces your other courses, progress or work.
 
-## Updating Skilling or a course
+## Keeping things up to date
 
-Type `/upgrade-skilling` in Claude Code or `$upgrade-skilling` in Codex. The tutor asks before
-every check and every change. It can update Skilling and its skills, and check whether a
-course you're taking has a newer version.
+Type `/upgrade-skilling` in Claude Code, or `$upgrade-skilling` in Codex. The tutor asks
+before every check and every change. It can update Skilling itself, and check whether a course
+has a newer version.
 
-You can do the course check yourself too:
-
-```bash
-skilling upgrade --course welcome-skilling          # report only, changes nothing
-skilling upgrade --course welcome-skilling --yes    # switch, keeping your progress
+```mermaid
+flowchart TD
+    A["A newer course version exists"] --> B{"What kind of change?"}
+    B -- "small fix or<br/>new lessons" --> C["Update, and keep<br/>your place"]:::saved
+    B -- "big restructure<br/>(new major version)" --> D["Stay on your version.<br/>Nothing changes."]
+    classDef saved stroke-width:1px
 ```
 
-Small fixes and new lessons keep your place. A bigger restructure (a new major version) can't
-carry your progress across automatically, so Skilling leaves you on your current version
-rather than guess.
+You can also check from the terminal:
 
-## Moving to another folder or machine
+```bash
+skilling upgrade --course welcome-skilling          # just report, change nothing
+skilling upgrade --course welcome-skilling --yes    # update, keeping your progress
+```
 
-Move or copy the **whole** workspace, hidden files included. On another machine, install
-Skilling first (`uv tool install skilling`), then open the moved folder. Copying only
-`showcase/` keeps your files but not your progress.
+Running `start` again with the same course never updates it. Only `upgrade` does.
 
-Once a course is set up, the CLI, the course and your progress all work without fetching
-anything again. That doesn't make a cloud-hosted model work offline, though. Your assistant
-still needs its normal connection.
+## Moving to another folder or computer
+
+Copy or move the **whole** workspace folder, hidden files included. On a new computer, install
+your tools first ([Git, uv and your assistant](install), then `uv tool install skilling`), then
+open the moved folder.
+
+Copying only `showcase/` keeps your work but not your progress.
+
+## Offline
+
+Once a course is set up, Skilling, the course and your progress all work without the internet.
+Your AI assistant still needs its normal connection, because the AI runs in the cloud.
