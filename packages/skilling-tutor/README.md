@@ -1,7 +1,9 @@
 # Skilling tutor
 
 Experimental optional native Pydantic AI capability and complete-turn runner for trusted
-Python producers. Requires matching Skilling core 0.8.x and Pydantic AI slim 2.52.x.
+Python producers. Requires matching Skilling core 0.8.x, Pydantic AI slim 2.52.x and
+Harness skills 0.52.x. Shares the exact bundled learn/progress/homework policy and references
+through native skill activation and one allowlisted reference reader.
 Provider SDKs are producer-selected extras; this package supplies no provider default,
 mutation tools, console command or automatic tracing. No public release is claimed.
 

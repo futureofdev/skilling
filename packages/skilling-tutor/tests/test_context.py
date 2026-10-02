@@ -33,6 +33,9 @@ def test_snapshot_copy_and_homework_token_custody():
     context = NarrationContext.from_snapshot(snapshot)
     assert "Active material" in context.material
     assert context.persona == "Patient tutor"
+    from dataclasses import replace
+
+    assert NarrationContext.from_snapshot(replace(snapshot, tutor=None)).persona is None
     assert "PRIVATE" not in json.dumps(asdict(context))
     with pytest.raises(FrozenInstanceError):
         context.persona = "changed"  # pyright: ignore[reportAttributeAccessIssue]

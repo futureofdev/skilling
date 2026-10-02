@@ -3,13 +3,15 @@
 `skilling-tutor` 0.1.0 is an experimental optional adapter for a trusted Python producer.
 Its matching core is `skilling>=0.8.0,<0.9.0`, the first allocated minor containing the public
 session facade. This source change does not publish either distribution or execute a release.
-The adapter supports `pydantic-ai-slim>=2.52.0,<2.53.0`; provider SDKs/extras are explicitly
+The adapter supports `pydantic-ai-slim>=2.52.0,<2.53.0` and
+`pydantic-ai-harness[skills]>=0.52.0,<0.53.0`; provider SDKs/extras are explicitly
 selected and installed by the producer. The core remains LLM-free.
 
 Copy the current session into a narrow context. Keep the session, Course, paths, credentials,
 action event identities, feedback references and homework submission token in the controller.
 `NarrationContext.from_snapshot` copies only active material/persona/tone and canonical pending
-feedback; it excludes learner identity, revision, future questions and receipt handles.
+feedback; it excludes learner identity, revision, future questions and receipt handles. An absent
+authored persona stays absent.
 `ObjectiveAdviceContext.from_objectives` copies objective ids, kinds and authored criteria.
 `HomeworkAdviceContext.from_check` copies the active required/stretch lists, never queued work
 or submission text/token. Requirements receive stable coordinate/category/ordinal identities,
@@ -39,14 +41,24 @@ result = await agent.run("Teach the active turn", deps=ProducerDeps(context))
 # Present result.output successfully before the controller acknowledges presentation.
 ```
 
-The native capability contributes dynamic instructions and validation only, zero function or
-native tools, workspace, model/provider/settings override or output-type override. Upstream
-may attach its own infrastructure such as tool search; structured output modes also use output
-tools. These are distinct from Skilling mutation tools. The producer Agent retains its output
-contract and can compose trusted benign capabilities without an adapter registry. Producer-added
-tools/hooks are the producer's authority and responsibility; composition is no security guarantee.
-Material, history and learner text are untrusted content. Neither prompt instructions nor model
-output can authorize a controller operation, settle objectives, submit work or acknowledge feedback.
+The native capability shares the exact bundled `learn`, `progress` and `homework` skills with
+Codex and Claude Code. Native Harness `Skills` exposes `load_capability`; one allowlisted
+`read_skill_reference` tool returns the original packaged reference text. These are its only two
+function tools. The package backend contains only the triad's policy bytes, works on every supported
+platform, and grants no host filesystem, shell, state or run-workspace access. `upgrade-skilling`
+is excluded. An always-on binding maps bundled CLI and host duties to the trusted producer:
+course/state discovery and reads, file edits, processes, checks, consent, firsthand inspection,
+provenance, objective settlement, presentation, submission and token retention. The tutor advises
+from actual supplied safe evidence and requests producer refresh when facts are missing; it cannot
+claim those operations or infer unprovided counts, continuity or work.
+
+The capability contributes no native tools or model/provider/settings/output-type overrides.
+Upstream may attach infrastructure such as tool search; structured output modes also use output
+tools. The producer Agent retains its output contract and can compose trusted benign capabilities.
+Producer-added tools/hooks are the producer's authority and responsibility; composition is no
+security guarantee. Material, history and learner text are untrusted content. Neither prompt
+instructions nor model output can authorize controller operations, settle objectives, submit work
+or acknowledge feedback.
 
 On pinned 2.52.0, IDs are `skilling-narration`, `skilling-objective-advice` and
 `skilling-homework-advice`. Equivalent duplicate configuration is combined; different getters for
@@ -61,7 +73,7 @@ return only safe context, even when the producer deps also contain privileged ob
 from skilling_tutor import LearnerEvidence, HomeworkAdviceContext, SkillingRunner
 from pydantic_ai.usage import UsageLimits
 
-runner = SkillingRunner.create(selected_model, usage_limits=UsageLimits(request_limit=3))
+runner = SkillingRunner.create(selected_model, usage_limits=UsageLimits(request_limit=8))
 turn = await runner.narrate(context, history=[])  # complete async turn
 # Optional next-turn history is explicitly producer-owned:
 next_turn = await runner.narrate(context, history=turn.new_messages)
@@ -88,7 +100,10 @@ Framework messages are mutable producer-owned objects, copied on runner input/ou
 never retains them. Keep histories isolated by learner/purpose, redact before selecting them,
 and pass no history or `[]` to clear it. A producer-configured Model must itself support safe
 concurrent use. Settings/limits are copied and usage starts afresh each run. The runner defaults
-to three requests, disables Agent instrumentation, and emits no learner logs or automatic tracing.
+to eight requests: activation, five sequential `learn` reference reads and output use seven;
+references can also be read in parallel. Explicit producer limits remain unchanged and may refuse
+a turn before completion. The runner disables Agent instrumentation and emits no learner logs or
+automatic tracing.
 Explicit producer instrumentation of a selected Model remains producer-owned.
 
 `TutorError.kind` distinguishes invalid context/configuration, usage limit, model failure and
@@ -109,7 +124,8 @@ task package:tutor:smoke
 
 The smoke creates fresh environments outside the checkout, installs local wheel and sdist pairs
 in the same resolver operation, disables real model requests, inspects metadata/license/typing,
-and exercises direct attachment, runner narration and both advice operations. A separate core-only
+and exercises native activation, all original triad references, direct attachment, runner narration
+and both advice operations. A separate core-only
 install proves that neither tutor nor framework is required by the core. CI retains the full source
 matrix and runs matching installed artifacts on Linux/macOS/Windows at Python 3.11/3.14; local
 results establish only the tested host/interpreter, never published artifacts or other platforms.
