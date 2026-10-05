@@ -2,7 +2,21 @@
 
 from ._file import LOCAL_LEARNER, FileProgressStore
 from ._journal import (
+    AcknowledgementStatus,
+    ActionBoundary,
+    ActionIdentity,
+    ActionOperation,
+    ActionOrigin,
+    AdvanceOutcome,
+    FeedbackAcknowledgement,
+    FeedbackPointer,
+    FeedbackRef,
     IdempotencyKeyConflict,
+    LegacyOutcomeUnavailable,
+    OutcomePosition,
+    PendingFeedback,
+    PendingReference,
+    QuizAnswerOutcome,
     RuntimeSnapshot,
     TransitionCommit,
     TransitionIdentity,
@@ -11,6 +25,8 @@ from ._journal import (
     UpgradeCommit,
     UpgradeIdentity,
     UpgradeResult,
+    key_digest,
+    pending_pointer,
 )
 from ._protocol import (
     CompletionCommit,
@@ -35,6 +51,22 @@ from ._protocol import (
 from ._select import STORE_ENTRY_POINT_GROUP, UnknownScheme, default_state_root, open_store
 
 __all__ = [
+    "ActionIdentity",
+    "ActionOperation",
+    "ActionOrigin",
+    "AdvanceOutcome",
+    "QuizAnswerOutcome",
+    "OutcomePosition",
+    "LegacyOutcomeUnavailable",
+    "FeedbackRef",
+    "PendingFeedback",
+    "FeedbackAcknowledgement",
+    "AcknowledgementStatus",
+    "key_digest",
+    "ActionBoundary",
+    "PendingReference",
+    "FeedbackPointer",
+    "pending_pointer",
     "SubmissionCommit",
     "SubmissionCommitResult",
     "SubmissionReceipt",

@@ -52,6 +52,8 @@ from ._machine import (
 )
 from ._runtime import (
     SPEC_VERSION,
+    ObjectiveRefusal,
+    ObjectiveSettlementError,
     ObjectivesMarked,
     StoredRecord,
     load_or_create,
@@ -93,6 +95,8 @@ __all__ = [
     "LessonShape",
     "LessonState",
     "NullSink",
+    "ObjectiveRefusal",
+    "ObjectiveSettlementError",
     "ObjectivesMarked",
     "RecordingSink",
     "RollForward",

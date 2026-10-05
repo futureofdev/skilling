@@ -6,6 +6,27 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### File-runtime extension — 2026-10-02
+
+Exercised version-two producer action identities and immutable advance/answer outcomes,
+compatible v1 outcome-unavailable behavior, wire-separated receipt namespaces and hashed
+consumed-key reservations, with existing v2 outcome bytes validated before prepared recovery
+effects. Added
+file-session pending-feedback lookup, presentation-only view and exact controller
+acknowledgement recovery without learner events/hooks. Runtime upgrade refuses pending
+feedback before any commit or lesson-shape scratch reset; recorded-version lookup/ack remains
+available. Authored course and portable record schemas are unchanged; no universal backend
+protocol or released error-code renaming is introduced.
+
+### Runtime-owned artifact writes — 2026-10-01
+
+**Erratum.** The reference public file-session facade now performs the same exercised artifact
+writes as the CLI. [Runtime record](runtime.md#the-progress-record) and
+[workspace artifacts](workspace.md#artifacts) name both runtime-owned entry points. Permitted
+moments remain phase ceremony and confirmed homework submission, with the same workspace
+containment, validated completion chronology, CAS/upsert behavior and non-gating rule. This
+does not bind all Python API signatures, add a timing gate or promote the draft spec version.
+
 ### Course upgrade path — 2026-10-01
 
 **Minor.** Fixes #99 and refs #96. Before this, the reference runtime refused every course

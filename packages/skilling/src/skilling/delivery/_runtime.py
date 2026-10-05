@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime
+from enum import StrEnum
 from typing import NamedTuple
 
 from ..conformance import SPEC_MAJOR, SPEC_MINOR
@@ -37,6 +38,22 @@ from ..store import (
 from ._hooks import NO_HOOKS, Dispatcher, EventName, new_anonymous_id
 
 SPEC_VERSION = f"{SPEC_MAJOR}.{SPEC_MINOR}"
+
+
+class ObjectiveRefusal(StrEnum):
+    UNKNOWN = "objective-unknown"
+    UNSETTLEABLE = "unsettleable-kind"
+    CAPABILITY = "capability-missing"
+    NO_VERIFY = "no-verify"
+    PROVENANCE = "missing-provenance"
+
+
+class ObjectiveSettlementError(ValueError):
+    """A typed refusal retaining ValueError compatibility and the existing message."""
+
+    def __init__(self, reason: ObjectiveRefusal, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class StoredRecord(NamedTuple):
@@ -183,28 +200,37 @@ def settle_objective(
     """
     objective = next((o for o in objectives_of(lesson) if o.id == objective_id), None)
     if objective is None:
-        raise ValueError(f"lesson {lesson.coordinate!r} has no objective {objective_id!r}")
+        raise ObjectiveSettlementError(
+            ObjectiveRefusal.UNKNOWN,
+            f"lesson {lesson.coordinate!r} has no objective {objective_id!r}",
+        )
 
     settles = objective.settled_by()
     if settles is None:
-        raise ValueError(f"objective {objective_id!r} (kind {objective.kind!r}) settles nothing")
+        raise ObjectiveSettlementError(
+            ObjectiveRefusal.UNSETTLEABLE,
+            f"objective {objective_id!r} (kind {objective.kind!r}) settles nothing",
+        )
     capability, evidence = settles
 
     if capability not in set(capabilities):
-        raise ValueError(
+        raise ObjectiveSettlementError(
+            ObjectiveRefusal.CAPABILITY,
             f"objective {objective_id!r} needs the {capability.value!r} capability to "
-            "settle, which this runtime does not hold"
+            "settle, which this runtime does not hold",
         )
 
     if objective.kind == "practice" and not objective.verify:
-        raise ValueError(
-            f"objective {objective_id!r} has no verify clause, so it cannot be settled"
+        raise ObjectiveSettlementError(
+            ObjectiveRefusal.NO_VERIFY,
+            f"objective {objective_id!r} has no verify clause, so it cannot be settled",
         )
 
     if evidence == "observed" and attestation is None:
-        raise ValueError(
+        raise ObjectiveSettlementError(
+            ObjectiveRefusal.PROVENANCE,
             "observed evidence requires provenance: what was checked, which verify sentence, "
-            "which host — recorded because the attestation cannot be verified"
+            "which host — recorded because the attestation cannot be verified",
         )
 
     if record.has_met(objective_id):

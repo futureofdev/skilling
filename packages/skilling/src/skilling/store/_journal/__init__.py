@@ -36,6 +36,55 @@ from .._protocol import (
     RecoveryRequired,
     StatePathError,
 )
+from ._actions import (
+    AcknowledgementStatus as AcknowledgementStatus,
+)
+from ._actions import (
+    ActionBoundary as ActionBoundary,
+)
+from ._actions import (
+    ActionIdentity as ActionIdentity,
+)
+from ._actions import (
+    ActionOperation as ActionOperation,
+)
+from ._actions import (
+    ActionOrigin as ActionOrigin,
+)
+from ._actions import (
+    AdvanceOutcome as AdvanceOutcome,
+)
+from ._actions import (
+    FeedbackAcknowledgement as FeedbackAcknowledgement,
+)
+from ._actions import (
+    FeedbackPointer as FeedbackPointer,
+)
+from ._actions import (
+    FeedbackRef as FeedbackRef,
+)
+from ._actions import (
+    LegacyOutcomeUnavailable as LegacyOutcomeUnavailable,
+)
+from ._actions import (
+    OutcomePosition as OutcomePosition,
+)
+from ._actions import (
+    PendingFeedback as PendingFeedback,
+)
+from ._actions import (
+    PendingReference as PendingReference,
+)
+from ._actions import PreparedAction
+from ._actions import (
+    QuizAnswerOutcome as QuizAnswerOutcome,
+)
+from ._actions import (
+    key_digest as key_digest,
+)
+from ._actions import (
+    pending_pointer as pending_pointer,
+)
 from ._submission import Prepared as PreparedSubmission
 from ._submission import SubmissionJournal as SubmissionJournal
 from ._submission import validate_submission_commit as validate_submission_commit
@@ -410,7 +459,7 @@ def recover_journals(root: Path, course_id: str) -> None:
             sum(
                 (
                     isinstance(old, Prepared),
-                    isinstance(new, PreparedTransition),
+                    isinstance(new, (PreparedTransition, PreparedAction)),
                     isinstance(submitted, PreparedSubmission),
                     isinstance(upgrading, PreparedUpgrade),
                 )
@@ -420,7 +469,7 @@ def recover_journals(root: Path, course_id: str) -> None:
             raise ValueError("multiple prepared runtime journals")
         if isinstance(old, Prepared):
             completion._apply(old)
-        if isinstance(new, PreparedTransition):
+        if isinstance(new, (PreparedTransition, PreparedAction)):
             transition.apply(new)
         if isinstance(submitted, PreparedSubmission):
             submission.apply(submitted)
