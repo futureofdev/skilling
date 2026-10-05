@@ -66,6 +66,7 @@ jobs:
           version: 3.x
           repo-token: ${{ github.token }}
       - run: uv sync
+      - run: uv run python -c "import sqlite3; print(sqlite3.sqlite_version)"
       - run: task test
       - run: task validate:examples
 

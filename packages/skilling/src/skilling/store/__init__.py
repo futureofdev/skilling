@@ -6,6 +6,7 @@ from ._backends._select import (
     default_state_root,
     open_store,
 )
+from ._backends._sqlite import SQLiteSessionStore
 from ._file import LOCAL_LEARNER, FileProgressStore
 from ._journal import (
     AcknowledgementStatus,
@@ -58,6 +59,7 @@ from ._protocol import (
 from ._protocol._file_session import FileSessionStore
 
 __all__ = [
+    "SQLiteSessionStore",
     "ActionIdentity",
     "ActionOperation",
     "ActionOrigin",

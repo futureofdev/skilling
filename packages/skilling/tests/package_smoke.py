@@ -796,7 +796,13 @@ def smoke(
     root = Path(tempfile.mkdtemp(prefix="skilling-package-smoke-"))
     if source is not None:
         assert not root.resolve().is_relative_to(source)
-    stage, artifacts = stage_inputs(fixture, dist, root, [Path(__file__)], manifest)
+    stage, artifacts = stage_inputs(
+        fixture,
+        dist,
+        root,
+        [Path(__file__), Path(__file__).with_name("sqlite_package_probe.py")],
+        manifest,
+    )
     (evidence / "environment.json").write_text(
         json.dumps(
             {
@@ -825,6 +831,22 @@ def smoke(
             env, python, tool_dir = install_tool(commands, artifact, case, python_version)
             checkout_sentinel = source_must_not_exist or case / "checkout-unavailable"
             assert not checkout_sentinel.exists()
+            commands.run(
+                [
+                    str(python),
+                    str(stage / "sqlite_package_probe.py"),
+                    "--fixture",
+                    str(stage / "course"),
+                    "--case",
+                    str(case / "sqlite"),
+                    "--tool-dir",
+                    str(tool_dir),
+                    "--checkout-sentinel",
+                    str(checkout_sentinel),
+                ],
+                case,
+                env,
+            )
             version_output = commands.run(["skilling", "--version"], case, env)
             assert manifest["version"] in version_output
             help_output = commands.run(["skilling", "--help"], case, env)
