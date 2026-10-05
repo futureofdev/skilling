@@ -19,7 +19,7 @@ from skilling.store import (
     StoreError,
 )
 
-from ..test_session import snapshot
+from ...test_session import snapshot
 
 
 def test_binding_is_immutable_before_foreign_recovery(tmp_path: Path) -> None:
@@ -81,7 +81,7 @@ def test_conflicting_first_attachment_has_one_winner(tmp_path: Path) -> None:
             [
                 sys.executable,
                 "-m",
-                "packages.skilling.tests.session_store.worker",
+                "packages.skilling.tests.session_store.file.worker",
                 str(root),
                 namespace,
             ],
