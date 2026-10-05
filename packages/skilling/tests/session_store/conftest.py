@@ -36,6 +36,11 @@ def pytest_report_header() -> str:
 def store_factory(
     store_profile: str, tmp_path: Path, request: pytest.FixtureRequest
 ) -> StoreFactory:
+    if store_profile in {"aws", "seaweed"}:
+        from .backends.s3._support import s3_fixture
+
+        s3 = s3_fixture(request)
+        return lambda scope: s3.store
     if store_profile == "postgres":
         from .backends.postgres._support import postgres_fixture
 
