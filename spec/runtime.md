@@ -754,3 +754,51 @@ power-loss test. Other backends must state their own durability and coordination
 ## What conformance cannot promise
 
 Conformance binds machinery: transitions, records, formats, separations. It cannot certify that a tutor's prose is good teaching, that a course's content is correct, or that a learner did their own homework. Claims beyond the machinery are marketing.
+
+## Scoped complete-session persistence extension
+
+The experimental reference `SessionStore` supplements `ProgressStore`; it does not
+change the older plugin discovery contract. A producer supplies an authorized
+`SessionScope(namespace, learner_id, course_id)`. Every complete-session read and
+mutation is scoped to that identity. Versions remain compatibility constraints
+within the stream, not new enrollment identities. A scope value is not proof of
+authentication, and model output cannot confer producer authority.
+
+`read(scope)` returns an absent, live or deleted state. A live state includes its
+record/revision, teaching scratch, log, homework/revision/archive, immutable action
+and submission outcomes, completion receipts, lifetime key reservations, upgrade
+metadata and source binding. A separate opaque whole-session revision covers all
+of these values. A scratch-only acknowledgement must invalidate a stale complete
+snapshot without redefining the unchanged record revision.
+
+`commit(command)` accepts a closed typed family of runtime-prepared initialization,
+source attachment, transition, feedback acknowledgement, completion, submission,
+record/objective/artifact/consent mutation, explicit upgrade and deletion values.
+Stores do not run arbitrary callbacks or derive course meaning inside a commit.
+The runtime prepares from one coherent snapshot. Before new effects, the store
+validates scope, state integrity, command identity and affected before-images,
+then compares the captured whole-session expectation under its serialization
+boundary. No transaction spans model narration or a learner wait.
+
+Deleted and corrupt streams refuse before receipt replay. An exact previously
+accepted keyed identity returns its immutable original outcome together with
+current state before checking today's aggregate revision. A changed identity for
+a used key refuses. Unkeyed operations require read/reconcile after an ambiguous
+response. Feedback remains pending until an exact scoped presentation handle is
+acknowledged; history loss cannot manufacture that acknowledgement. Administrative
+export returns normalized progress for inspection, not a complete resume backup.
+
+The file bridge binds one namespace/learner pair immutably under a root ownership
+lock before course recovery. Explicit attachment of an unmarked legacy root checks
+its existing learner ownership without rewriting legacy receipts. Its aggregate
+expectation covers the relevant locked durable bytes, so legacy file writers also
+invalidate neutral expectations. Scoped controller handles are checked before
+foreign state access. Existing file journal encodings and record revisions remain
+compatible; neutral nonempty opaque revisions are not constrained to a file hash.
+
+Logical deletion commits a durable marker before cleanup, preserves the live course
+lock and resumes interrupted cleanup before cooperating access. Tombstones block
+reinitialization and stale replay. Work files and retained producer backups are
+outside this deletion contract. Current source attachment to legacy state does not
+assert unavailable historical provenance. The guarantees do not establish physical
+power-loss behavior, network-filesystem coordination, or untested backend support.

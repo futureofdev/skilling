@@ -66,6 +66,7 @@ class UpgradeCommit:
     record: Record
     scratch: bytes
     homework: HomeworkWrite | None = None
+    source_metadata: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -158,6 +159,7 @@ def validate_upgrade_commit(commit: UpgradeCommit, root: Path) -> UpgradeCommit:
             record,
             commit.scratch,
             homework,
+            commit.source_metadata,
         )
     except (ValueError, TypeError, AttributeError, yaml.YAMLError) as exc:
         raise RecoveryRequired(f"Invalid upgrade input: {exc}") from exc
@@ -236,7 +238,12 @@ class UpgradeJournal:
         paths = [m.path for m in value.mutations]
         if len(set(paths)) != len(paths) or not paths or paths[-1] != "record.yaml":
             raise ValueError("upgrade targets must be unique and end with the record")
-        rank = {"scratch.yaml": 3, HOMEWORK: 2, **dict.fromkeys(MARKERS, 1)}
+        rank = {
+            "scratch.yaml": 3,
+            "session-source.json": 3,
+            HOMEWORK: 2,
+            **dict.fromkeys(MARKERS, 1),
+        }
         order = [rank.get(p, 0) for p in paths[:-1]]
         if order != sorted(order):
             raise ValueError("upgrade targets are out of durable order")
@@ -252,6 +259,23 @@ class UpgradeJournal:
                 if item.after is None:
                     raise ValueError("upgrade scratch cannot be deleted")
                 scratch_value(item.after)
+            elif item.path == "session-source.json":
+                from .._protocol._file_source import SourceBinding
+
+                for raw in (item.before, item.after):
+                    if raw is not None:
+                        metadata = SourceBinding.model_validate_json(raw)
+                        if (metadata.learner_id, metadata.course_id) != (
+                            identity.learner_id,
+                            identity.course_id,
+                        ):
+                            raise ValueError("Upgrade source scope differs")
+                if (
+                    item.after is not None
+                    and SourceBinding.model_validate_json(item.after).course_version
+                    != identity.to_version
+                ):
+                    raise ValueError("Upgrade source version differs")
             elif item.path == HOMEWORK:
                 for raw in (item.before, item.after):
                     if raw is not None:
@@ -344,6 +368,13 @@ class UpgradeJournal:
         mutations.append(
             Mutation(path="scratch.yaml", before=self.raw("scratch.yaml"), after=commit.scratch)
         )
+        source_before = self.raw("session-source.json")
+        if source_before is not None or commit.source_metadata is not None:
+            mutations.append(
+                Mutation(
+                    path="session-source.json", before=source_before, after=commit.source_metadata
+                )
+            )
         mutations.append(
             Mutation(
                 path="record.yaml",

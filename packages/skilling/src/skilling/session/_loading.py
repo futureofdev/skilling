@@ -19,6 +19,7 @@ from ..store import (
     PendingFeedback,
     PendingReference,
     RecoveryRequired,
+    RuntimeStore,
     StatePathError,
 )
 from ..workspace import workspace_read
@@ -51,7 +52,7 @@ class Scratch:
 class RuntimeSession(NamedTuple):
     course: Course
     lesson: ResolvedLesson
-    store: FileProgressStore
+    store: RuntimeStore
     record: Record
     revision: str | None
     scratch: Scratch

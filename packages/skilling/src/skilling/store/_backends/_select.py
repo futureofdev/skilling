@@ -14,8 +14,8 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
-from ._file import FileProgressStore
-from ._protocol import ProgressStore, StoreError
+from .._file import FileProgressStore
+from .._protocol import ProgressStore, StoreError
 
 STORE_ENTRY_POINT_GROUP = "skilling.stores"
 STATE_ROOT_ENV = "SKILLING_STATE_ROOT"

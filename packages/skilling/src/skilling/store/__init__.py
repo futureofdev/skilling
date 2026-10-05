@@ -1,5 +1,11 @@
 """Progress persistence: the store interface and its file backend."""
 
+from ._backends._select import (
+    STORE_ENTRY_POINT_GROUP,
+    UnknownScheme,
+    default_state_root,
+    open_store,
+)
 from ._file import LOCAL_LEARNER, FileProgressStore
 from ._journal import (
     AcknowledgementStatus,
@@ -29,6 +35,7 @@ from ._journal import (
     pending_pointer,
 )
 from ._protocol import (
+    BindSourceSession,
     CompletionCommit,
     CompletionCommitResult,
     CompletionReceipt,
@@ -48,7 +55,7 @@ from ._protocol import (
     SubmissionToken,
     require_store,
 )
-from ._select import STORE_ENTRY_POINT_GROUP, UnknownScheme, default_state_root, open_store
+from ._protocol._file_session import FileSessionStore
 
 __all__ = [
     "ActionIdentity",
@@ -101,3 +108,84 @@ __all__ = [
     "default_state_root",
     "open_store",
 ]
+
+from ._protocol import (
+    AcknowledgeSession,
+    CompleteSession,
+    DeleteSession,
+    InitializeSession,
+    MutateSession,
+    ReconciliationRequired,
+    RecordMutationKind,
+    RuntimeStore,
+    ScopedAction,
+    ScopedFeedback,
+    ScopedSubmission,
+    SessionActionReceipt,
+    SessionCapacity,
+    SessionCommit,
+    SessionCommitResult,
+    SessionDeleted,
+    SessionKeyReservation,
+    SessionRead,
+    SessionReadKind,
+    SessionSchemaError,
+    SessionScope,
+    SessionState,
+    SessionStore,
+    SessionUpgradeReceipt,
+    SubmitSession,
+    TransitionSession,
+    UpgradeSession,
+)
+from ._protocol._boundary import (
+    neutral_action_identity,
+    neutral_pending_pointer,
+    replay_action,
+    validate_command,
+    validate_read,
+    validate_scope,
+)
+from ._protocol._boundary import (
+    pending_feedback as pending_session_feedback,
+)
+
+__all__ += [
+    "SessionScope",
+    "SessionReadKind",
+    "SessionActionReceipt",
+    "SessionKeyReservation",
+    "SessionUpgradeReceipt",
+    "SessionState",
+    "SessionRead",
+    "ScopedAction",
+    "ScopedFeedback",
+    "ScopedSubmission",
+    "SessionDeleted",
+    "SessionCapacity",
+    "SessionSchemaError",
+    "ReconciliationRequired",
+    "InitializeSession",
+    "TransitionSession",
+    "AcknowledgeSession",
+    "CompleteSession",
+    "SubmitSession",
+    "RecordMutationKind",
+    "MutateSession",
+    "UpgradeSession",
+    "DeleteSession",
+    "SessionCommit",
+    "SessionCommitResult",
+    "SessionStore",
+    "RuntimeStore",
+    "validate_scope",
+    "validate_read",
+    "validate_command",
+    "neutral_action_identity",
+    "neutral_pending_pointer",
+    "replay_action",
+    "pending_session_feedback",
+]
+
+
+__all__ += ["BindSourceSession", "FileSessionStore"]

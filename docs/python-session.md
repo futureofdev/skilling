@@ -171,3 +171,74 @@ universal event receipt; pass the captured `expected_revision` and never blindly
 File-only presentation guards do not impose a universal claim on low-level transforms or other
 `ProgressStore` implementations. Existing unkeyed CLI commands preserve their one-response
 semantics; switching interfaces is no automatic proof of browser presentation.
+
+## Scoped session persistence (experimental)
+
+`Session` accepts a complete `SessionStore` and a trusted producer scope. Unlike
+`ProgressStore`, this contract includes teaching scratch, pending feedback,
+homework, completion/submission/action receipts, consumed keys and source binding
+in one coherent snapshot. The core remains LLM-free. `FileSession` and its legacy
+single-user workspace API remain available.
+
+```python
+from pathlib import Path
+from skilling.session import ActionOperation, Session
+from skilling.store import FileSessionStore, SessionScope
+
+course = Path("/absolute/courses/hello-skilling")
+work = Path("/absolute/producer/learner-work")  # existing producer-owned directory
+scope = SessionScope("my-producer", "opaque-learner", "hello-skilling")
+store = FileSessionStore.open(
+    Path("/absolute/producer/learner-state"),
+    namespace=scope.namespace,
+    learner_id=scope.learner_id,
+)
+session = Session.open(course, store=store, scope=scope, work_root=work)
+shown = session.snapshot()
+# Only after the corresponding presentation or explicit learner control:
+action = session.capture_action(
+    shown, event_id="controller-event-1",
+    operation=ActionOperation.ADVANCE, payload="next",
+)
+result = session.act(action)
+```
+
+The producer resolves namespace, opaque learner and course authorization before
+constructing `SessionScope`. A scope is not an authentication credential. Do not
+accept model-supplied identity or copy a handle into another producer/user scope.
+Action, feedback and submission handles retain the captured scope and complete
+session revision. Record and homework revisions remain separate opaque values.
+A scratch-only acknowledgement changes the session revision even when the record
+revision stays unchanged.
+
+Keep the original action for exact retries. Its original outcome survives later
+accepted actions; the returned snapshot is current. A changed payload or identity
+for a consumed key refuses. A non-keyed objective, artifact or consent mutation
+with an uncertain response requires reading/reconciling state before another
+mutation. Narration failure does not undo an accepted action.
+
+After an answer, `session.pending_feedback()` returns the durable canonical
+outcome and a scoped feedback handle. Present that outcome successfully before
+calling `session.acknowledge_feedback(pending.feedback_id)`. Cancellation does
+not acknowledge it. Course-independent recovery is available through
+`Session.pending_feedback_at(store=store, scope=scope)` and the matching scoped
+`acknowledge_feedback_at` method. History is never the durable authority.
+
+A file adapter binds its state root immutably to one namespace/learner pair.
+Allocate distinct roots for different identities. An existing nonempty legacy
+root requires explicit `bind_existing=True` and matching legacy ownership.
+Attachment preserves legacy receipts. The first neutral `Session.open` records
+current source provenance, without claiming earlier source bytes were known. Move stopped roots
+with all binding and journal metadata. Alternating legacy file and neutral writes
+invalidate each other's stale expectations.
+
+The neutral session checks a portable digest of course source. Same-version source
+changes refuse; compatible version changes use explicit `Session.upgrade_at`.
+Pending feedback must be presented before upgrade. A new version is not a new
+learner enrollment. Producer-owned work files remain separate from session state.
+
+Administrative `DeleteSession` commits retain a tombstone. Stale actions and
+initialization cannot resurrect the stream; the file course lock is retained.
+Deletion does not remove work files or producer backups. `export_progress` is an
+inspection copy, not a recovery-complete backup. Preserve the full stopped state
+root for backup; cross-backend migration is not provided by this API.

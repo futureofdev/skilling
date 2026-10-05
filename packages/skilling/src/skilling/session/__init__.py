@@ -8,8 +8,8 @@ from ._loading import load_course
 from ._loading import load_runtime as _load_runtime
 from ._loading import parse_scratch as _parse_scratch
 from ._loading import serialize_scratch as _serialize_scratch
-from ._service import FileSession
-from ._service import commit_runtime as _commit_runtime
+from ._services import FileSession, Session
+from ._services import commit_runtime as _commit_runtime
 from ._teaching import _course_complete, _lesson_state, _shape
 from ._teaching import snapshot_view as _snapshot_view
 from ._types import (
@@ -43,6 +43,7 @@ from ._types import (
     QuizFeedback,
     RequirementVerdict,
     RequirementView,
+    ScopedPendingFeedback,
     SessionSnapshot,
     TelemetryView,
     TrustedAction,
@@ -101,4 +102,15 @@ __all__ = [
     "PositionView",
     "OptionView",
     "TutorView",
+]
+
+from ..store import ScopedAction, ScopedFeedback, ScopedSubmission, SessionScope
+
+__all__ += [
+    "Session",
+    "SessionScope",
+    "ScopedAction",
+    "ScopedFeedback",
+    "ScopedSubmission",
+    "ScopedPendingFeedback",
 ]

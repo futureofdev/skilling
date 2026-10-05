@@ -9,10 +9,10 @@ from pathlib import Path
 
 import yaml
 
-from ..course import Capability, Course, QuizQuestion, Record, parse_lesson
-from ..delivery import Beat, IllegalTransition, Input, LessonState, should_offer_revisit
-from ..delivery import advance as apply_input
-from ..store import (
+from ...course import Capability, Course, QuizQuestion, Record, parse_lesson
+from ...delivery import Beat, IllegalTransition, Input, LessonState, should_offer_revisit
+from ...delivery import advance as apply_input
+from ...store import (
     ActionIdentity,
     AdvanceOutcome,
     Conflict,
@@ -27,11 +27,11 @@ from ..store import (
     TransitionResult,
     TransitionVerb,
 )
-from ..workspace import workspace_read
-from . import _companion, _workspace
-from ._errors import RefusalKind, SessionRefusal
-from ._loading import RuntimeSession, Scratch, load_runtime, parse_scratch, serialize_scratch
-from ._teaching import (
+from ...workspace import workspace_read
+from .. import _companion, _workspace
+from .._errors import RefusalKind, SessionRefusal
+from .._loading import RuntimeSession, Scratch, load_runtime, parse_scratch, serialize_scratch
+from .._teaching import (
     _course_complete,
     _lesson_state,
     _questions,
@@ -41,7 +41,7 @@ from ._teaching import (
     question_view,
     snapshot_view,
 )
-from ._types import (
+from .._types import (
     ActionResult,
     ArtifactResult,
     ArtifactView,
@@ -255,7 +255,7 @@ class FileSession:
         cls, *, state_root: Path, learner_id: str, course_id: str
     ) -> PendingFeedback | None:
         """Read recorded-version feedback without selected course content or a remembered key."""
-        from ._loading import file_store
+        from .._loading import file_store
 
         return file_store(state_root).pending_feedback(learner_id, course_id)
 
@@ -274,7 +274,7 @@ class FileSession:
         learner_id: str,
         course_id: str,
     ) -> FeedbackAcknowledgement:
-        from ._loading import file_store
+        from .._loading import file_store
 
         if not isinstance(feedback_id, FeedbackRef) or (
             feedback_id._learner_id,

@@ -19,7 +19,7 @@ from typing import Literal, NamedTuple, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..course import (
+from ...course import (
     CompletionEntry,
     HomeworkArchiveEntry,
     HomeworkSlot,

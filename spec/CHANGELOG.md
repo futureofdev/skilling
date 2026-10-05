@@ -6,6 +6,15 @@ All changes to the Skilling specification, including errata. See [CONTRIBUTING](
 
 In development alongside this wave; entries below land with the change they describe.
 
+### Scoped complete-session persistence — 2026-10-05
+
+Experimental scoped SessionStore contract with coherent record/scratch/homework/receipt
+snapshots, independent aggregate revisions, immutable root ownership, source attachment,
+scoped controller handles and tombstoned deletion. Runtime-prepared typed commits preserve
+legacy file journals and opaque neutral revisions. This supplements ProgressStore without
+changing its plugin discovery or authored course/record schemas. Physical power loss,
+network-filesystem coordination and service-backend conformance require separate evidence.
+
 ### File-runtime extension — 2026-10-02
 
 Exercised version-two producer action identities and immutable advance/answer outcomes,

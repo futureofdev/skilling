@@ -163,6 +163,12 @@ class FileProgressStore:
         self.checked_path(course_id, ".skilling.lock")
         directory.mkdir(parents=True, exist_ok=True)
         with locked_course(directory, timeout=DEFAULT_LOCK_TIMEOUT):
+            from ._protocol import SessionDeleted
+            from ._protocol._file_delete import cleanup_deleted, read_deleted
+
+            if read_deleted(self.state_root, course_id) is not None:
+                cleanup_deleted(self.state_root, course_id)
+                raise SessionDeleted("Session stream is deleted")
             if submission is not None:
                 SubmissionJournal(self.state_root, course_id).validate_token_stream(submission)
             recover_journals(self.state_root, course_id)
