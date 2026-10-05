@@ -19,18 +19,19 @@ tasks:
     desc: "Run the test suite. Extra pytest args after --, e.g. `task test -- -k quiz`"
     cmds:
       - uv run pytest {{.CLI_ARGS}}
+      - node --test examples/python-producer/tests/test_dom.mjs
 
   lint:
     desc: ruff check + ruff format --check
     cmds:
-      - uv run ruff check packages/
-      - uv run ruff format --check packages/
+      - uv run ruff check packages/ examples/python-producer/
+      - uv run ruff format --check packages/ examples/python-producer/
 
   fix:
     desc: ruff format + ruff check --fix
     cmds:
-      - uv run ruff format packages/
-      - uv run ruff check --fix packages/
+      - uv run ruff format packages/ examples/python-producer/
+      - uv run ruff check --fix packages/ examples/python-producer/
 
   typecheck:
     desc: pyright over the packages
@@ -87,7 +88,7 @@ tasks:
     cmds:
       - uv build --package skilling --out-dir dist/core
       - uv build --package skilling-tutor --out-dir dist/tutor
-      - uv run python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version 3.11 {{.CLI_ARGS}}
+      - uv run python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version 3.11 --app examples/python-producer {{.CLI_ARGS}}
 
   check:
     desc: Source checks (CI also checks lock freshness and installed packages)

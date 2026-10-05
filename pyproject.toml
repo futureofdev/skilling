@@ -3,29 +3,33 @@ name = "skilling-workspace"
 version = "0.0.0"
 description = "Workspace root for the Skilling reference implementation"
 requires-python = ">=3.11"
-dependencies = ["skilling", "skilling-tutor"]
+dependencies = ["skilling", "skilling-tutor", "skilling-producer-example"]
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "examples/python-producer"]
 
 [tool.uv.sources]
 skilling = { workspace = true }
 skilling-tutor = { workspace = true }
+skilling-producer-example = { workspace = true }
 
 [dependency-groups]
 dev = [
     "ruff>=0.14",
     "pytest>=8.0",
     "pyright>=1.1.400",
+    { include-group = "producer-tests" },
 ]
+
+producer-tests = ["httpx>=0.28,<0.29"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["packages/skilling/src", "packages/skilling-tutor/src"]
+src = ["packages/skilling/src", "packages/skilling-tutor/src", "examples/python-producer/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
@@ -36,11 +40,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 "packages/skilling/src/skilling/cli/**/*.py" = ["B008"]
 
 [tool.pyright]
-include = ["packages"]
+include = ["packages", "examples/python-producer"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
-testpaths = ["packages/skilling/tests", "packages/skilling-tutor/tests"]
+testpaths = ["packages/skilling/tests", "packages/skilling-tutor/tests", "examples/python-producer/tests"]
 
 markers = ["storage_native: real native persistence with a controlled UTC calendar"]
