@@ -24,12 +24,14 @@ from ..delivery import (
     should_offer_revisit,
 )
 from ..store import (
+    ActionIdentity,
     ActionOperation,
     ActionOrigin,
     AdvanceOutcome,
     OutcomePosition,
     PendingFeedback,
     QuizAnswerOutcome,
+    neutral_pending_pointer,
     pending_pointer,
 )
 from ._errors import RefusalKind, SessionRefusal
@@ -181,7 +183,9 @@ def guard_feedback(session: RuntimeSession) -> None:
         )
 
 
-def prepare_action(session: RuntimeSession, action: TrustedAction) -> PreparedAction:
+def prepare_action(
+    session: RuntimeSession, action: TrustedAction, identity: ActionIdentity | None = None
+) -> PreparedAction:
     """Runtime computes authored semantics; the journal only checks supplied descriptors."""
     guard_feedback(session)
     if _course_complete(session.course, session.record):
@@ -254,7 +258,15 @@ def prepare_action(session: RuntimeSession, action: TrustedAction) -> PreparedAc
             else None,
         }
     )
-    pointer = pending_pointer(action.identity(), feedback) if feedback else None
+    pointer = (
+        (
+            neutral_pending_pointer(identity, feedback)
+            if identity is not None
+            else pending_pointer(action.identity(), feedback)
+        )
+        if feedback
+        else None
+    )
     scratch = Scratch(
         state.wrong_count,
         state.returning_to_quiz,

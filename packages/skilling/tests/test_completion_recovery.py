@@ -32,7 +32,15 @@ from .conftest import REPO_ROOT
 from .recovery_worker import boundary_for, utc_storage_test_day
 
 NOW = datetime(2026, 8, 3, 23, 59, 59, tzinfo=UTC)
-BOUNDARIES = ["prepared", "log", "record", "homework", "runtime-state", "committed"]
+BOUNDARIES = [
+    "prepared",
+    "log",
+    "record",
+    "homework",
+    "runtime-state",
+    "completion-receipt",
+    "committed",
+]
 
 
 @pytest.fixture(autouse=True)

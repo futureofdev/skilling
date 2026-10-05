@@ -39,6 +39,6 @@ def test_entry_point_backend_is_discovered(monkeypatch):
 
     ep = importlib.metadata.EntryPoint(name="dummy", value="x:y", group="skilling.stores")
     monkeypatch.setattr(ep.__class__, "load", lambda self: lambda uri: Dummy(uri))
-    monkeypatch.setattr("skilling.store._select._entry_points", lambda: [ep])
+    monkeypatch.setattr("skilling.store._backends._select._entry_points", lambda: [ep])
     store = open_store("dummy://anything")
     assert isinstance(store, Dummy) and store.uri == "dummy://anything"

@@ -15,6 +15,9 @@ from ..store import (
     ActionIdentity,
     ActionOperation,
     ActionOrigin,
+    ScopedFeedback,
+    ScopedSubmission,
+    SessionScope,
     key_digest,
 )
 from ..store import (
@@ -129,6 +132,8 @@ class SessionSnapshot:
     lesson_count: int
     tutor: TutorView | None = None
     pending_feedback: QuizAnswerOutcome | None = None
+    scope: SessionScope | None = None
+    session_revision: str | None = None
 
 
 @dataclass(frozen=True)
@@ -210,6 +215,9 @@ class HomeworkCheck:
     active: AssignmentView | None
     revision: str | None
     submission_token: str | None
+    scope: SessionScope | None = None
+    session_revision: str | None = None
+    submission: ScopedSubmission | None = None
 
 
 @dataclass(frozen=True)
@@ -348,3 +356,10 @@ class TrustedAction:
                 "question_number": self.question_number,
             }
         ).value()
+
+
+@dataclass(frozen=True)
+class ScopedPendingFeedback:
+    feedback_id: ScopedFeedback
+    outcome: QuizAnswerOutcome
+    revision: str

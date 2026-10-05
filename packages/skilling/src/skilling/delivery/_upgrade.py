@@ -30,9 +30,9 @@ from ..course import (
 )
 from ..store import (
     Conflict,
-    FileProgressStore,
     HomeworkWrite,
     RuntimeSnapshot,
+    RuntimeStore,
     UpgradeCommit,
     UpgradeIdentity,
 )
@@ -277,7 +277,7 @@ class RollForward(NamedTuple):
 
 
 def preview_upgrade(
-    store: FileProgressStore,
+    store: RuntimeStore,
     course: Course,
     learner_id: str,
     mapping: CoordinateMap | None = None,
@@ -302,7 +302,7 @@ def preview_upgrade(
 
 
 def roll_forward(
-    store: FileProgressStore,
+    store: RuntimeStore,
     course: Course,
     learner_id: str,
     mapping: CoordinateMap | None = None,

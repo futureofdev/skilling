@@ -296,7 +296,7 @@ def test_equal_legacy_duplicates_are_read_without_repair(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("fault_kind", ["error", "exit"])
-@pytest.mark.parametrize("boundary", ["log", "record", "committed"])
+@pytest.mark.parametrize("boundary", ["log", "record", "completion-receipt", "committed"])
 def test_interrupted_completion_recovery_and_receipt_retry_preserve_chronology(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

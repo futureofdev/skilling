@@ -695,7 +695,7 @@ def test_console_entrypoint_controls_late_state_errors(clean_dir: Path, tmp_path
     injection = tmp_path / "injection"
     injection.mkdir()
     (injection / "sitecustomize.py").write_text(
-        "from skilling.session import _service\n"
+        "from skilling.session._services import _file as _service\n"
         "from skilling.store import StatePathError\n"
         "def refuse(*args, **kwargs):\n"
         "    raise StatePathError('test late scratch refusal')\n"

@@ -301,6 +301,12 @@ class Journal:
 
     def _preflight(self, prepared: Prepared) -> None:
         self._identity(prepared.receipt)
+        saved = self._path("completion-receipts", prepared.receipt.operation_id + ".yaml")
+        if (
+            saved.exists()
+            and Receipt.model_validate(yaml.safe_load(saved.read_bytes())) != prepared.receipt
+        ):
+            raise ValueError("Completion lifetime receipt differs")
         targets = [item.target for item in prepared.mutations]
         expected = [Target.LOG, Target.RECORD]
         if Target.HOMEWORK in targets:
@@ -349,6 +355,10 @@ class Journal:
                 _fsync_dir(path.parent)
             else:
                 _write_bytes_atomic(path, item.after)
+        _write_bytes_atomic(
+            self._path("completion-receipts", prepared.receipt.operation_id + ".yaml"),
+            _dump(prepared.receipt.model_dump(mode="json")),
+        )
         self._publish(Committed(version=1, kind="committed", receipt=prepared.receipt))
 
     def recover(self) -> None:
@@ -444,11 +454,14 @@ class Journal:
 
 
 def recover_journals(root: Path, course_id: str) -> None:
+    from .._protocol._file_source import apply_initialize, inspect_initialize
+
     completion = Journal(root, course_id)
     transition = TransitionJournal(root, course_id)
     submission = SubmissionJournal(root, course_id)
     upgrade = UpgradeJournal(root, course_id)
     try:
+        initializing = inspect_initialize(root, course_id)
         old = completion._load()
         if isinstance(old, Prepared):
             completion._preflight(old)
@@ -458,6 +471,7 @@ def recover_journals(root: Path, course_id: str) -> None:
         if (
             sum(
                 (
+                    initializing is not None,
                     isinstance(old, Prepared),
                     isinstance(new, (PreparedTransition, PreparedAction)),
                     isinstance(submitted, PreparedSubmission),
@@ -467,6 +481,8 @@ def recover_journals(root: Path, course_id: str) -> None:
             > 1
         ):
             raise ValueError("multiple prepared runtime journals")
+        if initializing is not None:
+            apply_initialize(root, course_id, initializing)
         if isinstance(old, Prepared):
             completion._apply(old)
         if isinstance(new, (PreparedTransition, PreparedAction)):

@@ -23,6 +23,8 @@ def utc_storage_test_day(zone: str, now: datetime | None = None) -> date:
 
 
 def boundary_for(path: Path, data: bytes) -> str:
+    if path.parent.name == "completion-receipts":
+        return "completion-receipt"
     if path.name == "completion.yaml":
         return yaml.safe_load(data)["kind"]
     return {
