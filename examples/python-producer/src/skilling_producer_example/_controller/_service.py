@@ -6,8 +6,7 @@ import asyncio
 import json
 import re
 import secrets
-from dataclasses import asdict, dataclass, replace
-from enum import StrEnum
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from pydantic_ai.messages import ModelMessage
@@ -21,17 +20,19 @@ from skilling.session import (
     HomeworkArchiveView,
     HomeworkCheck,
     PendingFeedback,
+    ScopedPendingFeedback,
+    Session,
     SessionRefusal,
     SessionSnapshot,
     TrustedAction,
     VersionMismatch,
     load_course,
 )
+from skilling.store import ScopedAction, SessionScope, SessionStore
 from skilling.workspace import load_manifest, state_root
 from skilling_tutor import (
     AdviceVerdict,
     ConversationContext,
-    HomeworkAdvice,
     HomeworkAdviceContext,
     LearnerEvidence,
     NarrationContext,
@@ -42,47 +43,10 @@ from skilling_tutor import (
     TutorErrorKind,
 )
 
+from .._tutor import BrowserConversationResult, BrowserTutor
 from ._note import GoalNote, NoteObservation
-from ._tutor import BrowserConversationResult, BrowserTutor
+from ._types import Continuation, ControllerError, Display, Review, ReviewKind
 from ._views import controls, snapshot_view
-
-
-class ControllerError(Exception):
-    def __init__(self, code: str, message: str, status: int = 409):
-        super().__init__(message)
-        self.code = code
-        self.status = status
-
-
-class ReviewKind(StrEnum):
-    OBJECTIVES = "objectives"
-    HOMEWORK = "homework"
-
-
-@dataclass
-class Review:
-    id: str
-    kind: ReviewKind
-    advice: ObjectiveAdvice | HomeworkAdvice
-    record_revision: str
-    note: NoteObservation | None
-    explanation: str
-    submission_token: str | None = None
-    displayed: bool = False
-
-
-@dataclass(frozen=True)
-class Display:
-    snapshot: SessionSnapshot | None
-    feedback: PendingFeedback | None
-
-
-@dataclass(frozen=True)
-class Continuation:
-    id: str
-    control: str
-    display_id: str
-    remaining: int
 
 
 class ProducerController:
@@ -99,7 +63,10 @@ class ProducerController:
         self.learner_id = learner_id
         self.state_root = state_root(workspace)
         self.note = GoalNote.open(workspace)
-        self.session: FileSession | None = None
+        self.session: FileSession | Session | None = None
+        self.store: SessionStore | None = None
+        self.scope: SessionScope | None = None
+        self.demo: dict[str, object] | None = None
         self.course_path: Path | None = None
         self.startup_error: SessionRefusal | None = None
         self.lock = asyncio.Lock()
@@ -109,7 +76,7 @@ class ProducerController:
         self.presented: list[tuple[str, dict[str, object]]] = []
         self.messages: list[dict[str, str]] = []
         self.displays: dict[str, Display] = {}
-        self.actions: dict[str, TrustedAction] = {}
+        self.actions: dict[str, TrustedAction | ScopedAction] = {}
         self.review: Review | None = None
         self.confirmations: dict[str, HomeworkArchiveView | dict[str, object]] = {}
         self.submitted = False
@@ -154,7 +121,29 @@ class ProducerController:
             controller.startup_error = error
         return controller
 
-    def _service(self) -> FileSession:
+    @classmethod
+    def open_scoped(
+        cls,
+        course_path: Path,
+        work_root: Path,
+        store: SessionStore,
+        scope: SessionScope,
+        runner: SkillingRunner | BrowserTutor,
+    ) -> ProducerController:
+        if scope.course_id != "welcome-skilling":
+            raise ValueError("this reference producer supports unchanged Welcome only")
+        controller = cls(work_root, runner, scope.course_id, scope.learner_id)
+        controller.course_path = course_path
+        controller.store, controller.scope = store, scope
+        try:
+            controller.session = Session.open(
+                course_path, store=store, scope=scope, work_root=work_root
+            )
+        except VersionMismatch as error:
+            controller.startup_error = error
+        return controller
+
+    def _service(self) -> FileSession | Session:
         if self.session is None:
             raise ControllerError(
                 "version-mismatch",
@@ -163,7 +152,9 @@ class ProducerController:
             )
         return self.session
 
-    def _pending(self) -> PendingFeedback | None:
+    def _pending(self) -> PendingFeedback | ScopedPendingFeedback | None:
+        if self.store is not None and self.scope is not None:
+            return Session.pending_feedback_at(store=self.store, scope=self.scope)
         return FileSession.pending_feedback_at(
             state_root=self.state_root, learner_id=self.learner_id, course_id=self.course_id
         )
@@ -178,7 +169,12 @@ class ProducerController:
         review = self.review
         if review is None:
             return
-        if review.record_revision != snapshot.revision or review.note != note:
+        if (
+            review.record_revision != snapshot.revision
+            or review.note != note
+            or review.snapshot is not None
+            and review.snapshot.session_revision != snapshot.session_revision
+        ):
             self.review = None
             return
         if review.kind is ReviewKind.HOMEWORK:
@@ -236,6 +232,7 @@ class ProducerController:
         )
         archive = next(reversed(self.confirmations.values())) if self.confirmations else None
         return {
+            "demo": self.demo,
             "csrf_token": self.csrf_token,
             "display_id": display_id,
             "snapshot": snapshot_view(snapshot) if snapshot is not None else None,
@@ -269,11 +266,15 @@ class ProducerController:
             )
         service = self._service()
         if control["operation"] == "complete":
-            service.complete(snapshot.revision)
+            service.complete(snapshot) if isinstance(service, Session) else service.complete(
+                snapshot.revision
+            )
         elif control["operation"] == "ceremony":
             if service.snapshot().revision != snapshot.revision:
                 raise ControllerError("stale-display", "The celebration changed; refresh first.")
-            service.ceremony(workspace_root=self.workspace)
+            service.ceremony() if isinstance(service, Session) else service.ceremony(
+                workspace_root=self.workspace
+            )
         else:
             operation = ActionOperation(control["operation"])
             origin = (
@@ -281,7 +282,10 @@ class ProducerController:
                 if control["payload"] == str(Input.NEXT)
                 else ActionOrigin.LEARNER
             )
-            action = TrustedAction.create(
+            capture = (
+                service.capture_action if isinstance(service, Session) else TrustedAction.create
+            )
+            action = capture(
                 snapshot,
                 event_id=event_id,
                 operation=operation,
@@ -294,7 +298,14 @@ class ProducerController:
                     "idempotency-key-conflict", "Event already belongs to another control."
                 )
             self.actions[event_id] = action
-            result = service.act(action)
+            if isinstance(service, Session):
+                if not isinstance(action, ScopedAction):
+                    raise ControllerError("action-binding", "Action backend binding differs")
+                result = service.act(action)
+            else:
+                if not isinstance(action, TrustedAction):
+                    raise ControllerError("action-binding", "Action backend binding differs")
+                result = service.act(action)
             if not result.replayed:
                 self._remember_presented(snapshot)
             state = self.state()
@@ -319,13 +330,18 @@ class ProducerController:
                 "feedback-display", "No canonical feedback belongs to this display."
             )
         pending = display.feedback
-        FileSession.acknowledge_feedback_at(
-            pending.feedback_id,
-            pending.revision,
-            state_root=self.state_root,
-            learner_id=self.learner_id,
-            course_id=self.course_id,
-        )
+        if isinstance(pending, ScopedPendingFeedback):
+            if self.store is None or self.scope is None:
+                raise ControllerError("feedback-binding", "Feedback scope is unavailable")
+            Session.acknowledge_feedback_at(pending.feedback_id, store=self.store, scope=self.scope)
+        else:
+            FileSession.acknowledge_feedback_at(
+                pending.feedback_id,
+                pending.revision,
+                state_root=self.state_root,
+                learner_id=self.learner_id,
+                course_id=self.course_id,
+            )
         return self.state()
 
     @staticmethod
@@ -391,7 +407,7 @@ class ProducerController:
 
     async def continue_chat(self, continuation_id: str) -> dict[str, object]:
         if continuation_id in self.resumed:
-            return self.state()
+            return await asyncio.to_thread(self.state)
         continuation = self.continuation
         if continuation is None or continuation.id != continuation_id:
             raise ControllerError("continuation-expired", "Refresh and ask your tutor again.")
@@ -436,7 +452,10 @@ class ProducerController:
         try:
             result = await self.runner.chat(message, context, history=self.history)
             current = await asyncio.to_thread(service.snapshot)
-            if current.revision != snapshot.revision:
+            if (current.revision, current.session_revision) != (
+                snapshot.revision,
+                snapshot.session_revision,
+            ):
                 raise ControllerError(
                     "stale-tutor", "Course changed during the tutor turn; ask again."
                 )
@@ -603,7 +622,10 @@ class ProducerController:
             )
         current = await asyncio.to_thread(service.snapshot)
         actual_note = await asyncio.to_thread(self._observe)
-        if current.revision != snapshot.revision or actual_note != note:
+        if (current.revision, current.session_revision) != (
+            snapshot.revision,
+            snapshot.session_revision,
+        ) or actual_note != note:
             raise ControllerError(
                 "stale-review", "Work or course changed during review; inspect and review again."
             )
@@ -617,7 +639,15 @@ class ProducerController:
         self.history = result.history
         self.messages.append({"role": "tutor", "text": result.output.text})
         self.review = Review(
-            secrets.token_urlsafe(24), kind, advice, snapshot.revision, note, explanation, token
+            secrets.token_urlsafe(24),
+            kind,
+            advice,
+            snapshot.revision,
+            note,
+            explanation,
+            token,
+            snapshot=snapshot,
+            submission=check.submission if check else None,
         )
         return await asyncio.to_thread(self.state)
 
@@ -672,13 +702,24 @@ class ProducerController:
                 "meaningful learner-authored fields; "
                 f"displayed positive review {review.id}; learner confirmed authorship."
             )
-            result = service.settle_objective(
-                selected.id,
-                (Capability.CONVERSE, Capability.OBSERVE),
-                checked=checked,
-                attested_by="local-reference-producer" if checked else None,
-                expected_revision=review.record_revision,
-            )
+            if isinstance(service, Session):
+                if review.snapshot is None:
+                    raise ControllerError("review-binding", "Review lost its captured scope")
+                result = service.settle_objective(
+                    selected.id,
+                    (Capability.CONVERSE, Capability.OBSERVE),
+                    checked=checked,
+                    attested_by="local-reference-producer" if checked else None,
+                    snapshot=review.snapshot,
+                )
+            else:
+                result = service.settle_objective(
+                    selected.id,
+                    (Capability.CONVERSE, Capability.OBSERVE),
+                    checked=checked,
+                    attested_by="local-reference-producer" if checked else None,
+                    expected_revision=review.record_revision,
+                )
             self.confirmations[receipt_key] = asdict(result)
         else:
             if objective_id is not None or review.submission_token is None:
@@ -689,7 +730,12 @@ class ProducerController:
                 raise ControllerError(
                     "partial-homework", "Every required item needs positive displayed feedback."
                 )
-            archive = service.homework_submit(review.submission_token)
+            if isinstance(service, Session):
+                if review.submission is None:
+                    raise ControllerError("review-binding", "Review lost its scoped submission")
+                archive = service.homework_submit(review.submission)
+            else:
+                archive = service.homework_submit(review.submission_token)
             self.confirmations[receipt_key] = archive
             self.submitted = True
         self.review = None
@@ -706,11 +752,16 @@ class ProducerController:
             )
         if self._observe() is None:
             raise ControllerError("missing-note", "Save an actual note before registering it.")
-        service.artifact_add(
-            self.workspace / "showcase/welcome-skilling/goal.md",
-            title,
-            workspace_root=self.workspace,
-            path_base=self.workspace,
-            expected_revision=snapshot.revision,
-        )
+        if isinstance(service, Session):
+            service.artifact_add(
+                Path("showcase/welcome-skilling/goal.md"), title, snapshot=snapshot
+            )
+        else:
+            service.artifact_add(
+                self.workspace / "showcase/welcome-skilling/goal.md",
+                title,
+                workspace_root=self.workspace,
+                path_base=self.workspace,
+                expected_revision=snapshot.revision,
+            )
         return self.state()

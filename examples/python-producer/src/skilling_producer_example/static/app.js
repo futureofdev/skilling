@@ -97,7 +97,7 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
 
   function lock(value) {
     busy = value;
-    for (const button of document.querySelectorAll("button")) button.disabled = value || (!presentationValid && button.id !== "refresh");
+    for (const button of document.querySelectorAll("button")) button.disabled = value || (!presentationValid && button.id !== "refresh" && !button.dataset.demo);
   }
 
   async function request(path, body) {
@@ -117,6 +117,27 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
     node.type = "button";
     node.addEventListener("click", action);
     return node;
+  }
+
+  async function selectDemo(selector, course_id) {
+    if (busy || !alive) return;
+    lock(true);
+    generation++;
+    presentationValid = false;
+    acknowledgedReviews.clear();
+    lastFeedback = null;
+    noteDirty = false;
+    for (const id of ["note", "message", "objective-evidence", "homework-evidence", "artifact-title"]) el(id).value = "";
+    for (const id of ["messages", "beat", "feedback", "review", "confirmations"]) el(id).replaceChildren();
+    try {
+      const result = await request("/api/demo/select", { selector, course_id });
+      await render(result);
+      resultStatus(result, "Local demo learner selected. Conversation starts fresh.");
+    } catch (error) {
+      status(`${error.message} Refresh before continuing.`, true);
+    } finally {
+      if (alive) lock(false);
+    }
   }
 
   async function mutate(path, body) {
@@ -190,6 +211,18 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
     el("feedback").replaceChildren(feedback);
     el("review").replaceChildren(review);
     state = next;
+    el("demo").hidden = !next.demo;
+    el("demo-label").textContent = next.demo?.label || "";
+    el("demo-selected").textContent = next.demo?.selected ? `Selected: ${next.demo.selected}` : "Select a configured demonstration learner.";
+    const choices = document.createDocumentFragment();
+    for (const choice of next.demo?.choices || []) {
+      for (const course of choice.courses) {
+        const node = button(`${choice.label} · ${course}`, () => selectDemo(choice.selector, course));
+        node.dataset.demo = "true";
+        choices.append(node);
+      }
+    }
+    el("demo-choices").replaceChildren(choices);
     el("history-notice").textContent = next.history_notice || "Conversation is temporary. After restart, course progress remains; explain any work whose conversation evidence was lost.";
     const course = next.snapshot?.course;
     const position = next.snapshot?.position;

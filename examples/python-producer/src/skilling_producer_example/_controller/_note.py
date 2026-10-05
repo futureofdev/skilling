@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import secrets
 import stat
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -148,15 +149,45 @@ class GoalNote:
             fd = self._open_leaf(
                 "goal.md" if descriptor is not None else target, flags, dir_fd=descriptor
             )
-            with os.fdopen(fd, "wb") as stream:
-                info = os.fstat(stream.fileno())
-                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-                    raise ValueError("note must be a regular file with one link")
-                current = self._check().stat()
-                if (current.st_ino, current.st_dev) != (info.st_ino, info.st_dev):
-                    raise ValueError("note changed before save")
-                stream.truncate(0)
-                stream.write(data)
-                stream.flush()
-                os.fsync(stream.fileno())
+            temporary = ".goal-" + secrets.token_hex(16) + ".tmp"
+            staging = temporary if descriptor is not None else target.with_name(temporary)
+            published = False
+            try:
+                # Open the old leaf only for custody checks; never truncate its shared inode.
+                with os.fdopen(fd, "wb") as guard:
+                    info = os.fstat(guard.fileno())
+                    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                        raise ValueError("note must be a regular file with one link")
+                    current = self._check().stat()
+                    if (current.st_ino, current.st_dev) != (info.st_ino, info.st_dev):
+                        raise ValueError("note changed before save")
+                    staged_fd = os.open(
+                        staging, flags | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=descriptor
+                    )
+                    with os.fdopen(staged_fd, "wb") as stream:
+                        stream.write(data)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    current = self._check().stat()
+                    if (current.st_ino, current.st_dev, current.st_nlink) != (
+                        info.st_ino,
+                        info.st_dev,
+                        1,
+                    ):
+                        raise ValueError("note changed before publication")
+                # Closing the guard permits Windows replacement. Both writers publish whole
+                # private files; a concurrent winner can never create a mixed-byte note.
+                os.replace(
+                    staging,
+                    "goal.md" if descriptor is not None else target,
+                    src_dir_fd=descriptor,
+                    dst_dir_fd=descriptor,
+                )
+                published = True
+                if descriptor is not None:
+                    os.fsync(descriptor)
+            finally:
+                if not published:
+                    with suppress(FileNotFoundError):
+                        os.unlink(staging, dir_fd=descriptor)
         return self.inspect()

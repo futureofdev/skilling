@@ -221,7 +221,7 @@ jobs:
         with:
           name: ${{ needs.tutor-package.outputs.artifact-name }}
           path: dist/tutor
-      - run: uv run --no-project --python ${{ matrix.python-version }} python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version ${{ matrix.python-version }} --app examples/python-producer
+      - run: uv run --no-project --python ${{ matrix.python-version }} python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version ${{ matrix.python-version }} --app examples/python-producer --check-backend-extras
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:

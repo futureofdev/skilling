@@ -318,3 +318,29 @@ test("chat sends the painted display and offers no advance buttons", async () =>
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(sent, { message: "continue", display_id: "display" });
 });
+
+test("demo switch clears prior feedback, unsaved note and review custody", async () => {
+  const document = dom();
+  const calls = [];
+  const demo = { label: "Local demo identity · not production authentication", selected: "Alice", choices: [{ selector: "bob", label: "Bob", courses: ["welcome-skilling"] }] };
+  const ui = createUI(document, async (path, options) => {
+    calls.push(path);
+    if (path === "/api/demo/select") {
+      assert.deepEqual(JSON.parse(options.body), { selector: "bob", course_id: "welcome-skilling" });
+      assert.equal(document.getElementById("note").value, "");
+      assert.equal(document.getElementById("feedback").textContent, "");
+      return { ok: true, json: async () => state({ demo: { ...demo, selected: "Bob" }, csrf_token: "bob" }) };
+    }
+    return { ok: true, json: async () => state({ demo }) };
+  }, async () => {});
+  await ui.start();
+  document.getElementById("note").value = "Alice private unsaved note";
+  document.getElementById("note").listeners.input();
+  await ui.render(state({ demo, feedback }));
+  const choice = document.getElementById("demo-choices").children[0];
+  await choice.listeners.click();
+  assert.equal(ui.getState().csrf_token, "bob");
+  assert.equal(document.getElementById("feedback").textContent, "");
+  assert.equal(document.getElementById("confirmations").children.length, 0);
+  assert.equal(calls.at(-1), "/api/demo/select");
+});

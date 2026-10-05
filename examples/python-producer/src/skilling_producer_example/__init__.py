@@ -2,5 +2,6 @@
 
 from ._app import create_app
 from ._controller import ProducerController
+from ._deployment import AuthorizedLearner, Deployment, ProducerConfig
 
-__all__ = ["ProducerController", "create_app"]
+__all__ = ["ProducerController", "create_app", "ProducerConfig", "Deployment", "AuthorizedLearner"]

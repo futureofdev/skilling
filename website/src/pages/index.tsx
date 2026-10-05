@@ -51,6 +51,7 @@ function Hero(): ReactNode {
             <Link className={`button button--lg button--outline button--primary ${styles.secondary}`} to="/docs/write/first-course">
               Write a course
             </Link>
+            <Link className="button button--lg button--outline button--primary" to="/docs/embed">Embed a tutor</Link>
           </div>
           <p className={styles.small}>Free and open source. Skilling itself needs no API key. The first course takes about ten minutes.</p>
         </div>

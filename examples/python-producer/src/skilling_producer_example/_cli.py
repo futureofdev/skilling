@@ -7,10 +7,12 @@ from pathlib import Path
 
 import uvicorn
 
+from skilling.store import StoreError
 from skilling_tutor import TutorError
 
 from ._app import create_app, validate_bind
 from ._controller import ProducerController
+from ._deployment import Deployment, ProducerConfig
 from ._tutor import BrowserTutor
 
 
@@ -18,7 +20,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Serve the local Welcome tutor")
     commands = parser.add_subparsers(dest="command", required=True)
     serve = commands.add_parser("serve")
-    serve.add_argument("--workspace", type=Path, required=True)
+    location = serve.add_mutually_exclusive_group(required=True)
+    location.add_argument("--workspace", type=Path)
+    location.add_argument("--config", type=Path)
     serve.add_argument("--course", default="welcome-skilling")
     serve.add_argument("--model", required=True)
     serve.add_argument("--host", default="127.0.0.1")
@@ -26,9 +30,15 @@ def main() -> None:
     args = parser.parse_args()
     try:
         validate_bind(args.host, args.port)
-        runner = BrowserTutor.create(args.model)
-        controller = ProducerController.open(args.workspace, runner, course_id=args.course)
-    except (ValueError, OSError, TutorError) as error:
+        if args.config is not None:
+            controller = Deployment.configure(
+                ProducerConfig.load(args.config), lambda: BrowserTutor.create(args.model)
+            )
+        else:
+            controller = ProducerController.open(
+                args.workspace, BrowserTutor.create(args.model), course_id=args.course
+            )
+    except (ValueError, OSError, TutorError, StoreError) as error:
         parser.error(str(error))
     app = create_app(controller, host=args.host, port=args.port)
     uvicorn.run(app, host=args.host, port=args.port, access_log=False)

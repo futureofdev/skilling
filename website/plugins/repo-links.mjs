@@ -14,7 +14,7 @@ const isDirectory = (target) => {
   }
 };
 
-export default function repoLinks({repo, repoDir, root}) {
+export default function repoLinks({repo, repoDir, root, include}) {
   const rootDir = path.join(repoDir, root);
   return (tree, file) => {
     const fromDir = path.dirname(file.path);
@@ -24,7 +24,7 @@ export default function repoLinks({repo, repoDir, root}) {
         if (target) {
           const absolute = path.resolve(fromDir, target);
           const inside = absolute.startsWith(rootDir + path.sep);
-          if (!inside || !absolute.endsWith('.md')) {
+          if (!inside || !absolute.endsWith('.md') || (include && !include.includes(path.relative(rootDir, absolute)))) {
             const relative = path.relative(repoDir, absolute).split(path.sep).join('/');
             const kind = isDirectory(absolute) ? 'tree' : 'blob';
             node.url = `${repo}/${kind}/main/${relative}${hash ? `#${hash}` : ''}`;

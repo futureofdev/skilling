@@ -16,7 +16,7 @@ from skilling.workspace import import_local_course
 from skilling_producer_example import ProducerController, create_app
 from skilling_producer_example._app import validate_bind
 from skilling_producer_example._controller import ControllerError
-from skilling_producer_example._note import GoalNote, NoteObservation
+from skilling_producer_example._controller._note import GoalNote, NoteObservation
 
 COURSE = Path(__file__).resolve().parents[2] / "welcome-skilling"
 
@@ -317,7 +317,8 @@ def test_note_symlinks_bounds_and_fifo_do_not_write_outside(browser, tmp_path):
     if hasattr(os, "mkfifo"):
         os.mkfifo(target)
         code = (
-            "from pathlib import Path; from skilling_producer_example._note import GoalNote; "
+            "from pathlib import Path; "
+            "from skilling_producer_example._controller._note import GoalNote; "
             f"GoalNote.open(Path({str(browser.controller.workspace)!r})).inspect()"
         )
         probe = subprocess.run([sys.executable, "-c", code], capture_output=True, timeout=15)

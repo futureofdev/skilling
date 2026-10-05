@@ -138,7 +138,20 @@ def main() -> None:
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--python-version", default="3.11")
     parser.add_argument("--app", type=Path, help="Reference app source for the installed journey")
+    parser.add_argument(
+        "--store-profile", choices=("file", "sqlite", "postgres", "s3"), default="sqlite"
+    )
+    parser.add_argument(
+        "--store-config", type=Path, help="Private explicit disposable backend configuration"
+    )
+    parser.add_argument(
+        "--check-backend-extras",
+        action="store_true",
+        help="Verify installed optional SDK wheels without contacting services",
+    )
     args = parser.parse_args()
+    if args.store_profile in ("postgres", "s3") and args.store_config is None:
+        parser.error("remote profiles require --store-config")
     evidence = args.evidence.resolve()
     evidence.mkdir(parents=True, exist_ok=True)
     source = Path(__file__).resolve().parents[3]
@@ -157,6 +170,23 @@ def main() -> None:
         assert not stage.is_relative_to(source)
         child = stage / "probe.py"
         shutil.copyfile(Path(__file__).with_name("installed_child.py"), child)
+        backend_child = stage / "backend_probe.py"
+        shutil.copyfile(
+            source / "packages/skilling/tests/backends/installed_probe.py", backend_child
+        )
+        shutil.copytree(source / "examples/welcome-skilling", stage / "welcome-skilling")
+        backend_config = None
+        if args.store_config is not None:
+            backend_config = stage / "private-store-config.json"
+            shutil.copyfile(args.store_config.resolve(), backend_config)
+            backend_config.chmod(0o600)
+            configuration = json.loads(backend_config.read_text())
+            for name in ("dsn_env", "restore_dsn_env", "profile_env"):
+                reference = configuration.get(name)
+                if reference is not None:
+                    if not isinstance(reference, str) or reference not in os.environ:
+                        raise ValueError("Selected backend environment reference is missing")
+                    environment[reference] = os.environ[reference]
 
         def run(argv: list[str]) -> None:
             started = datetime.now(UTC).isoformat()
@@ -186,7 +216,6 @@ def main() -> None:
             run(["uv", "build", "--no-sources", str(copied_app), "--out-dir", str(app_dist)])
             app_probe = stage / "app_probe.py"
             shutil.copyfile(app_source / "tests/journey.py", app_probe)
-            shutil.copytree(source / "examples/welcome-skilling", stage / "welcome-skilling")
 
         for kind, pattern in (("wheel", "*.whl"), ("sdist", "*.tar.gz")):
             (core,) = args.core_dist.resolve().glob(pattern)
@@ -218,6 +247,30 @@ def main() -> None:
                 ["uv", "pip", "install", "--python", str(python), str(local_core), str(local_tutor)]
             )
             run([str(python), str(child), core_version, tutor_version])
+            if args.store_profile in ("postgres", "s3"):
+                run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        str(python),
+                        f"{local_core}[{args.store_profile}]",
+                    ]
+                )
+            run(
+                [
+                    str(python),
+                    str(backend_child),
+                    "--store-profile",
+                    args.store_profile,
+                    "--course-source",
+                    str(stage / "welcome-skilling"),
+                    "--workspace",
+                    str(stage / f"{kind}-backend"),
+                    *(["--store-config", str(backend_config)] if backend_config else []),
+                ]
+            )
             if app_dist is not None and app_probe is not None:
                 (app_artifact,) = app_dist.glob(pattern)
                 artifacts.append(
@@ -254,6 +307,47 @@ def main() -> None:
                         str(stage / "welcome-skilling"),
                     ]
                 )
+                run(
+                    [
+                        str(python),
+                        str(app_probe),
+                        "--store-profile",
+                        args.store_profile,
+                        "--workspace",
+                        str(stage / f"{kind}-configured-app"),
+                        "--course-source",
+                        str(stage / "welcome-skilling"),
+                        *(["--store-config", str(backend_config)] if backend_config else []),
+                    ]
+                )
+            if args.check_backend_extras:
+                run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        str(python),
+                        "--only-binary",
+                        "psycopg-binary",
+                        f"{local_core}[postgres,s3]",
+                    ]
+                )
+                run(
+                    [
+                        str(python),
+                        "-c",
+                        "import os; os.environ['PSYCOPG_IMPL']='binary'; "
+                        "import pathlib,sys,boto3,psycopg,psycopg_pool,skilling.store; "
+                        "assert psycopg.pq.__impl__ == 'binary'; "
+                        "root=pathlib.Path(sys.prefix).resolve(); "
+                        "assert all(pathlib.Path(m.__file__).resolve().is_relative_to(root) "
+                        "for m in (boto3,psycopg,psycopg_pool,skilling.store)); "
+                        "assert callable(skilling.store.PostgresSessionStore.open); "
+                        "assert callable(skilling.store.S3SessionStore.open); "
+                        "print('installed backend extras PASS; no service calls')",
+                    ]
+                )
         core_only = stage / "core-only"
         run(["uv", "venv", "--python", args.python_version, str(core_only)])
         python = core_only / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -274,6 +368,11 @@ def main() -> None:
         json.dumps(
             {
                 "status": "PASS",
+                "store_profile": args.store_profile,
+                "backend_extras_checked": args.check_backend_extras,
+                "backend_probe_sha256": hashlib.sha256(
+                    (source / "packages/skilling/tests/backends/installed_probe.py").read_bytes()
+                ).hexdigest(),
                 "platform": platform.platform(),
                 "python_requested": args.python_version,
                 "artifacts": artifacts,

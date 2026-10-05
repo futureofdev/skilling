@@ -1,9 +1,13 @@
 # Local browser producer
 
 This installable reference app delivers **Welcome to Skilling** through the public
-`FileSession` and conversational `SkillingRunner` APIs. It runs one learner and one explicit
-workspace on loopback. It is an experimental local example; these sources do not publish a
-package or provide multi-user hosting.
+`FileSession` / scoped `Session` and conversational `SkillingRunner` APIs. The existing workspace
+launch remains available. New `--config` TOML mode uses SQLite by default, with explicit file,
+PostgreSQL or S3 backends and separate browser demo identities. It remains an experimental
+loopback example, not hosted authentication. These sources do not publish a package.
+
+See [Embed a tutor](../../docs/embedding-a-tutor.md) for complete configuration, lifecycle,
+authorization, safe contexts and operational guidance.
 
 From a checkout, install the locked workspace and create a disposable learner workspace:
 

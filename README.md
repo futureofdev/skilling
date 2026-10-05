@@ -233,3 +233,5 @@ Questions, course ideas and reports of unclear spec wording are all welcome. Sta
 
 Python producers can try the experimental [local browser reference app](examples/python-producer/README.md)
 and [walkthrough](docs/python-producer.md), using the public session and optional conversational tutor APIs.
+
+Building a Python learning product? Start with [Embed a tutor](docs/embedding-a-tutor.md) for trusted identity, persistent sessions and the configured Welcome example.

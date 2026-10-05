@@ -104,6 +104,18 @@ const config: Config = {
     [
       '@docusaurus/plugin-content-docs',
       {
+        id: 'embed',
+        path: '../docs',
+        include: ['embedding-a-tutor.md'],
+        routeBasePath: 'docs',
+        sidebarPath: false,
+        editUrl: ({docPath}: {docPath: string}) => `${REPO}/edit/main/docs/${docPath}`,
+        beforeDefaultRemarkPlugins: [[repoLinks, {repo: REPO, repoDir: repoFile('.'), root: 'docs', include: ['embedding-a-tutor.md']}]],
+      },
+    ],
+    [
+      '@docusaurus/plugin-content-docs',
+      {
         // The normative specification is rendered from spec/, never copied.
         id: 'spec',
         path: '../spec',
@@ -133,6 +145,7 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'learn', position: 'left', label: 'Learn'},
         {type: 'docSidebar', sidebarId: 'write', position: 'left', label: 'Write a course'},
+        {to: '/docs/embed', position: 'left', label: 'Embed a tutor'},
         {type: 'docSidebar', sidebarId: 'spec', docsPluginId: 'spec', position: 'left', label: 'Specification'},
         {href: REPO, label: 'GitHub', position: 'right'},
       ],
@@ -161,6 +174,7 @@ const config: Config = {
         {
           title: 'Project',
           items: [
+            {label: 'Embed a tutor', to: '/docs/embed'},
             {label: 'Specification', to: '/spec'},
             {label: 'Format status', to: '/docs/write/status'},
             {label: 'Contributing', href: `${REPO}/blob/main/CONTRIBUTING.md`},

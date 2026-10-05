@@ -360,9 +360,157 @@ def synthetic_journey(workspace: Path, course_source: Path) -> dict[str, object]
     }
 
 
+def configured_journey(
+    workspace: Path, course_source: Path, profile: str, config_path: Path | None
+) -> dict[str, object]:
+    """Installed multi-browser proof uses synthetic evidence and configured trusted identities."""
+    from skilling_producer_example import Deployment, ProducerConfig
+
+    workspace.mkdir(parents=True, exist_ok=False)
+    roots = [workspace / name for name in ("alice", "bob")]
+    for root in roots:
+        root.mkdir()
+    settings = json.loads(config_path.read_text()) if config_path else {}
+    if profile in ("file", "sqlite"):
+        backend = {"kind": profile, "path": str(workspace / "state")}
+    elif profile == "postgres":
+        backend = {
+            "kind": profile,
+            "dsn_env": settings["dsn_env"],
+            "schema_name": "app_" + secrets.token_hex(12),
+        }
+    else:
+        backend = {
+            "kind": profile,
+            "bucket": settings["bucket"],
+            "prefix": settings["prefix"].rstrip("/") + "/app-" + secrets.token_hex(12) + "/",
+            "region": settings["region"],
+            "endpoint_url": settings.get("endpoint_url"),
+        }
+    config = ProducerConfig.model_validate(
+        {
+            "namespace": "installed-app-demo",
+            "backend": backend,
+            "courses": [{"id": "welcome-skilling", "path": str(course_source.resolve())}],
+            "learners": [
+                {
+                    "selector": name,
+                    "label": name,
+                    "learner_id": "opaque-" + name,
+                    "work_root": str(root),
+                    "courses": ["welcome-skilling"],
+                }
+                for name, root in zip(("alice", "bob"), roots, strict=True)
+            ],
+        }
+    )
+
+    def post(client, state, path, body):
+        response = client.post(
+            path, json=body, headers={"Origin": BASE, "X-CSRF-Token": state["csrf_token"]}
+        )
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def select(client, selector):
+        state = client.get("/api/state").json()
+        return post(
+            client,
+            state,
+            "/api/demo/select",
+            {"selector": selector, "course_id": "welcome-skilling"},
+        )
+
+    # Exercise the documented TOML + serve --config boundary with only the model
+    # constructor and network server replaced; ASGI lifespan and HTTP remain real.
+    from unittest.mock import patch
+
+    from skilling_producer_example._cli import main as serve
+
+    lines = ["namespace = " + json.dumps(config.namespace), "[backend]"]
+    lines.extend(
+        f"{key} = {json.dumps(value)}" for key, value in backend.items() if value is not None
+    )
+    for course in config.courses:
+        lines.append("[[courses]]")
+        lines.extend(f"{key} = {json.dumps(value)}" for key, value in course.model_dump().items())
+    for learner in config.learners:
+        lines.append("[[learners]]")
+        lines.extend(f"{key} = {json.dumps(value)}" for key, value in learner.model_dump().items())
+    toml = workspace / "producer.toml"
+    toml.write_text("\n".join(lines) + "\n")
+    model = SyntheticTutor()
+
+    def run_server(app, **options):
+        assert options["host"] == "127.0.0.1" and options["port"] == 8765
+        with TestClient(app, base_url=BASE) as browser:
+            assert select(browser, "alice")["demo"]["selected"] == "alice"
+
+    with (
+        patch.object(
+            sys,
+            "argv",
+            [
+                "skilling-producer-example",
+                "serve",
+                "--config",
+                str(toml),
+                "--model",
+                "synthetic-test",
+            ],
+        ),
+        patch(
+            "skilling_producer_example._cli.BrowserTutor.create",
+            side_effect=lambda _: model.runner(),
+        ),
+        patch("skilling_producer_example._cli.uvicorn.run", side_effect=run_server),
+    ):
+        serve()
+    deployment = Deployment.configure(config, model.runner)
+    app = create_app(deployment)
+    with TestClient(app, base_url=BASE) as alice:
+        bob = TestClient(app, base_url=BASE)
+        try:
+            a, b = select(alice, "alice"), select(bob, "bob")
+            assert a["csrf_token"] != b["csrf_token"]
+            a = post(alice, a, "/api/note/save", {"text": NOTE})
+            assert bob.get("/api/state").json()["note"] is None
+            a = post(alice, a, "/api/chat", {"message": "Explain this synthetic fixture material."})
+            assert a["messages"] and bob.get("/api/state").json()["messages"] == []
+            control = a["controls"][0]["id"]
+            a = post(
+                alice,
+                a,
+                f"/api/actions/{control}",
+                {"display_id": a["display_id"], "event_id": "installed-action"},
+            )
+            assert bob.get("/api/state").json()["snapshot"] == b["snapshot"]
+            persisted = a["snapshot"]
+        finally:
+            bob.close()
+    with TestClient(
+        create_app(Deployment.configure(config, model.runner)), base_url=BASE
+    ) as client:
+        resumed = select(client, "alice")
+        assert resumed["snapshot"] == persisted
+        assert resumed["note"]["text"] == NOTE
+        assert resumed["messages"] == [] and resumed["review"] is None
+        assert "fresh evidence" in resumed["history_notice"]
+    return {"profile": profile, "two_browser_isolation": True, "restart": True, "synthetic": True}
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--course-source", type=Path, required=True)
+    parser.add_argument("--store-profile", choices=("file", "sqlite", "postgres", "s3"))
+    parser.add_argument("--store-config", type=Path)
     args = parser.parse_args()
-    print(json.dumps(synthetic_journey(args.workspace, args.course_source), sort_keys=True))
+    result = (
+        configured_journey(
+            args.workspace, args.course_source, args.store_profile, args.store_config
+        )
+        if args.store_profile
+        else synthetic_journey(args.workspace, args.course_source)
+    )
+    print(json.dumps(result, sort_keys=True))
