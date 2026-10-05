@@ -1,5 +1,12 @@
 # Conversational Python tutor
 
+For a complete application integration, start with the
+[Embed a tutor website guide](https://futureofdev.github.io/skilling/docs/embed) and
+[React reference application](../examples/react-tutor/README.md). The public `Tutor` and
+optional `skilling_tutor.fastapi.mount_tutor` combine the capability below with a trusted
+application controller, persistent scoped sessions and real streaming. This page documents the
+lower-level conversation and capability interfaces, which remain useful for custom transports.
+
 `skilling-tutor` 0.1.0 is an experimental optional adapter for a trusted Python producer.
 Its matching core is `skilling>=0.8.0,<0.9.0`, the first allocated minor containing the public
 session facade. This source change does not publish either distribution or execute a release.
@@ -224,4 +231,4 @@ install proves that neither tutor nor framework is required by the core. CI reta
 matrix and runs matching installed artifacts on Linux/macOS/Windows at Python 3.11/3.14; local
 results establish only the tested host/interpreter, never published artifacts or other platforms.
 
-For a runnable local UI using these public APIs, see the [browser producer walkthrough](python-producer.md).
+For a runnable local UI using these public APIs, see the [React application](../examples/react-tutor/README.md).

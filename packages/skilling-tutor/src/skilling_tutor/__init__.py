@@ -32,6 +32,7 @@ from ._narration import (
 )
 from ._runner import SkillingRunner
 from ._skills import BundledSkill
+from .runtime import Evidence, Tutor, TutorEvent, TutorEventType, TutorSession, TutorSessionError
 
 __version__ = "0.1.0"
 
@@ -54,6 +55,12 @@ __all__ = [
     "SkillingCapability",
     "SkillingRunDeps",
     "SkillingRunner",
+    "Evidence",
+    "Tutor",
+    "TutorEvent",
+    "TutorEventType",
+    "TutorSession",
+    "TutorSessionError",
     "TutorError",
     "TutorErrorKind",
     "TutorPurpose",

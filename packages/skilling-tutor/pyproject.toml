@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = ["skilling>=0.8.0,<0.9.0", "pydantic-ai-slim>=2.52.0,<2.53.0", "pydantic-ai-harness[skills]>=0.52.0,<0.53.0"]
 
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.142.2,<0.143"]
+
 [project.urls]
 Source = "https://github.com/futureofdev/skilling"
 Documentation = "https://github.com/futureofdev/skilling/blob/main/docs/python-tutor.md"

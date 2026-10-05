@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.data/
+__pycache__/
+src/skilling_react_example/static/

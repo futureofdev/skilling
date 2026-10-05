@@ -73,10 +73,14 @@ def _inspect(path: Path, *, tutor: bool, version: str, license_bytes: bytes) -> 
     )
     dependencies = parsed.get_all("Requires-Dist", [])
     if tutor:
-        assert sorted(dependencies) == [
+        assert sorted(value for value in dependencies if ";" not in value) == [
             "pydantic-ai-harness[skills]<0.53.0,>=0.52.0",
             "pydantic-ai-slim<2.53.0,>=2.52.0",
             "skilling<0.9.0,>=0.8.0",
+        ]
+        assert parsed.get_all("Provides-Extra", []) == ["fastapi"]
+        assert [value.replace("'", '"') for value in dependencies if ";" in value] == [
+            'fastapi<0.143,>=0.142.2; extra == "fastapi"'
         ]
         assert not any(name.endswith("entry_points.txt") for name in files)
     else:
@@ -111,16 +115,16 @@ def _inspect_app(path: Path, license_bytes: bytes) -> dict[str, object]:
             if name.endswith("METADATA") or name.endswith("PKG-INFO")
         )
     )
-    assert parsed["Name"] == "skilling-producer-example"
+    assert parsed["Name"] == "skilling-react-example"
     assert parsed["Version"] == "0.1.0" and parsed["Requires-Python"] == ">=3.11"
     assert parsed["License-Expression"] == "Apache-2.0"
     assert any(name.endswith("/LICENSE") and body == license_bytes for name, body in files.items())
-    for asset in ("index.html", "app.js", "styles.css"):
-        assert any(name.endswith(f"/static/{asset}") for name in files), f"Missing asset: {asset}"
+    assert any(name.endswith("/static/index.html") for name in files)
+    assert any("/static/assets/" in name and name.endswith(".js") for name in files)
+    assert any("/static/assets/" in name and name.endswith(".css") for name in files)
     dependencies = parsed.get_all("Requires-Dist", [])
     assert sorted(dependencies) == [
-        "fastapi<0.143,>=0.142.2",
-        "skilling-tutor<0.2.0,>=0.1.0",
+        "skilling-tutor[fastapi]<0.2.0,>=0.1.0",
         "uvicorn<0.55,>=0.54.0",
     ]
     return {
@@ -138,7 +142,20 @@ def main() -> None:
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--python-version", default="3.11")
     parser.add_argument("--app", type=Path, help="Reference app source for the installed journey")
+    parser.add_argument(
+        "--store-profile", choices=("file", "sqlite", "postgres", "s3"), default="sqlite"
+    )
+    parser.add_argument(
+        "--store-config", type=Path, help="Private explicit disposable backend configuration"
+    )
+    parser.add_argument(
+        "--check-backend-extras",
+        action="store_true",
+        help="Verify installed optional SDK wheels without contacting services",
+    )
     args = parser.parse_args()
+    if args.store_profile in ("postgres", "s3") and args.store_config is None:
+        parser.error("remote profiles require --store-config")
     evidence = args.evidence.resolve()
     evidence.mkdir(parents=True, exist_ok=True)
     source = Path(__file__).resolve().parents[3]
@@ -157,6 +174,26 @@ def main() -> None:
         assert not stage.is_relative_to(source)
         child = stage / "probe.py"
         shutil.copyfile(Path(__file__).with_name("installed_child.py"), child)
+        backend_child = stage / "backend_probe.py"
+        shutil.copyfile(
+            source / "packages/skilling/tests/backends/installed_probe.py", backend_child
+        )
+        shutil.copytree(source / "examples/welcome-skilling", stage / "welcome-skilling")
+        backend_config = None
+        if args.store_config is not None:
+            backend_config = stage / "private-store-config.json"
+            shutil.copyfile(args.store_config.resolve(), backend_config)
+            backend_config.chmod(0o600)
+            configuration = json.loads(backend_config.read_text())
+            for name in ("dsn_env", "restore_dsn_env", "profile_env"):
+                reference = configuration.get(name)
+                if reference is not None:
+                    if not isinstance(reference, str) or reference not in os.environ:
+                        raise ValueError("Selected backend environment reference is missing")
+                    environment[reference] = os.environ[reference]
+        runtime_probe = stage / "runtime_probe.py"
+        shutil.copyfile(Path(__file__).with_name("installed_runtime.py"), runtime_probe)
+        shutil.copytree(source / "examples/hello-skilling", stage / "runtime-course")
 
         def run(argv: list[str]) -> None:
             started = datetime.now(UTC).isoformat()
@@ -180,13 +217,23 @@ def main() -> None:
             shutil.copytree(
                 app_source,
                 copied_app,
-                ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", ".venv", "dist"),
+                ignore=shutil.ignore_patterns(
+                    "__pycache__",
+                    ".pytest_cache",
+                    ".venv",
+                    "node_modules",
+                    ".data",
+                    "dist",
+                    "static",
+                ),
             )
+            assets = app_source / "dist"
+            assert (assets / "index.html").is_file(), "Build the React app before packaging"
+            shutil.copytree(assets, copied_app / "src/skilling_react_example/static")
             app_dist = stage / "app-dist"
             run(["uv", "build", "--no-sources", str(copied_app), "--out-dir", str(app_dist)])
             app_probe = stage / "app_probe.py"
             shutil.copyfile(app_source / "tests/journey.py", app_probe)
-            shutil.copytree(source / "examples/welcome-skilling", stage / "welcome-skilling")
 
         for kind, pattern in (("wheel", "*.whl"), ("sdist", "*.tar.gz")):
             (core,) = args.core_dist.resolve().glob(pattern)
@@ -218,6 +265,49 @@ def main() -> None:
                 ["uv", "pip", "install", "--python", str(python), str(local_core), str(local_tutor)]
             )
             run([str(python), str(child), core_version, tutor_version])
+            if args.store_profile in ("postgres", "s3"):
+                run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        str(python),
+                        f"{local_core}[{args.store_profile}]",
+                    ]
+                )
+            run(
+                [
+                    str(python),
+                    str(backend_child),
+                    "--store-profile",
+                    args.store_profile,
+                    "--course-source",
+                    str(stage / "welcome-skilling"),
+                    "--workspace",
+                    str(stage / f"{kind}-backend"),
+                    *(["--store-config", str(backend_config)] if backend_config else []),
+                ]
+            )
+            run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    str(python),
+                    f"{local_tutor}[fastapi]",
+                    "httpx>=0.28,<0.29",
+                ]
+            )
+            run(
+                [
+                    str(python),
+                    str(runtime_probe),
+                    str(stage / "runtime-course"),
+                    str(stage / f"{kind}-runtime-state"),
+                ]
+            )
             if app_dist is not None and app_probe is not None:
                 (app_artifact,) = app_dist.glob(pattern)
                 artifacts.append(
@@ -238,7 +328,7 @@ def main() -> None:
                     [
                         str(python),
                         "-c",
-                        "import pathlib,sys,skilling_producer_example as app; "
+                        "import pathlib,sys,skilling_react_example as app; "
                         "origin=pathlib.Path(app.__file__).resolve(); "
                         "assert origin.is_relative_to(pathlib.Path(sys.prefix).resolve()); "
                         "print('installed app origin:', app.__file__)",
@@ -252,6 +342,47 @@ def main() -> None:
                         str(stage / f"{kind}-workspace"),
                         "--course-source",
                         str(stage / "welcome-skilling"),
+                    ]
+                )
+                run(
+                    [
+                        str(python),
+                        str(app_probe),
+                        "--store-profile",
+                        args.store_profile,
+                        "--workspace",
+                        str(stage / f"{kind}-configured-app"),
+                        "--course-source",
+                        str(stage / "welcome-skilling"),
+                        *(["--store-config", str(backend_config)] if backend_config else []),
+                    ]
+                )
+            if args.check_backend_extras:
+                run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        str(python),
+                        "--only-binary",
+                        "psycopg-binary",
+                        f"{local_core}[postgres,s3]",
+                    ]
+                )
+                run(
+                    [
+                        str(python),
+                        "-c",
+                        "import os; os.environ['PSYCOPG_IMPL']='binary'; "
+                        "import pathlib,sys,boto3,psycopg,psycopg_pool,skilling.store; "
+                        "assert psycopg.pq.__impl__ == 'binary'; "
+                        "root=pathlib.Path(sys.prefix).resolve(); "
+                        "assert all(pathlib.Path(m.__file__).resolve().is_relative_to(root) "
+                        "for m in (boto3,psycopg,psycopg_pool,skilling.store)); "
+                        "assert callable(skilling.store.PostgresSessionStore.open); "
+                        "assert callable(skilling.store.S3SessionStore.open); "
+                        "print('installed backend extras PASS; no service calls')",
                     ]
                 )
         core_only = stage / "core-only"
@@ -274,10 +405,18 @@ def main() -> None:
         json.dumps(
             {
                 "status": "PASS",
+                "store_profile": args.store_profile,
+                "backend_extras_checked": args.check_backend_extras,
+                "backend_probe_sha256": hashlib.sha256(
+                    (source / "packages/skilling/tests/backends/installed_probe.py").read_bytes()
+                ).hexdigest(),
                 "platform": platform.platform(),
                 "python_requested": args.python_version,
                 "artifacts": artifacts,
                 "app_source": str(args.app) if args.app is not None else None,
+                "runtime_probe_sha256": hashlib.sha256(
+                    Path(__file__).with_name("installed_runtime.py").read_bytes()
+                ).hexdigest(),
                 "app_probe_sha256": hashlib.sha256(
                     (args.app / "tests/journey.py").read_bytes()
                 ).hexdigest()

@@ -10,6 +10,10 @@ on:
       - "spec/**"
       - "brand/assets/**"
       - "README.md"
+      - "docs/embedding-a-tutor.md"
+      - "docs/persistence*.md"
+      - "docs/python-session.md"
+      - "docs/python-tutor.md"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
@@ -17,6 +21,10 @@ on:
       - "spec/**"
       - "brand/assets/**"
       - "README.md"
+      - "docs/embedding-a-tutor.md"
+      - "docs/persistence*.md"
+      - "docs/python-session.md"
+      - "docs/python-tutor.md"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 

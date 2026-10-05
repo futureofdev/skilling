@@ -35,10 +35,22 @@
 - [Telemetry sink](docs/concepts/the-telemetry-sink.md): Opt-in trace constraints.
 - [Mechanism and policy](docs/concepts/mechanism-and-policy.md): What adopters decide.
 
+## Embed in an application
+
+- [Embed a tutor](website/guides/embed/index.md): Application integration guide and source API status.
+- [React quickstart](website/guides/embed/quickstart.md): Install and run the reference application.
+- [FastAPI integration](website/guides/embed/fastapi.md): Agent configuration, authentication and authorization.
+- [React streaming](website/guides/embed/react.md): HTTP events, render acknowledgements and learner controls.
+- [Operations](website/guides/embed/operate.md): Persistence, retries, deployment and recovery.
+- [Session integration reference](docs/embedding-a-tutor.md): Trusted scopes, backend configuration and lower-level APIs.
+- [SQLite persistence](docs/persistence.md): Complete aggregate persistence and backup/restore.
+- [PostgreSQL persistence](docs/persistence-postgres.md): Pools, conflicts and operational recovery.
+- [S3 persistence](docs/persistence-s3.md): Conditional writes, ambiguous outcomes and backup/restore.
+- [Python tutor API](docs/python-tutor.md): Lower-level conversational policy and informal reviews.
+- [React tutor example](examples/react-tutor/README.md): Canonical application launch and configuration reference.
+
 ## Example source trees
 
 - [Welcome course](examples/welcome-skilling/): Learner orientation.
 - [Hello Skilling](examples/hello-skilling/): Small format example.
 - [Workbench](examples/workbench/): Full-surface practical example.
-
-- [Local browser producer](docs/python-producer.md): loopback Welcome application using the public session and conversational tutor APIs.
