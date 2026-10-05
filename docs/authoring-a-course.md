@@ -54,6 +54,11 @@ skilling validate ./my-course --strict
 skilling show ./my-course
 ```
 
+Use `skilling show ./my-course --json` for machine-readable lesson estimates and phase/course
+sums. Totals add declared `duration_minutes`; missing or unreadable lesson metadata is listed
+in `missing_duration_lessons` and makes the displayed estimate incomplete, rather than zero
+minutes of learning. These are author estimates, not measured completion times.
+
 Remote acquisition refuses warnings as well as errors, so `--strict` is the publication gate.
 Follow each finding's specification anchor. Keep the strict command in CI.
 
@@ -87,6 +92,27 @@ account, approving a consequential action, or manipulating physical equipment.
 This is delivery guidance, not a new course-format requirement. A plain text runtime still
 conforms, and the exercise must remain self-contained even when no model-backed tutor is
 available.
+
+## Writing for beginners
+
+Start with a familiar situation and explain why the skill helps before asking a question.
+Introduce one idea at a time, show a worked example, then ask the learner to make a small
+choice and explain it. A short “last time” recap connects the next lesson to what they
+already know. Keep one running analogy across lessons, and say where it stops matching the
+real system.
+
+Place a small diagram before a dense explanation. Terminal-friendly ASCII diagrams work in
+`text` fences; use a course-relative file under `assets/` when a detailed image is necessary.
+Describe the same relationship in words so the lesson still works in a text-only runtime.
+
+```text
+learner's choice -> observed result -> explanation -> another try
+```
+
+Give exercises a concrete starting point: a worked example to adapt, a prediction to test,
+or a few approaches to compare. Teach the needed concepts before requesting output, then
+invite the learner to justify their choice and revisit it after feedback. These are editorial
+patterns, not required sections or a change to the normative course format.
 
 ## 7. Publish a stable source
 

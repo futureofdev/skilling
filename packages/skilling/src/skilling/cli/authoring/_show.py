@@ -16,6 +16,9 @@ def show(
     state: Path = typer.Option(
         None, "--state", help="Progress state root, to show a learner's position too."
     ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Print structure and durations as JSON."
+    ),
     objectives: bool = typer.Option(
         False,
         "--objectives",
@@ -31,6 +34,10 @@ def show(
         render.err_console.print(f"[red]{exc.code}[/] {exc.message}")
         raise typer.Exit(1) from exc
 
+    if objectives and json_output:
+        render.err_console.print("--json and --objectives cannot be combined.")
+        raise typer.Exit(2)
+
     if objectives:
         _objective_mapping(resolved)
         return
@@ -41,7 +48,10 @@ def show(
         found = store.get_record(LOCAL_LEARNER, resolved.id)
         if found:
             completed = found[0].completed
-    render.course_summary(resolved, completed=completed)
+    if json_output:
+        render.course_summary_json(resolved, completed=completed)
+    else:
+        render.course_summary(resolved, completed=completed)
 
 
 def _objective_mapping(course: Course) -> None:
