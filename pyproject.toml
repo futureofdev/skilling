@@ -21,6 +21,8 @@ dev = [
     "ruff>=0.14",
     "pytest>=8.0",
     "pyright>=1.1.400",
+    "psycopg[binary]>=3.3.6,<3.4",
+    "psycopg-pool>=3.3.3,<3.4",
     { include-group = "producer-tests" },
 ]
 

@@ -1,0 +1,39 @@
+# Disposable local persistence services. The controller supplies a unique project name.
+services:
+  postgres:
+    profiles: [postgres]
+    image: postgres:17.11@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+    environment:
+      POSTGRES_USER: skilling_test
+      POSTGRES_DB: skilling_test
+      POSTGRES_PASSWORD: ${PERSISTENCE_POSTGRES_PASSWORD:-local-test-only}
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U skilling_test -d skilling_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  seaweed:
+    profiles: [seaweed]
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    command:
+      - server
+      - -dir=/data
+      - -ip=seaweed
+      - -ip.bind=0.0.0.0
+      - -volume.max=20
+      - -master.volumeSizeLimitMB=64
+      - -filer
+      - -s3
+      - -s3.port=8333
+    ports:
+      - "127.0.0.1::8333"
+    volumes:
+      - seaweed-data:/data
+      - ./filer.toml:/etc/seaweedfs/filer.toml:ro
+volumes:
+  postgres-data:
+  seaweed-data:

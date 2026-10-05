@@ -1,0 +1,4 @@
+# Keep filer metadata in the same task-owned persistent volume as object data.
+[leveldb2]
+enabled = true
+dir = "/data/filerldb2"

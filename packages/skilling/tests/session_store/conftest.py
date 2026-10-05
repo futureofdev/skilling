@@ -33,7 +33,14 @@ def pytest_report_header() -> str:
 
 
 @pytest.fixture
-def store_factory(store_profile: str, tmp_path: Path) -> StoreFactory:
+def store_factory(
+    store_profile: str, tmp_path: Path, request: pytest.FixtureRequest
+) -> StoreFactory:
+    if store_profile == "postgres":
+        from .backends.postgres._support import postgres_fixture
+
+        fixture = postgres_fixture(request)
+        return lambda scope: fixture.store
     if store_profile == "sqlite":
         database = tmp_path / "sessions.db"
         return lambda scope: SQLiteSessionStore.open(database)
