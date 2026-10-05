@@ -223,3 +223,5 @@ review, current progress and homework review without caller-selected modes. A se
 install proves that neither tutor nor framework is required by the core. CI retains the full source
 matrix and runs matching installed artifacts on Linux/macOS/Windows at Python 3.11/3.14; local
 results establish only the tested host/interpreter, never published artifacts or other platforms.
+
+For a runnable local UI using these public APIs, see the [browser producer walkthrough](python-producer.md).

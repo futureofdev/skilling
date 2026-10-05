@@ -40,3 +40,5 @@
 - [Welcome course](examples/welcome-skilling/): Learner orientation.
 - [Hello Skilling](examples/hello-skilling/): Small format example.
 - [Workbench](examples/workbench/): Full-surface practical example.
+
+- [Local browser producer](docs/python-producer.md): loopback Welcome application using the public session and conversational tutor APIs.

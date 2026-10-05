@@ -90,12 +90,54 @@ def _inspect(path: Path, *, tutor: bool, version: str, license_bytes: bytes) -> 
     }
 
 
+def _inspect_app(path: Path, license_bytes: bytes) -> dict[str, object]:
+    if path.suffix == ".whl":
+        with zipfile.ZipFile(path) as archive:
+            files = {
+                name: archive.read(name) for name in archive.namelist() if not name.endswith("/")
+            }
+    else:
+        with tarfile.open(path) as archive:
+            files = {}
+            for member in archive.getmembers():
+                if member.isfile():
+                    stream = archive.extractfile(member)
+                    assert stream is not None
+                    files[member.name] = stream.read()
+    parsed = BytesParser().parsebytes(
+        next(
+            value
+            for name, value in files.items()
+            if name.endswith("METADATA") or name.endswith("PKG-INFO")
+        )
+    )
+    assert parsed["Name"] == "skilling-producer-example"
+    assert parsed["Version"] == "0.1.0" and parsed["Requires-Python"] == ">=3.11"
+    assert parsed["License-Expression"] == "Apache-2.0"
+    assert any(name.endswith("/LICENSE") and body == license_bytes for name, body in files.items())
+    for asset in ("index.html", "app.js", "styles.css"):
+        assert any(name.endswith(f"/static/{asset}") for name in files), f"Missing asset: {asset}"
+    dependencies = parsed.get_all("Requires-Dist", [])
+    assert sorted(dependencies) == [
+        "fastapi<0.143,>=0.142.2",
+        "skilling-tutor<0.2.0,>=0.1.0",
+        "uvicorn<0.55,>=0.54.0",
+    ]
+    return {
+        "name": path.name,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "dependencies": dependencies,
+        "version": parsed["Version"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-dist", type=Path, required=True)
     parser.add_argument("--tutor-dist", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--python-version", default="3.11")
+    parser.add_argument("--app", type=Path, help="Reference app source for the installed journey")
     args = parser.parse_args()
     evidence = args.evidence.resolve()
     evidence.mkdir(parents=True, exist_ok=True)
@@ -130,6 +172,22 @@ def main() -> None:
             )
             assert result.returncode == 0, f"Command failed: see {evidence / f'{index:02d}.stderr'}"
 
+        app_dist = None
+        app_probe = None
+        if args.app is not None:
+            app_source = args.app.resolve()
+            copied_app = stage / "app-source"
+            shutil.copytree(
+                app_source,
+                copied_app,
+                ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", ".venv", "dist"),
+            )
+            app_dist = stage / "app-dist"
+            run(["uv", "build", "--no-sources", str(copied_app), "--out-dir", str(app_dist)])
+            app_probe = stage / "app_probe.py"
+            shutil.copyfile(app_source / "tests/journey.py", app_probe)
+            shutil.copytree(source / "examples/welcome-skilling", stage / "welcome-skilling")
+
         for kind, pattern in (("wheel", "*.whl"), ("sdist", "*.tar.gz")):
             (core,) = args.core_dist.resolve().glob(pattern)
             (tutor,) = args.tutor_dist.resolve().glob(pattern)
@@ -160,6 +218,42 @@ def main() -> None:
                 ["uv", "pip", "install", "--python", str(python), str(local_core), str(local_tutor)]
             )
             run([str(python), str(child), core_version, tutor_version])
+            if app_dist is not None and app_probe is not None:
+                (app_artifact,) = app_dist.glob(pattern)
+                artifacts.append(
+                    _inspect_app(app_artifact, (source / "packages/skilling/LICENSE").read_bytes())
+                )
+                run(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "--python",
+                        str(python),
+                        str(app_artifact),
+                        "httpx>=0.28,<0.29",
+                    ]
+                )
+                run(
+                    [
+                        str(python),
+                        "-c",
+                        "import pathlib,sys,skilling_producer_example as app; "
+                        "origin=pathlib.Path(app.__file__).resolve(); "
+                        "assert origin.is_relative_to(pathlib.Path(sys.prefix).resolve()); "
+                        "print('installed app origin:', app.__file__)",
+                    ]
+                )
+                run(
+                    [
+                        str(python),
+                        str(app_probe),
+                        "--workspace",
+                        str(stage / f"{kind}-workspace"),
+                        "--course-source",
+                        str(stage / "welcome-skilling"),
+                    ]
+                )
         core_only = stage / "core-only"
         run(["uv", "venv", "--python", args.python_version, str(core_only)])
         python = core_only / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -171,6 +265,8 @@ def main() -> None:
                 "import importlib.util, skilling.session; "
                 "assert importlib.util.find_spec('pydantic_ai') is None; "
                 "assert importlib.util.find_spec('skilling_tutor') is None; "
+                "assert importlib.util.find_spec('fastapi') is None; "
+                "assert importlib.util.find_spec('uvicorn') is None; "
                 "print('core-only PASS')",
             ]
         )
@@ -181,6 +277,12 @@ def main() -> None:
                 "platform": platform.platform(),
                 "python_requested": args.python_version,
                 "artifacts": artifacts,
+                "app_source": str(args.app) if args.app is not None else None,
+                "app_probe_sha256": hashlib.sha256(
+                    (args.app / "tests/journey.py").read_bytes()
+                ).hexdigest()
+                if args.app is not None
+                else None,
                 "child_sha256": hashlib.sha256(child.read_bytes()).hexdigest()
                 if child.exists()
                 else hashlib.sha256(

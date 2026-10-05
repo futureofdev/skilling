@@ -230,3 +230,6 @@ Questions, course ideas and reports of unclear spec wording are all welcome. Sta
 [Apache-2.0](LICENSE).
 
 <p align="center"><sub>Skilling was created by Future of Dev.</sub></p>
+
+Python producers can try the experimental [local browser reference app](examples/python-producer/README.md)
+and [walkthrough](docs/python-producer.md), using the public session and optional conversational tutor APIs.
