@@ -133,6 +133,7 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'learn', position: 'left', label: 'Learn'},
         {type: 'docSidebar', sidebarId: 'write', position: 'left', label: 'Write a course'},
+        {type: 'docSidebar', sidebarId: 'embed', position: 'left', label: 'Embed a tutor'},
         {type: 'docSidebar', sidebarId: 'spec', docsPluginId: 'spec', position: 'left', label: 'Specification'},
         {href: REPO, label: 'GitHub', position: 'right'},
       ],
@@ -156,6 +157,15 @@ const config: Config = {
             {label: 'Your first course', to: '/docs/write/first-course'},
             {label: 'Publish and share', to: '/docs/write/publish'},
             {label: 'Error codes', href: `${REPO}/blob/main/docs/error-codes.md`},
+          ],
+        },
+        {
+          title: 'Embed',
+          items: [
+            {label: 'Build a learning app', to: '/docs/embed'},
+            {label: 'Run the React example', to: '/docs/embed/quickstart'},
+            {label: 'Integrate with FastAPI', to: '/docs/embed/fastapi'},
+            {label: 'Customize your tutor', to: '/docs/embed/customize'},
           ],
         },
         {

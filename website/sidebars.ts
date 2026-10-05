@@ -1,6 +1,14 @@
 import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
+  embed: [
+    'embed/index',
+    'embed/quickstart',
+    'embed/fastapi',
+    'embed/react',
+    'embed/customize',
+    'embed/operate',
+  ],
   learn: [
     'learn/index',
     'learn/why',

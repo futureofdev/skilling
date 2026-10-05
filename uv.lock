@@ -654,12 +654,19 @@ dependencies = [
     { name = "skilling" },
 ]
 
+[package.optional-dependencies]
+fastapi = [
+    { name = "fastapi" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.142.2,<0.143" },
     { name = "pydantic-ai-harness", extras = ["skills"], specifier = ">=0.52.0,<0.53.0" },
     { name = "pydantic-ai-slim", specifier = ">=2.52.0,<2.53.0" },
     { name = "skilling", editable = "packages/skilling" },
 ]
+provides-extras = ["fastapi"]
 
 [[package]]
 name = "skilling-workspace"

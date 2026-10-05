@@ -40,11 +40,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 "packages/skilling/src/skilling/cli/**/*.py" = ["B008"]
 
 [tool.pyright]
-include = ["packages", "examples/python-producer"]
+include = ["packages", "examples/python-producer", "examples/react-tutor"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
-testpaths = ["packages/skilling/tests", "packages/skilling-tutor/tests", "examples/python-producer/tests"]
+testpaths = ["packages/skilling/tests", "packages/skilling-tutor/tests", "examples/python-producer/tests", "examples/react-tutor/tests"]
 
 markers = ["storage_native: real native persistence with a controlled UTC calendar"]

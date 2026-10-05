@@ -222,6 +222,18 @@ So far every known implementation comes from one team, which is why the badge ab
 *independent implementations: 0*. [The registry](docs/implementations.md) lists each one and
 the limits of what it claims. If you build another, we'd like to hear about it.
 
+## Embed a tutor in your application
+
+Bring a PydanticAI Agent, register your courses, and mount the optional tutor in FastAPI.
+The [React reference app](examples/react-tutor/README.md) combines real model streaming through
+Vercel AI SDK with Skilling v2 branding and Tailwind. Your application owns authentication,
+model configuration and learner work; Skilling owns the teaching flow and durable progress.
+
+Start with the dedicated [Embed a tutor guide](https://futureofdev.github.io/skilling/docs/embed).
+These are experimental source APIs; install matching core and tutor packages from the checkout.
+The [minimal browser reference](examples/python-producer/README.md) remains available for
+studying the lower-level public session and conversational tutor APIs.
+
 ## Contributing and licence
 
 Questions, course ideas and reports of unclear spec wording are all welcome. Start with
@@ -230,6 +242,3 @@ Questions, course ideas and reports of unclear spec wording are all welcome. Sta
 [Apache-2.0](LICENSE).
 
 <p align="center"><sub>Skilling was created by Future of Dev.</sub></p>
-
-Python producers can try the experimental [local browser reference app](examples/python-producer/README.md)
-and [walkthrough](docs/python-producer.md), using the public session and optional conversational tutor APIs.

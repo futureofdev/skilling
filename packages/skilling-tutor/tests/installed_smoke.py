@@ -73,10 +73,14 @@ def _inspect(path: Path, *, tutor: bool, version: str, license_bytes: bytes) -> 
     )
     dependencies = parsed.get_all("Requires-Dist", [])
     if tutor:
-        assert sorted(dependencies) == [
+        assert sorted(value for value in dependencies if ";" not in value) == [
             "pydantic-ai-harness[skills]<0.53.0,>=0.52.0",
             "pydantic-ai-slim<2.53.0,>=2.52.0",
             "skilling<0.9.0,>=0.8.0",
+        ]
+        assert parsed.get_all("Provides-Extra", []) == ["fastapi"]
+        assert [value.replace("'", '"') for value in dependencies if ";" in value] == [
+            'fastapi<0.143,>=0.142.2; extra == "fastapi"'
         ]
         assert not any(name.endswith("entry_points.txt") for name in files)
     else:
@@ -157,6 +161,9 @@ def main() -> None:
         assert not stage.is_relative_to(source)
         child = stage / "probe.py"
         shutil.copyfile(Path(__file__).with_name("installed_child.py"), child)
+        runtime_probe = stage / "runtime_probe.py"
+        shutil.copyfile(Path(__file__).with_name("installed_runtime.py"), runtime_probe)
+        shutil.copytree(source / "examples/hello-skilling", stage / "runtime-course")
 
         def run(argv: list[str]) -> None:
             started = datetime.now(UTC).isoformat()
@@ -218,6 +225,25 @@ def main() -> None:
                 ["uv", "pip", "install", "--python", str(python), str(local_core), str(local_tutor)]
             )
             run([str(python), str(child), core_version, tutor_version])
+            run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    str(python),
+                    f"{local_tutor}[fastapi]",
+                    "httpx>=0.28,<0.29",
+                ]
+            )
+            run(
+                [
+                    str(python),
+                    str(runtime_probe),
+                    str(stage / "runtime-course"),
+                    str(stage / f"{kind}-runtime-state"),
+                ]
+            )
             if app_dist is not None and app_probe is not None:
                 (app_artifact,) = app_dist.glob(pattern)
                 artifacts.append(
@@ -278,6 +304,9 @@ def main() -> None:
                 "python_requested": args.python_version,
                 "artifacts": artifacts,
                 "app_source": str(args.app) if args.app is not None else None,
+                "runtime_probe_sha256": hashlib.sha256(
+                    Path(__file__).with_name("installed_runtime.py").read_bytes()
+                ).hexdigest(),
                 "app_probe_sha256": hashlib.sha256(
                     (args.app / "tests/journey.py").read_bytes()
                 ).hexdigest()

@@ -42,3 +42,5 @@
 - [Workbench](examples/workbench/): Full-surface practical example.
 
 - [Local browser producer](docs/python-producer.md): loopback Welcome application using the public session and conversational tutor APIs.
+- [Embed a tutor](website/guides/embed/index.md): dedicated application integration track, FastAPI, React streaming, Agent customization and recovery.
+- [React tutor example](examples/react-tutor/README.md): branded Tailwind interface using the public Tutor mount and Vercel AI SDK.
