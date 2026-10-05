@@ -1,96 +1,80 @@
 ---
 title: Make the tutor yours
-sidebar_label: Agent and evidence
-description: Extend your PydanticAI Agent, supply application dependencies, and review real learner evidence.
+sidebar_label: Customize and chat
+description: Give Tutor your PydanticAI Agent, then chat through its streaming API or FastAPI mount.
 ---
 
 # Make the tutor yours
 
-The high-level `Tutor` accepts your existing PydanticAI **text-output Agent**. Its model,
-instructions, tools and configuration remain yours. Skilling attaches its teaching capability
-for each run with a fresh, narrow copy of the current course state.
+Give `Tutor` your text-output Agent. Keep your model, instructions and tools; Skilling handles
+course flow and learner progress.
 
 ```python
 import os
+from pathlib import Path
+
 from pydantic_ai import Agent
+from skilling_tutor import Tutor
 
 agent = Agent(
     os.environ["TUTOR_MODEL"],
-    instructions=(
-        "Teach with examples from our product. Keep explanations concise, "
-        "and ask the learner before moving past a readiness gate."
-    ),
+    instructions="Keep replies concise. Use examples from our product.",
 )
 
 @agent.tool_plain
 def product_glossary(term: str) -> str:
-    """Explain a product term using the application's approved glossary."""
+    """Look up an approved product definition."""
     return {"workspace": "A shared area for a team's projects."}.get(
-        term.casefold(), "No glossary entry is available for that term."
+        term.casefold(), "No glossary entry."
     )
+
+tutor = Tutor(
+    agent=agent,
+    courses={"onboarding": Path("./courses/onboarding")},
+    state_dir=Path("./data/learning"),
+)
 ```
 
-Pass this Agent to `Tutor` as in the [FastAPI integration](fastapi.md). You can use another
-provider supported by your installed PydanticAI version. Install that provider's SDK and keep
-credentials in the server environment. No model or provider is selected by Skilling.
+## Chat with it
 
-## Keep application dependencies native
-
-Use the Agent's normal typed dependencies for account-scoped tools. A `deps_factory` on `Tutor`
-receives the trusted learner ID and registered course alias for each run. It returns the
-dependency object expected by your Agent. Scope any data-access tools to that authenticated
-learner; a prompt is not an authorization check.
+From your existing async chat handler, stream events for the authenticated learner:
 
 ```python
-from dataclasses import dataclass
-
-@dataclass(frozen=True)
-class AppDeps:
-    learner_id: str
-    course: str
-
-agent = Agent(os.environ["TUTOR_MODEL"], deps_type=AppDeps)
-# Supply this alongside agent, courses and state_dir in Tutor(...):
-# deps_factory=lambda learner_id, course: AppDeps(learner_id, course)
+async def chat(user_id: str, message: str, display_id: str, request_id: str):
+    session = tutor.session(learner_id=user_id, course="onboarding")
+    async for event in session.stream(
+        message,
+        display_id=display_id,
+        request_id=request_id,
+    ):
+        yield event
 ```
 
-The safe context sent to the tutoring capability contains current teaching and public progress.
-Raw course objects, filesystem paths, credentials, future quiz material and confirmation tokens
-stay outside it. Your additional tools remain your application's responsibility.
+Get the initial display from `await session.state()`. Use a new request ID for each message
+and reuse it for an exact retry. Render `text-delta`, discard drafts on `text-reset`, reconcile
+the accepted `state`, and show `error` without acknowledging it.
+[Acknowledge completed renders](react.md#acknowledge-what-was-actually-shown)
+to continue teaching; gates still wait for the learner.
 
-## Review actual work
+## Put it in a web app
 
-Teaching conversation and assessment evidence serve different purposes. To review practical
-work, supply an `evidence_provider` that reads the relevant learner work from your application's
-trusted storage and returns the observed text plus a stable revision. A learner saying they
-saved or tested a file does not prove the file exists or a check passed.
+For FastAPI, the mount handles that streaming endpoint for you:
 
-Reviews are informal. Present the review, then ask for the learner's explicit confirmation.
-The runtime calls the evidence provider again before confirmation so an edit cannot reuse a
-stale positive review. The async hook signature is
-`evidence_provider(learner_id, course_alias, snapshot) -> Evidence | None`; see
-[`WorkStore.evidence` in the reference app](https://github.com/futureofdev/skilling/blob/main/examples/react-tutor/app.py).
-Homework submission also requires its own confirmation. Keep file editing and work storage
-in your application; the tutor does not gain shell or filesystem access by being mounted.
+```python
+from fastapi import FastAPI
+from my_app.auth import current_user  # Returns the authenticated user's stable ID.
+from skilling_tutor.fastapi import mount_tutor
 
-The public `Evidence` value has `text` and `revision`, plus optional `checked` and
-`attested_by` provenance. Practice confirmation requires actual producer inspection with
-that provenance. Never copy browser-supplied claims into those fields. The reference app's
-saved work editor demonstrates a narrow evidence provider for the Welcome note.
+app = FastAPI()
+mount_tutor(app, tutor, current_user=current_user)
+# Connect your chat to POST /api/learn/onboarding/chat.
+```
 
-Reviews use structured model output. If your conversational Agent has output validators,
-provide a separate `review_agent` without output validators, with the same dependency type and
-appropriate provider configuration. PydanticAI forbids overriding output type when any output
-validator is installed. The adapter does not silently remove your validators.
+Use the [React reference app](quickstart.md) for the complete chat UI, or follow the
+[React event handling](react.md) and [FastAPI authentication](fastapi.md) guides.
 
-## Structured-output Agents and lower-level integrations
-
-The streaming chat integration uses text output. If your Agent has a structured output contract,
-use the existing native `SkillingCapability` with your own controller rather than changing that
-contract implicitly. The [Python tutor API guide](https://github.com/futureofdev/skilling/blob/main/docs/python-tutor.md)
-shows direct capability composition, safe context construction, `ConversationReply` and
-`SkillingRunner`.
-
-The [session facade](https://github.com/futureofdev/skilling/blob/main/docs/python-session.md)
-remains available to applications implementing another transport. `SkillingRunner.chat` itself
-provides read-only conversation; the mounted `Tutor` adds the trusted application flow around it.
+For account-scoped tools, pass `deps_factory=lambda user_id, course: AppDeps(user_id, course)`
+alongside an Agent configured with `deps_type=AppDeps`. For work reviews, supply an async
+`evidence_provider(user_id, course, snapshot)` returning `Evidence` from your actual storage;
+see the [working example](https://github.com/futureofdev/skilling/blob/main/examples/react-tutor/app.py).
+If your Agent has output validators, use a separate `review_agent` without them for structured reviews.
