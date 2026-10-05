@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import secrets
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
@@ -327,11 +328,66 @@ class ProducerController:
         )
         return self.state()
 
-    async def chat(self, message: str) -> dict[str, object]:
+    @staticmethod
+    def _is_readiness(message: str) -> bool:
+        return (
+            re.fullmatch(
+                r"(?:please |yes,? )?(?:continue|move on|next|go on|carry on|proceed|"
+                r"ready|i am ready|i'm ready)(?: please)?",
+                message.strip().lower().rstrip(".! "),
+            )
+            is not None
+        )
+
+    def _chat_control(self, message: str, display_id: str | None) -> str | None:
+        """Bind an explicit learner choice to the state the browser actually painted."""
+        if display_id is None:
+            return None
+        display = self.displays.get(display_id)
+        if display is None or display.snapshot is None:
+            raise ControllerError("display-expired", "Refresh the displayed course before acting.")
+        snapshot = display.snapshot
+        offered = controls(snapshot)
+        text = message.strip().lower().rstrip(".! ")
+        if self._is_readiness(message):
+            readiness_controls: dict[str, Input] = {
+                Beat.WELCOME: Input.NEXT,
+                Beat.OBJECTIVES: Input.NEXT,
+                Beat.CONCEPT: Input.NEXT,
+                Beat.EXERCISE: Input.NEXT,
+                Beat.GATE_CONCEPT: Input.PROCEED,
+                Beat.REMEDIATE: Input.CONTINUE,
+            }
+            choice = readiness_controls.get(str(snapshot.beat.name))
+            if choice is not None and any(c["id"] == str(choice) for c in offered):
+                return str(choice)
+            if snapshot.beat.name in (Beat.COMPLETE, Beat.CEREMONY):
+                return next(
+                    (c["id"] for c in offered if c["operation"] in ("complete", "ceremony")),
+                    None,
+                )
+        if snapshot.beat.name is Beat.QUIZ:
+            answer = re.fullmatch(r"(?:(?:my answer is|i choose|answer|option) )?([a-z])\)?", text)
+            if answer:
+                return next((c["id"] for c in offered if c["payload"].lower() == answer[1]), None)
+        return None
+
+    async def chat(self, message: str, *, display_id: str | None = None) -> dict[str, object]:
         self.review = None
         self.continuation = None
+        control = self._chat_control(message, display_id)
         self.messages.append({"role": "learner", "text": message})
-        return await self._chat_turn(message, allow_choices=True, remaining=3)
+        if control is not None and display_id is not None:
+            state = await asyncio.to_thread(
+                self.action, control, display_id, f"chat-{display_id}-{control}"
+            )
+            if state["feedback"] is not None:
+                return state
+        return await self._chat_turn(
+            message,
+            allow_choices=control is None and not self._is_readiness(message),
+            remaining=3,
+        )
 
     async def continue_chat(self, continuation_id: str) -> dict[str, object]:
         if continuation_id in self.resumed:
@@ -345,6 +401,12 @@ class ProducerController:
             self.action, continuation.control, continuation.display_id, continuation.id
         )
         if state["feedback"] is not None:
+            return state
+        snapshot = await asyncio.to_thread(self._service().snapshot)
+        if continuation.control == str(Input.NEXT) and snapshot.beat.name in (
+            Beat.GATE_CONCEPT,
+            Beat.GATE_EXERCISE,
+        ):
             return state
         return await self._chat_turn(
             "The displayed tutor turn was rendered and the app applied its requested control. "

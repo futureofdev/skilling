@@ -41,3 +41,5 @@ learner gate choice or quiz answer. Each learner message has at most four tutor 
 canonical quiz feedback stops progression until its separate rendering acknowledgement.
 Generic `SkillingRunner.chat` remains read-only; the app's recommendations are producer
 policy, never new core authority, privileged model tools or automatic work confirmation.
+
+Explicit “continue” from a rendered beat applies the current legal SDK transition before the tutor receives the resulting material. Tutoring progression uses chat; no advance buttons are shown. Gates still require the learner’s choice, and exercise attempts and quiz answers are never inferred from a generic continue.

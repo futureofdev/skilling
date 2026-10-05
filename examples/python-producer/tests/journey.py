@@ -186,6 +186,8 @@ def conversational_journey(workspace: Path, course_source: Path) -> dict[str, ob
         steps.append(browser.state["snapshot"]["beat"]["name"])
     assert steps == ["objectives", "concept", "gate-concept"]
     assert browser.state["continuation"] is None
+    assert model.requests == [None]  # the rendered concept reaches its gate silently
+    assert len([m for m in browser.state["messages"] if m["role"] == "tutor"]) == 3
     gate = controller._service().snapshot()
     browser.post("/api/chat", {"message": "I have a deeper question, do not continue yet"})
     assert controller._service().snapshot() == gate

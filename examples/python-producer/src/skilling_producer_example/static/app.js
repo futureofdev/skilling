@@ -230,13 +230,7 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
       messages.append(node);
     }
     el("messages").replaceChildren(messages);
-    const controls = document.createDocumentFragment();
-    for (const control of next.controls || []) {
-      controls.append(button(control.label, () => mutate(`/api/actions/${encodeURIComponent(control.id)}`, {
-        display_id: state.display_id, event_id: globalThis.crypto.randomUUID(),
-      })));
-    }
-    el("controls").replaceChildren(controls);
+    el("controls").replaceChildren();
     el("artifact-form").hidden = !next.artifact_available;
     // One actual paint opportunity, then check that this exact presentation is
     // still attached. Navigating away or a newer render cancels the ack.
@@ -274,7 +268,7 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
       if (!message.trim()) return;
       el("message").value = "";
       acknowledgedReviews.clear();
-      mutate("/api/chat", { message });
+      mutate("/api/chat", { message, display_id: state.display_id });
     });
     el("note-form").addEventListener("submit", async event => {
       event.preventDefault();

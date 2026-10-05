@@ -299,3 +299,22 @@ test("canonical feedback takes priority over a continuation token", async () => 
   await ui.render(state({ feedback, continuation: { id: "blocked-by-feedback" } }));
   assert.deepEqual(calls, ["/api/feedback/ack"]);
 });
+
+
+test("chat sends the painted display and offers no advance buttons", async () => {
+  const document = dom();
+  let sent;
+  const initial = state({ controls: [{ id: "next", label: "Continue" }] });
+  const ui = createUI(document, async (path, options) => {
+    if (path === "/api/state") return { ok: true, json: async () => initial };
+    assert.equal(path, "/api/chat");
+    sent = JSON.parse(options.body);
+    return { ok: true, json: async () => state() };
+  }, async () => {});
+  await ui.start();
+  assert.equal(document.getElementById("controls").children.length, 0);
+  document.getElementById("message").value = "continue";
+  document.getElementById("chat-form").listeners.submit({ preventDefault() {} });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(sent, { message: "continue", display_id: "display" });
+});

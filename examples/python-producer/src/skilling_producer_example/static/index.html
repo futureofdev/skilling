@@ -10,7 +10,7 @@
 <body>
   <header><span class="brand">Skilling</span><span>Welcome · local learning workspace</span></header>
   <main>
-    <section class="intro"><p class="eyebrow">Learn by explaining, trying and reflecting</p><h1>Your next step starts here.</h1><p>Talk with your tutor to learn and move through the course. You can also use the buttons above Conversation.</p></section>
+    <section class="intro"><p class="eyebrow">Learn by explaining, trying and reflecting</p><h1>Your next step starts here.</h1><p>Talk with your tutor to learn and move through the course. Say “continue” when you are ready, ask questions, and answer quizzes in the chat.</p></section>
     <p id="status" role="status" aria-live="polite">Opening your learning workspace…</p>
     <button id="refresh" type="button">Refresh workspace</button>
     <p id="history-notice" class="notice"></p>
@@ -20,10 +20,10 @@
         <h2 id="lesson-title">Your course</h2>
         <div id="beat"></div>
         <section id="feedback" class="feedback" aria-label="Canonical quiz feedback"></section>
-        <div id="controls" class="controls"></div>
+        <div id="controls" hidden></div>
         <h3>Conversation</h3>
         <div id="messages" class="messages" role="log" aria-label="Conversation"></div>
-        <form id="chat-form"><label for="message">Ask a question, explain in your own words or ask to revisit</label><textarea id="message" rows="3" required placeholder="What would you like to understand?"></textarea><button type="submit">Send to tutor</button></form>
+        <form id="chat-form"><label for="message">Continue, ask a question or answer your tutor</label><textarea id="message" rows="3" required placeholder="What would you like to understand?"></textarea><button type="submit">Send to tutor</button></form>
       </section>
       <aside class="panel" aria-labelledby="work-title">
         <h2 id="work-title">Your work</h2>

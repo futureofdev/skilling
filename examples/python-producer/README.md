@@ -36,10 +36,11 @@ the server environment; never paste them into chat or the note.
 
 Open <http://127.0.0.1:8765>. Startup validates configuration without requesting a model response.
 Use the conversation for explanations, hints, informal feedback and course progression.
-Say when you are ready or give your quiz choice; the tutor recommends a current legal control,
-and the app applies it after the browser renders the reply. Normal teaching presentation
+Say “continue” to apply the current legal transition first, then hear the tutor explain the
+new material. Other choices can use the tutor’s current legal-control recommendation, applied
+after its reply renders. Normal teaching presentation
 continues automatically, with at most four tutor turns per learner message. Further gate
-choices and quiz answers require a new learner response. Buttons remain an optional alternative. Canonical quiz feedback comes from Skilling and must be
+choices and quiz answers require a new learner response. Canonical quiz feedback comes from Skilling and must be
 rendered before acknowledgement permits continuation. A failed model response does not undo a
 committed action; refresh the state and retry conversation separately.
 
@@ -79,3 +80,5 @@ Dependencies follow the current [FastAPI first steps](https://fastapi.tiangolo.c
 [testing guidance](https://fastapi.tiangolo.com/tutorial/testing/) and
 [Uvicorn minimal installation](https://uvicorn.dev/installation/). FastAPI/Uvicorn belong to this
 example, while HTTPX belongs to its test setup; neither is a core dependency.
+
+Explicit “continue” from a rendered beat applies the current legal SDK transition before the tutor receives the resulting material. Tutoring progression uses chat; no advance buttons are shown. Gates still require the learner’s choice, and exercise attempts and quiz answers are never inferred from a generic continue.

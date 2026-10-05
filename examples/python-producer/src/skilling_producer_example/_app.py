@@ -35,6 +35,7 @@ class DisplayBody(BaseModel):
 class ChatBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=8_000)
+    display_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class ContinuationBody(BaseModel):
@@ -191,7 +192,7 @@ def create_app(
     @app.post("/api/chat")
     async def chat(request: Request):
         body = ChatBody.model_validate(request.state.body)
-        return await controller.chat(body.message)
+        return await controller.chat(body.message, display_id=body.display_id)
 
     @app.post("/api/continue")
     async def continue_chat(request: Request):

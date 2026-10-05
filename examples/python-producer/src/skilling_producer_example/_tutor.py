@@ -122,6 +122,9 @@ class BrowserConversationResult:
 
 INSTRUCTIONS = (
     "This browser supports conversational course progression, like a coding-host tutor. "
+    "When the producer has already applied the learner readiness before this turn, its "
+    "current material is the resulting new beat: teach that new material immediately, "
+    "without repeating the previous beat or claiming progression is still pending. "
     "The producer supplies current interface.requestable_controls as data. Your optional "
     "requested_control is a recommendation only; the app checks and executes it, then gives "
     "you fresh material after your reply renders, before the next teaching reply. Never invent "
@@ -133,7 +136,7 @@ INSTRUCTIONS = (
     "learner, never answer for them or infer readiness from old history. Request no control "
     "when none is requestable. Stop to ask the learner when a gate needs their choice. "
     "Use the current material; do not ask the learner to click a button or wait for a "
-    "producer/controller to bring material. Buttons are an optional alternative. Do not "
+    "producer/controller to bring material. The learner progresses through this chat. Do not "
     "request feedback acknowledgement, objective confirmation, homework submission, file "
     "edits or arbitrary commands. These operations are outside this output contract. "
     "Activate the applicable canonical skill declared in skill before completing the reply. "
