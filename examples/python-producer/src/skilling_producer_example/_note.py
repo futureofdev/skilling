@@ -103,6 +103,39 @@ class GoalNote:
         identity = f"{before.st_dev}:{before.st_ino}:{before.st_size}:{before.st_mtime_ns}"
         return NoteObservation(NOTE_PATH, text, hashlib.sha256(data).hexdigest(), True, identity)
 
+    @staticmethod
+    def _open_leaf(path: str | Path, flags: int, *, dir_fd: int | None) -> int:
+        if os.name != "nt":
+            return os.open(path, flags, 0o600, dir_fd=dir_fd)
+        import ctypes
+        import msvcrt
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        create = kernel.CreateFileW
+        create.argtypes = [
+            ctypes.c_wchar_p,
+            ctypes.c_ulong,
+            ctypes.c_ulong,
+            ctypes.c_void_p,
+            ctypes.c_ulong,
+            ctypes.c_ulong,
+            ctypes.c_void_p,
+        ]
+        create.restype = ctypes.c_void_p
+        close = kernel.CloseHandle
+        close.argtypes = [ctypes.c_void_p]
+        close.restype = ctypes.c_int
+        # CRT O_EXCL can follow a broken Windows symlink; open the reparse point itself.
+        disposition = 1 if flags & os.O_CREAT else 3  # CREATE_NEW / OPEN_EXISTING
+        handle = create(str(path), 0x40000000, 1, None, disposition, 0x00200000, None)
+        if handle is None or handle == ctypes.c_void_p(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            return msvcrt.open_osfhandle(handle, os.O_WRONLY | os.O_BINARY)
+        except BaseException:
+            close(handle)
+            raise
+
     def save(self, text: str) -> NoteObservation:
         data = text.encode("utf-8", errors="strict")
         if len(data) > MAX_NOTE_BYTES:
@@ -112,8 +145,8 @@ class GoalNote:
             flags = os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
             if not target.exists():
                 flags |= os.O_CREAT | os.O_EXCL
-            fd = os.open(
-                "goal.md" if descriptor is not None else target, flags, 0o600, dir_fd=descriptor
+            fd = self._open_leaf(
+                "goal.md" if descriptor is not None else target, flags, dir_fd=descriptor
             )
             with os.fdopen(fd, "wb") as stream:
                 info = os.fstat(stream.fileno())

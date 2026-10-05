@@ -37,6 +37,11 @@ class ChatBody(BaseModel):
     message: str = Field(min_length=1, max_length=8_000)
 
 
+class ContinuationBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    continuation_id: str = Field(min_length=1, max_length=128)
+
+
 class NoteBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(max_length=24_000)
@@ -187,6 +192,11 @@ def create_app(
     async def chat(request: Request):
         body = ChatBody.model_validate(request.state.body)
         return await controller.chat(body.message)
+
+    @app.post("/api/continue")
+    async def continue_chat(request: Request):
+        body = ContinuationBody.model_validate(request.state.body)
+        return await controller.continue_chat(body.continuation_id)
 
     @app.post("/api/note/save")
     def note(request: Request):

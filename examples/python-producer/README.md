@@ -35,8 +35,11 @@ the server environment; never paste them into chat or the note.
 ```
 
 Open <http://127.0.0.1:8765>. Startup validates configuration without requesting a model response.
-Use the conversation for explanations, hints and informal feedback. Progression requires the
-separate displayed learner controls. Canonical quiz feedback comes from Skilling and must be
+Use the conversation for explanations, hints, informal feedback and course progression.
+Say when you are ready or give your quiz choice; the tutor recommends a current legal control,
+and the app applies it after the browser renders the reply. Normal teaching presentation
+continues automatically, with at most four tutor turns per learner message. Further gate
+choices and quiz answers require a new learner response. Buttons remain an optional alternative. Canonical quiz feedback comes from Skilling and must be
 rendered before acknowledgement permits continuation. A failed model response does not undo a
 committed action; refresh the state and retry conversation separately.
 
@@ -48,7 +51,7 @@ request feedback and separately confirm submission. Optional artifact registrati
 relative pointer to that note. Informal displayed advice is not a score or certification; the
 archived assignment's null verdicts do not preserve the displayed advice.
 
-Conversation and outstanding review state are memory-only. Restarting discards them while the
+Conversation, unrendered progression recommendations and outstanding review state are memory-only. Restarting discards them while the
 file runtime retains committed progress and pending canonical feedback. Supply fresh evidence
 for reviews after restart. The ordinary installed `skilling next`, `progress`, `homework check`
 and `artifact list` commands read the same workspace, including from nested directories. Stop

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import secrets
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
@@ -37,9 +38,11 @@ from skilling_tutor import (
     ObjectiveAdviceContext,
     SkillingRunner,
     TutorError,
+    TutorErrorKind,
 )
 
 from ._note import GoalNote, NoteObservation
+from ._tutor import BrowserConversationResult, BrowserTutor
 from ._views import controls, snapshot_view
 
 
@@ -73,8 +76,22 @@ class Display:
     feedback: PendingFeedback | None
 
 
+@dataclass(frozen=True)
+class Continuation:
+    id: str
+    control: str
+    display_id: str
+    remaining: int
+
+
 class ProducerController:
-    def __init__(self, workspace: Path, runner: SkillingRunner, course_id: str, learner_id: str):
+    def __init__(
+        self,
+        workspace: Path,
+        runner: SkillingRunner | BrowserTutor,
+        course_id: str,
+        learner_id: str,
+    ):
         self.workspace = workspace
         self.runner = runner
         self.course_id = course_id
@@ -88,12 +105,15 @@ class ProducerController:
         self.csrf_token = secrets.token_urlsafe(32)
         self.browser_session: str | None = None
         self.history: tuple[ModelMessage, ...] = ()
+        self.presented: list[tuple[str, dict[str, object]]] = []
         self.messages: list[dict[str, str]] = []
         self.displays: dict[str, Display] = {}
         self.actions: dict[str, TrustedAction] = {}
         self.review: Review | None = None
         self.confirmations: dict[str, HomeworkArchiveView | dict[str, object]] = {}
         self.submitted = False
+        self.continuation: Continuation | None = None
+        self.resumed: set[str] = set()
         self.history_notice = (
             "Conversation history starts empty. Saved progress is durable; "
             "it does not prove what you said or did. Supply fresh evidence for a review."
@@ -103,7 +123,7 @@ class ProducerController:
     def open(
         cls,
         workspace: Path,
-        runner: SkillingRunner,
+        runner: SkillingRunner | BrowserTutor,
         *,
         course_id: str = "welcome-skilling",
         learner_id: str = "local",
@@ -227,6 +247,7 @@ class ProducerController:
             "review": review_view,
             "history_notice": self.history_notice,
             "messages": list(self.messages),
+            "continuation": {"id": self.continuation.id} if self.continuation else None,
             "artifact_available": bool(
                 snapshot and not pending and (snapshot.beat.name is Beat.CEREMONY or self.submitted)
             ),
@@ -235,6 +256,7 @@ class ProducerController:
         }
 
     def action(self, control_id: str, display_id: str, event_id: str) -> dict[str, object]:
+        self.continuation = None
         display = self.displays.get(display_id)
         if display is None or display.snapshot is None:
             raise ControllerError("display-expired", "Refresh the displayed course before acting.")
@@ -272,13 +294,22 @@ class ProducerController:
                 )
             self.actions[event_id] = action
             result = service.act(action)
+            if not result.replayed:
+                self._remember_presented(snapshot)
             state = self.state()
             state["replayed"] = result.replayed
             state["original_outcome"] = (
                 asdict(result.original_outcome) if result.original_outcome else None
             )
             return state
+        self._remember_presented(snapshot)
         return self.state()
+
+    def _remember_presented(self, snapshot: SessionSnapshot) -> None:
+        material = json.loads(NarrationContext.from_snapshot(snapshot).material)
+        if any(key != "beat" for key in material):
+            self.presented.append((snapshot.position.coordinate, material))
+            self.presented = self.presented[-8:]
 
     def acknowledge_feedback(self, display_id: str) -> dict[str, object]:
         display = self.displays.get(display_id)
@@ -298,6 +329,34 @@ class ProducerController:
 
     async def chat(self, message: str) -> dict[str, object]:
         self.review = None
+        self.continuation = None
+        self.messages.append({"role": "learner", "text": message})
+        return await self._chat_turn(message, allow_choices=True, remaining=3)
+
+    async def continue_chat(self, continuation_id: str) -> dict[str, object]:
+        if continuation_id in self.resumed:
+            return self.state()
+        continuation = self.continuation
+        if continuation is None or continuation.id != continuation_id:
+            raise ControllerError("continuation-expired", "Refresh and ask your tutor again.")
+        self.continuation = None
+        self.resumed.add(continuation.id)
+        state = await asyncio.to_thread(
+            self.action, continuation.control, continuation.display_id, continuation.id
+        )
+        if state["feedback"] is not None:
+            return state
+        return await self._chat_turn(
+            "The displayed tutor turn was rendered and the app applied its requested control. "
+            "Teach the newly supplied current material. This is continuation, not a new learner "
+            "message: no additional learner readiness or quiz answer has been supplied.",
+            allow_choices=False,
+            remaining=continuation.remaining,
+        )
+
+    async def _chat_turn(
+        self, message: str, *, allow_choices: bool, remaining: int
+    ) -> dict[str, object]:
         service = self._service()
         snapshot = await asyncio.to_thread(service.snapshot)
         check = (
@@ -305,27 +364,59 @@ class ProducerController:
             if snapshot.pending_feedback is None
             else None
         )
-        context = await asyncio.to_thread(self._context, snapshot, homework_check=check)
+        context = await asyncio.to_thread(
+            self._context,
+            snapshot,
+            homework_check=check,
+            allow_choices=allow_choices,
+            allow_requests=remaining > 0,
+        )
         try:
             result = await self.runner.chat(message, context, history=self.history)
+            current = await asyncio.to_thread(service.snapshot)
+            if current.revision != snapshot.revision:
+                raise ControllerError(
+                    "stale-tutor", "Course changed during the tutor turn; ask again."
+                )
+            requested = (
+                result.requested_control if isinstance(result, BrowserConversationResult) else None
+            )
+            allowed = (
+                self._requestable(snapshot, allow_choices=allow_choices) if remaining > 0 else []
+            )
+            if requested is not None and requested not in {c["id"] for c in allowed}:
+                raise TutorError(
+                    TutorErrorKind.ADVICE, "Tutor requested an unavailable course control"
+                )
+            self.history = result.history
+            self.messages.append({"role": "tutor", "text": result.output.text})
+            self.messages = self.messages[-64:]
+            if requested is not None:
+                display_id = secrets.token_urlsafe(24)
+                self.displays[display_id] = Display(snapshot, None)
+                self.continuation = Continuation(
+                    secrets.token_urlsafe(24), requested, display_id, remaining - 1
+                )
         except TutorError:
             state = await asyncio.to_thread(self.state)
             state["tutor_error"] = (
-                "Tutor unavailable. Saved course position remains visible; retry your question."
+                "Tutor unavailable. Any saved course steps remain visible; retry your question."
             )
             return state
-        current = await asyncio.to_thread(service.snapshot)
-        if current.revision != snapshot.revision:
-            raise ControllerError("stale-tutor", "Course changed during the tutor turn; ask again.")
-        self.history = result.history[-128:]
-        self.messages.extend(
-            [{"role": "learner", "text": message}, {"role": "tutor", "text": result.output.text}]
-        )
-        self.messages = self.messages[-64:]
         state = await asyncio.to_thread(self.state)
-        state["tutor_reply"] = result.output.text
         state["refresh"] = [str(item) for item in result.output.refresh]
         return state
+
+    def _requestable(
+        self, snapshot: SessionSnapshot, *, allow_choices: bool
+    ) -> list[dict[str, str]]:
+        if not isinstance(self.runner, BrowserTutor):
+            return []
+        return [
+            control
+            for control in controls(snapshot)
+            if allow_choices or control["id"] == str(Input.NEXT)
+        ]
 
     def _context(
         self,
@@ -334,6 +425,8 @@ class ProducerController:
         objectives: ObjectiveAdviceContext | None = None,
         homework: HomeworkAdviceContext | None = None,
         homework_check: HomeworkCheck | None = None,
+        allow_choices: bool = True,
+        allow_requests: bool = True,
     ) -> ConversationContext:
         context = ConversationContext.from_snapshot(
             snapshot, objectives=objectives, homework=homework, homework_check=homework_check
@@ -352,14 +445,38 @@ class ProducerController:
                 if section is not None:
                     copied = replace(snapshot, beat=replace(snapshot.beat, body=section.body))
                     context = replace(context, teaching=NarrationContext.from_snapshot(copied))
-        return context
+        material = json.loads(context.teaching.material)
+        material["presented_material"] = [
+            previous
+            for coordinate, previous in self.presented
+            if coordinate == snapshot.position.coordinate
+        ]
+        material["interface"] = {
+            "navigation": "conversation" if isinstance(self.runner, BrowserTutor) else "buttons",
+            "chat_changes_course_position": isinstance(self.runner, BrowserTutor),
+            "controls": [
+                {"label": control["label"], "input": control["payload"]}
+                for control in controls(snapshot)
+            ],
+            "requestable_controls": [
+                {"id": control["id"], "label": control["label"]}
+                for control in self._requestable(snapshot, allow_choices=allow_choices)
+                if objectives is None and homework is None and allow_requests
+            ],
+        }
+        return replace(
+            context,
+            teaching=replace(context.teaching, material=json.dumps(material, ensure_ascii=False)),
+        )
 
     def save_note(self, text: str) -> dict[str, object]:
+        self.continuation = None
         self.note.save(text)
         self.review = None
         return self.state()
 
     async def review_work(self, kind: ReviewKind, explanation: str) -> dict[str, object]:
+        self.continuation = None
         if not explanation.strip():
             raise ControllerError(
                 "missing-explanation", "Supply your own actual explanation or work evidence."
@@ -435,7 +552,7 @@ class ProducerController:
             raise ControllerError(
                 "stale-homework", "Assignment changed during review; review again."
             )
-        self.history = result.history[-128:]
+        self.history = result.history
         self.messages.append({"role": "tutor", "text": result.output.text})
         self.review = Review(
             secrets.token_urlsafe(24), kind, advice, snapshot.revision, note, explanation, token

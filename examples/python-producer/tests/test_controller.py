@@ -1,6 +1,7 @@
 """Critical custody/refusal paths use the real native synthetic conversation runner."""
 
 import asyncio
+import json
 import os
 import secrets
 import subprocess
@@ -77,6 +78,36 @@ def test_chat_is_read_only_and_fresh_cold_gate(browser):
     assert restarted.session is not None
     assert restarted.session.snapshot() == before
     assert "body" in browser.model.contexts[-1]["teaching"]["material"]
+
+
+def test_chat_readiness_names_current_buttons_and_click_supplies_next_material(browser):
+    to_beat(browser, "objectives")
+    service = browser.controller.session
+    assert service is not None
+    before = service.snapshot()
+    assert str(before.beat.name) == "objectives"
+    for message in ("Help me to learn", "Move on", "Material should be there"):
+        browser.post("/api/chat", {"message": message})
+        assert service.snapshot() == before
+        context = browser.model.contexts[-1]
+        material = json.loads(context["teaching"]["material"])
+        assert material["interface"] == {
+            "navigation": "buttons",
+            "chat_changes_course_position": False,
+            "controls": [{"label": "Continue after reading", "input": "next"}],
+            "requestable_controls": [],
+        }
+        assert "body" not in material
+    browser.action("next")
+    browser.post("/api/chat", {"message": "Explain the concept now"})
+    context = browser.model.contexts[-1]
+    material = json.loads(context["teaching"]["material"])
+    assert context["teaching"]["beat"] == "concept"
+    assert material["body"]
+    assert service.snapshot().revision != before.revision
+    assert {control["label"] for control in material["interface"]["controls"]} == {
+        control["label"] for control in browser.state["controls"]
+    }
 
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.1", "example.com", "localhost"])
@@ -304,14 +335,14 @@ def test_note_fallback_leaf_substitution_does_not_create_outside(tmp_path, monke
     if existing:
         target.write_text("Original learner words")
     external = tmp_path / "outside-missing"
-    real_open = os.open
+    real_open_leaf = GoalNote._open_leaf
 
     @contextmanager
     def fallback(self, *, create=False):
         self._check(create=create)
         yield None
 
-    def substitute(path, flags, mode=0o777, *, dir_fd=None):
+    def substitute(path, flags, *, dir_fd=None):
         assert path == target
         assert bool(flags & os.O_CREAT) is not existing
         if not existing:
@@ -323,13 +354,98 @@ def test_note_fallback_leaf_substitution_does_not_create_outside(tmp_path, monke
         except OSError:
             pytest.skip("symlinks unavailable on this host")
         # Simulate the platform fallback without POSIX O_NOFOLLOW's separate protection.
-        return real_open(path, flags & ~getattr(os, "O_NOFOLLOW", 0), mode, dir_fd=dir_fd)
+        return real_open_leaf(path, flags & ~getattr(os, "O_NOFOLLOW", 0), dir_fd=dir_fd)
 
     monkeypatch.setattr(GoalNote, "_parent", fallback)
-    monkeypatch.setattr(os, "open", substitute)
-    with pytest.raises(OSError):
+    monkeypatch.setattr(GoalNote, "_open_leaf", staticmethod(substitute))
+    with pytest.raises((OSError, ValueError)):
         note.save(NOTE)
     assert not external.exists()
+
+
+def test_note_leaf_existing_external_substitution_preserves_bytes(tmp_path, monkeypatch):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    note = GoalNote.open(workspace)
+    note.save(NOTE)
+    target = workspace / "showcase/welcome-skilling/goal.md"
+    external = tmp_path / "external-existing"
+    external.write_bytes(b"External bytes must remain unchanged\r\n")
+    before = external.read_bytes()
+    real_open_leaf = GoalNote._open_leaf
+
+    def substitute(path, flags, *, dir_fd=None):
+        target.unlink()
+        try:
+            target.symlink_to(external)
+        except OSError:
+            pytest.skip("symlinks unavailable on this host")
+        return real_open_leaf(path, flags & ~getattr(os, "O_NOFOLLOW", 0), dir_fd=dir_fd)
+
+    monkeypatch.setattr(GoalNote, "_open_leaf", staticmethod(substitute))
+    with pytest.raises((OSError, ValueError)):
+        note.save("Replacement learner text")
+    assert external.read_bytes() == before
+
+
+@pytest.mark.parametrize("creating", [False, True])
+def test_note_windows_leaf_uses_native_no_follow_and_owned_binary_handle(
+    tmp_path, monkeypatch, creating
+):
+    import ctypes
+    from types import ModuleType
+    from unittest.mock import Mock
+
+    path = tmp_path / "goal.md"
+    flags = os.O_WRONLY | (os.O_CREAT | os.O_EXCL if creating else 0)
+    create = Mock(return_value=123)
+    close = Mock()
+    kernel = Mock(CreateFileW=create, CloseHandle=close)
+    convert = Mock(return_value=9)
+    native = ModuleType("msvcrt")
+    monkeypatch.setattr(native, "open_osfhandle", convert, raising=False)
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "name", "nt")
+        patch.setattr(os, "O_BINARY", 0x8000, raising=False)
+        patch.setattr(ctypes, "WinDLL", Mock(return_value=kernel), raising=False)
+        patch.setitem(sys.modules, "msvcrt", native)
+        assert GoalNote._open_leaf(path, flags, dir_fd=None) == 9
+    assert create.call_args.args == (
+        str(path),
+        0x40000000,
+        1,
+        None,
+        1 if creating else 3,
+        0x00200000,
+        None,
+    )
+    convert.assert_called_once_with(123, os.O_WRONLY | 0x8000)
+    close.assert_not_called()
+
+
+def test_note_windows_leaf_closes_handle_if_descriptor_conversion_fails(tmp_path, monkeypatch):
+    import ctypes
+    from types import ModuleType
+    from unittest.mock import Mock
+
+    path = tmp_path / "goal.md"
+    close = Mock()
+    kernel = Mock(CreateFileW=Mock(return_value=123), CloseHandle=close)
+    native = ModuleType("msvcrt")
+    monkeypatch.setattr(
+        native,
+        "open_osfhandle",
+        Mock(side_effect=OSError("descriptor conversion refused")),
+        raising=False,
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "name", "nt")
+        patch.setattr(os, "O_BINARY", 0x8000, raising=False)
+        patch.setattr(ctypes, "WinDLL", Mock(return_value=kernel), raising=False)
+        patch.setitem(sys.modules, "msvcrt", native)
+        with pytest.raises(OSError, match="descriptor conversion refused"):
+            GoalNote._open_leaf(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, dir_fd=None)
+    close.assert_called_once_with(123)
 
 
 def test_tutor_failure_and_cancel_never_acknowledge_feedback(browser):

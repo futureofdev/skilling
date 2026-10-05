@@ -21,6 +21,7 @@ from skilling.session import FileSession, load_course
 from skilling.workspace import import_local_course, load_manifest
 from skilling_producer_example import ProducerController, create_app
 from skilling_producer_example._controller import ReviewKind
+from skilling_producer_example._tutor import BrowserTutor
 from skilling_tutor import SkillingRunner
 
 models.ALLOW_MODEL_REQUESTS = False
@@ -102,6 +103,21 @@ class SyntheticTutor:
         return SkillingRunner.create(FunctionModel(self.respond))
 
 
+class ChoosingTutor(SyntheticTutor):
+    def __init__(self):
+        super().__init__()
+        self.requests: list[str | None] = []
+
+    async def respond(self, messages, info):
+        result = await super().respond(messages, info)
+        for part in result.parts:
+            if isinstance(part, ToolCallPart) and part.tool_name == info.output_tools[0].name:
+                args = part.args_as_dict()
+                args["requested_control"] = self.requests.pop(0) if self.requests else None
+                return ModelResponse(parts=[ToolCallPart(part.tool_name, args)])
+        return result
+
+
 class Browser:
     model: SyntheticTutor
 
@@ -151,6 +167,30 @@ class Browser:
         return self.post(
             "/api/review/confirm", {"review_id": review_id, "objective_id": objective_id}
         )
+
+
+def conversational_journey(workspace: Path, course_source: Path) -> dict[str, object]:
+    import_local_course(workspace, course_source.resolve())
+    model = ChoosingTutor()
+    controller = ProducerController.open(
+        workspace, BrowserTutor.create(FunctionModel(model.respond))
+    )
+    browser = Browser(controller)
+    model.requests = ["next", "next", "next", None]
+    before = controller._service().snapshot()
+    browser.post("/api/chat", {"message": "Help me to learn"})
+    assert controller._service().snapshot() == before
+    steps = []
+    for _ in range(3):
+        browser.post("/api/continue", {"continuation_id": browser.state["continuation"]["id"]})
+        steps.append(browser.state["snapshot"]["beat"]["name"])
+    assert steps == ["objectives", "concept", "gate-concept"]
+    assert browser.state["continuation"] is None
+    gate = controller._service().snapshot()
+    browser.post("/api/chat", {"message": "I have a deeper question, do not continue yet"})
+    assert controller._service().snapshot() == gate
+    browser.client.close()
+    return {"steps": steps, "render_ack_required": True, "gate_question_read_only": True}
 
 
 def synthetic_journey(workspace: Path, course_source: Path) -> dict[str, object]:
@@ -312,6 +352,9 @@ def synthetic_journey(workspace: Path, course_source: Path) -> dict[str, object]
         "settled_objectives": sorted(settled),
         "model_context_count": len(model.contexts),
         "relocated_workspace": str(relocated),
+        "conversation": conversational_journey(
+            workspace.with_name(workspace.name + "-chat"), course_source
+        ),
     }
 
 

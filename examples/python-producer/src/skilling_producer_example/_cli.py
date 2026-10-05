@@ -7,10 +7,11 @@ from pathlib import Path
 
 import uvicorn
 
-from skilling_tutor import SkillingRunner, TutorError
+from skilling_tutor import TutorError
 
 from ._app import create_app, validate_bind
 from ._controller import ProducerController
+from ._tutor import BrowserTutor
 
 
 def main() -> None:
@@ -25,7 +26,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         validate_bind(args.host, args.port)
-        runner = SkillingRunner.create(args.model)
+        runner = BrowserTutor.create(args.model)
         controller = ProducerController.open(args.workspace, runner, course_id=args.course)
     except (ValueError, OSError, TutorError) as error:
         parser.error(str(error))

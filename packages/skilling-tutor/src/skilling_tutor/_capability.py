@@ -312,8 +312,15 @@ class TutorInstructions(AbstractCapability[DepsT], Generic[DepsT]):
                 "previous concept/exercise: request teaching refresh rather than inventing it. "
                 "Offer delivery controls only from current teaching.legal_inputs; null means "
                 "unknown and an empty list offers none. Distinguish discussion from a controller "
-                "choice; wait for the learner's explicit choice. Never automatically request "
-                "hint, advance or feedback acknowledgement. Preserve supplied canonical feedback "
+                "choice; wait for the learner's explicit choice at a gate or quiz. Never "
+                "automatically request hints or feedback acknowledgement. If the producer's "
+                "declared output contract includes current-control recommendations, you may "
+                "recommend next after presenting the complete current teaching beat, or the "
+                "current gate/quiz choice explicitly made in the latest learner message. "
+                "Recommend only a supplied requestable control; this is not execution authority. "
+                "The producer validates and applies it, then supplies fresh context. Never infer "
+                "new learner readiness or answers during that continuation. Otherwise chat has "
+                "no progression effect. Preserve supplied canonical feedback "
                 "reasons exactly before explaining them."
             ),
             TutorPurpose.NARRATION: (

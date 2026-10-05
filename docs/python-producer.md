@@ -31,3 +31,13 @@ and artifact pointer. Do not move unrelated user files.
 Automated source, DOM and clean wheel/sdist journey tests cover the reference controller and
 installation. Their model responses are synthetic. An authentic learner/model run, captured
 costs and limitations, and independent milestone closure remain separate evidence obligations.
+
+Conversation can request current course controls through the app-owned native Agent output
+contract. The model receives only current safe material and read-only control labels/ids.
+The producer stages the recommendation against the exact snapshot, then applies it only
+after the browser paints that teaching turn. It supplies fresh material before the next
+reply. Continuations can present normal beats automatically, but cannot invent another
+learner gate choice or quiz answer. Each learner message has at most four tutor turns;
+canonical quiz feedback stops progression until its separate rendering acknowledgement.
+Generic `SkillingRunner.chat` remains read-only; the app's recommendations are producer
+policy, never new core authority, privileged model tools or automatic work confirmation.

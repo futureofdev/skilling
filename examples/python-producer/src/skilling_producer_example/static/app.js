@@ -164,7 +164,13 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
     }
   }
 
+  function rendered(current) {
+    return alive && generation === current && document.visibilityState !== "hidden" &&
+      ["messages", "beat", "feedback", "review"].every(id => el(id).isConnected);
+  }
+
   async function render(next) {
+    if (!alive) return;
     const current = ++generation;
     presentationValid = false;
     el("confirmations").replaceChildren();
@@ -235,16 +241,21 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
     // One actual paint opportunity, then check that this exact presentation is
     // still attached. Navigating away or a newer render cancels the ack.
     await paint();
-    if (!alive || generation !== current || document.visibilityState === "hidden" || !el("feedback").isConnected || !el("review").isConnected) return;
+    if (!rendered(current)) return;
     if (next.feedback) {
       const result = await request("/api/feedback/ack", { display_id: next.feedback.display_id || next.display_id });
-      if (alive && generation === current) await render(result);
+      if (rendered(current)) await render(result);
       return;
     }
     if (next.review && !noteDirty && !acknowledgedReviews.has(next.review.id)) {
       await request("/api/review/ack", { review_id: next.review.id });
-      if (!alive || generation !== current) return;
+      if (!rendered(current)) return;
       acknowledgedReviews.add(next.review.id);
+    }
+    if (next.continuation) {
+      const result = await request("/api/continue", { continuation_id: next.continuation.id });
+      if (rendered(current)) await render(result);
+      return;
     }
     presentationValid = true;
     confirmations(next.review);
@@ -308,7 +319,7 @@ export function createUI(document, fetcher, paint = () => new Promise(resolve =>
     try {
       const result = await request("/api/state");
       await render(result);
-      resultStatus(result, "Ready. Conversation teaches; course controls save progress.");
+      resultStatus(result, "Ready. Conversation follows your choices through the lesson.");
     } catch (error) {
       status(error.message, true);
     } finally {

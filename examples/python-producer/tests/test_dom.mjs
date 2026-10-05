@@ -201,3 +201,101 @@ test("learner flow shows authored content and complete advice without controller
   assert.match(document.getElementById("refresh-hints").textContent, /own explanation/);
   assert.match(document.getElementById("refresh-hints").textContent, /each homework requirement/);
 });
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+test("continuation waits for paint and sends only the token after connected messages and beat", async () => {
+  const document = dom();
+  const painted = deferred();
+  const calls = [];
+  let firstPaint = true;
+  const next = state({ continuation: { id: "shown-step" }, messages: [
+    { role: "learner", text: "Explain stellar spectra" },
+    { role: "tutor", text: "Consider how atoms absorb light" },
+  ], snapshot: { beat: { body: "Current authored concept" } } });
+  const ui = createUI(document, async (path, options) => {
+    calls.push(path);
+    assert.equal(path, "/api/continue");
+    assert.deepEqual(JSON.parse(options.body), { continuation_id: "shown-step" });
+    assert.equal(options.headers["X-CSRF-Token"], "csrf");
+    for (const section of ["messages", "beat"]) assert.equal(document.getElementById(section).isConnected, true);
+    assert.match(document.getElementById("messages").textContent, /Explain stellar spectra/);
+    assert.match(document.getElementById("messages").textContent, /atoms absorb light/);
+    assert.match(document.getElementById("beat").textContent, /Current authored concept/);
+    return { ok: true, json: async () => state({ messages: [{ role: "tutor", text: "Your next learning step" }] }) };
+  }, () => { if (firstPaint) { firstPaint = false; return painted.promise; } return Promise.resolve(); });
+  const rendering = ui.render(next);
+  assert.deepEqual(calls, [], "connected text alone is not a paint acknowledgement");
+  painted.resolve();
+  await rendering;
+  assert.deepEqual(calls, ["/api/continue"]);
+  assert.match(document.getElementById("messages").textContent, /next learning step/);
+});
+
+test("failed messages or beat rendering never sends a continuation", async () => {
+  for (const section of ["messages", "beat"]) {
+    const document = dom();
+    document.getElementById(section).fail = true;
+    const calls = [];
+    const ui = createUI(document, async path => { calls.push(path); }, async () => {});
+    await assert.rejects(ui.render(state({ continuation: { id: "unshown" } })), /DOM render refused/);
+    assert.deepEqual(calls, [], section);
+  }
+});
+
+test("hidden, detached or disposed presentations never send a continuation", async () => {
+  for (const cancelled of ["hidden", "messages", "beat", "disposed"]) {
+    const document = dom();
+    const calls = [];
+    let ui;
+    ui = createUI(document, async path => { calls.push(path); }, async () => {
+      if (cancelled === "hidden") document.visibilityState = "hidden";
+      else if (cancelled === "disposed") ui.dispose();
+      else document.getElementById(cancelled).isConnected = false;
+    });
+    await ui.render(state({ continuation: { id: "cancelled-step" } }));
+    assert.deepEqual(calls, [], cancelled);
+  }
+});
+
+test("a stale render or response cannot continue or overwrite a newer generation", async () => {
+  const document = dom();
+  const oldPaint = deferred();
+  const response = deferred();
+  const calls = [];
+  let firstPaint = true;
+  const ui = createUI(document, async path => {
+    calls.push(path);
+    await response.promise;
+    return { ok: true, json: async () => state({ messages: [{ text: "Old continuation result" }] }) };
+  }, () => { if (firstPaint) { firstPaint = false; return oldPaint.promise; } return Promise.resolve(); });
+  const older = ui.render(state({ continuation: { id: "old-step" } }));
+  await ui.render(state({ messages: [{ text: "Newer visible conversation" }] }));
+  oldPaint.resolve();
+  await older;
+  assert.deepEqual(calls, [], "a newer generation cancels an unpainted continuation");
+  const inFlight = ui.render(state({ continuation: { id: "sent-step" } }));
+  await Promise.resolve();
+  assert.deepEqual(calls, ["/api/continue"]);
+  await ui.render(state({ messages: [{ text: "Newest visible conversation" }] }));
+  response.resolve();
+  await inFlight;
+  assert.match(document.getElementById("messages").textContent, /Newest visible conversation/);
+  assert.doesNotMatch(document.getElementById("messages").textContent, /Old continuation result/);
+});
+
+test("canonical feedback takes priority over a continuation token", async () => {
+  const document = dom();
+  const calls = [];
+  const ui = createUI(document, async path => {
+    calls.push(path);
+    assert.equal(path, "/api/feedback/ack");
+    return { ok: true, json: async () => state() };
+  }, async () => {});
+  await ui.render(state({ feedback, continuation: { id: "blocked-by-feedback" } }));
+  assert.deepEqual(calls, ["/api/feedback/ack"]);
+});
