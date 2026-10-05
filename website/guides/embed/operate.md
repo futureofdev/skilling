@@ -31,6 +31,10 @@ Read the guide for the backend you actually deploy:
 - [PostgreSQL](/reference/persistence-postgres): an application-owned bounded pool, TLS and database roles.
 - [S3](/reference/persistence-s3): a private bucket/prefix, conditional writes and explicit reconciliation of uncertain commits.
 
+For local development, the repository includes a small
+[Docker Compose setup for PostgreSQL and SeaweedFS](https://github.com/futureofdev/skilling/blob/main/packages/skilling/tests/backends/README.md).
+SeaweedFS provides a local S3-compatible endpoint; testing it does not establish AWS compatibility.
+
 These adapters persist the full session aggregate, including pending feedback, receipts and
 deletion generations. A progress export is useful for reporting; it is **not** a complete backup.
 Backend source support and tested service compatibility are different claims. Validate your

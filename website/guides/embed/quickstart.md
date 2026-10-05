@@ -15,22 +15,16 @@ the same checkout; these instructions do not assume a public package release.
 
 ## Install the Python application
 
-From a checkout containing the integration:
+Clone the repository and install from its root:
 
 ```bash
 git clone https://github.com/futureofdev/skilling.git
 cd skilling
-# Until PR #135 merges, select its source integration:
-git fetch origin pull/135/head
-git switch --detach FETCH_HEAD
 uv sync --frozen
 uv pip install --python .venv/bin/python \
   -e './packages/skilling-tutor[fastapi]' \
   'pydantic-ai-slim[openai]>=2.52.0,<2.53.0'
 ```
-
-After PR #135 merges, `main` contains the integration and the two PR-checkout commands can be
-omitted. Keep core, tutor and example app on the same checkout.
 
 The provider extra above is for OpenAI. Replace it with the extra required by your chosen
 provider. On Windows use `.venv/Scripts/python.exe` as the environment's Python path.

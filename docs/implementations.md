@@ -13,7 +13,7 @@ Known Skilling implementations and their conformance claims. Claims follow [conf
 | [`skilling deliver`](../packages/skilling/src/skilling/cli/learning/_walk.py) | Conforming Runtime (no capabilities), Conforming Producer | 1.2 | shipped |
 | [`skilling.store.FileProgressStore`](../packages/skilling/src/skilling/store/_file.py) | Conforming Store | 1.2 | shipped |
 | [The bundled `learn`/`progress`/`homework`/`upgrade-skilling` skill pack](../packages/skilling/src/skilling/skills/), delivered by a stock host | Conforming Runtime (converse, observe) | 1.3 | delivery spot-checked; full proof pending |
-| Skilling tutor on Pydantic AI | Conforming Runtime (converse, assess) | 1.2 | planned |
+| [`skilling-tutor` and the React example](embedding-a-tutor.md) | Runtime and producer (experimental) | 1.4.0-draft target | implemented on main; install from source |
 | Skilling in a coding harness, over MCP | Conforming Runtime (converse, observe, assess) | 1.2 | specified for, not built |
 | *your implementation here* | | | [CONTRIBUTING](../CONTRIBUTING.md) |
 
@@ -22,6 +22,12 @@ A registry where every row is the same author is an honest registry, not an impr
 The skill pack row's capabilities describe what an unmodified Claude Code or Codex session brings on its own — a conversation to judge a `knowledge` objective's explanation (`converse`), and filesystem or command-output access to check a `practice` objective's `verify` sentence (`observe`) — not something the [skill pack](../spec/skill-pack.md) itself adds. `skilling start` creates the learner workspace, installs the skill pack under both host conventions, and makes `courses`, `next` and progress resume from that workspace or a nested folder without restating absolute paths. The maintainer has directly driven both a real Codex session and a real Claude Code session through `hello-skilling`/`coding-bootcamp` lessons and confirmed the delivery loop behaves correctly (gates, quiz custody, phase-boundary homework) — the `converse` half of this claim. The `observe` half — a host actually settling a `practice` objective from a real filesystem check, with provenance recorded — was not exercised in that pass, nor were the private-repo or offline gates. The `upgrade-skilling` skill was added after that pass and has not yet been driven through a live host. See [`docs/two-host-proof.md`](two-host-proof.md) for exactly what ran and what's deferred; this row moves to "shipped" only once all five of that document's falsifiability criteria have run with committed artifacts, not before.
 
 `skilling deliver` also claims [Conforming Producer](../spec/README.md#conforming-producer), since it is the interface as well as the runtime: it writes learner state only through the runtime, never synthesises input to unlock a gate, never renders an answer before it is earned, and asks about telemetry with the decline as the default. Claiming the class matters because it means the class is exercised rather than merely described.
+
+The optional tutor accepts an application-owned PydanticAI Agent and mounts in FastAPI.
+Its React example defaults to SQLite, with explicit file, PostgreSQL and S3 alternatives.
+These source integrations do not add a conformance certification or establish a package
+release. See [Embed a tutor](https://futureofdev.github.io/skilling/docs/embed) for setup and
+the [persistence references](embedding-a-tutor.md) for backend-specific limits.
 
 ## Completion recovery and current limits
 
@@ -101,12 +107,15 @@ skilling (core) — no model dependency
 ├── machine     the delivery loop as pure functions
 ├── runtime     the completion write set
 ├── diff        course-version comparison
-└── store       protocol + file backend
+├── session     file and scoped trusted-controller APIs
+└── store       file, SQLite, PostgreSQL and S3 adapters
 
-skilling tutor (planned) — Pydantic AI
-├── agent       persona, narration, re-explanation
-├── tools       bound to machine's legal transitions
-└── grader      per-requirement homework verdicts
+skilling-tutor — optional PydanticAI integration
+├── Tutor       application-owned Agent, conversation and course flow
+├── review      informal objective and homework feedback
+└── fastapi     authenticated HTTP and streaming adapter
+
+examples/react-tutor — React interface and local reference application
 ```
 
 The split is load-bearing. Validating a course in CI, loading a manifest in a reporting job, or building an authoring tool must not drag in an agent framework, a model dependency, or an API key. The core is parse, validate, transition, persist — the layer everything else can afford to depend on.

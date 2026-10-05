@@ -1,7 +1,8 @@
 # Skilling
 
 > An open format for AI-tutored courses. Learners use a local workspace through Claude Code or
-> Codex; authors publish portable course directories. Specification version 1.4.0-draft.
+> Codex; authors publish portable course directories; application developers embed a tutor
+> with their own Agent and storage. Specification version 1.4.0-draft.
 
 ## Learners
 
@@ -24,7 +25,7 @@
 - [Runtime](spec/runtime.md): Normative delivery and persistence behaviour.
 - [Workspace](spec/workspace.md): Normative learner workspace layout and discovery.
 - [Skill pack](spec/skill-pack.md): Normative host skill conventions.
-- [Python file session](docs/python-session.md): Experimental trusted-controller facade and safe teaching views.
+- [Python sessions](docs/python-session.md): Experimental file and scoped sessions with safe teaching views.
 - [Implement a runtime](docs/implementing-a-runtime.md): Reference implementation guide.
 - [Known implementations](docs/implementations.md): Registry and claim limits.
 - [Delivery loop](docs/concepts/the-delivery-loop.md): Explanatory concept.
