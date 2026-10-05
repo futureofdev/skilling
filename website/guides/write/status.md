@@ -45,6 +45,12 @@ and includes:
 It has no AI model, agent framework or API key inside it. It even includes `skilling deliver`,
 a plain-text tutor with no AI at all, which follows the same lesson rules.
 
+For your own application, the optional `skilling-tutor` package connects a PydanticAI Agent
+to course flow and saved progress. The [React example](../embed/quickstart.md) includes a
+streaming interface and defaults to SQLite; file, PostgreSQL and S3 storage are also available.
+These integrations are experimental source APIs. You provide model access and authentication;
+follow [Embed a tutor](../embed/index.md) to get started.
+
 The full list, with what each part claims and what it doesn't, is in the
 [implementations registry](https://github.com/futureofdev/skilling/blob/main/docs/implementations.md).
 

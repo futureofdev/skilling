@@ -13,9 +13,7 @@ Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 22.12+, and a
 account. Choose a model that supports text generation and structured tool output for reviews.
 Install that provider’s `pydantic-ai-slim` extra explicitly.
 
-Use a checkout containing this integration. Until PR #135 merges, select it explicitly after
-cloning the repository: `git fetch origin pull/135/head`, then `git switch --detach FETCH_HEAD`.
-After merge, use `main`. Keep the core, tutor and application at the same revision.
+Use a checkout of `main`. Keep the core, tutor and application at the same revision.
 
 From the repository root, install the Python server (OpenAI provider example):
 

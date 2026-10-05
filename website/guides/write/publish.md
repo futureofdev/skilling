@@ -5,8 +5,11 @@ description: Put your course in Git, tag a version, test the start command, and 
 
 # Publish and share
 
-Publishing a Skilling course means putting it in a Git repository and telling people one
-command to start it.
+Share your course with Claude Code and Codex learners by putting it in a Git repository
+and giving them one command to start it.
+
+To teach it inside your own website or product, follow [Embed a tutor](../embed/index.md).
+Use the same course files, pin the version, and provide the application and model access.
 
 ```mermaid
 flowchart LR

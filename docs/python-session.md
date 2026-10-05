@@ -1,8 +1,10 @@
-# Embed a file-backed Python session
+# Embed a Python session
 
-`skilling.session` is an experimental Python API for a trusted producer controller. It is
-LLM-free and uses the same file runtime as the teaching, completion and companion CLI
-commands. The runtime specification remains authoritative; these Python signatures are not a
+`skilling.session` is an experimental, LLM-free Python API for a trusted producer controller.
+Use `FileSession` for the existing workspace and CLI file runtime, or
+[a scoped `Session`](#scoped-session-persistence-experimental) for application-owned file,
+SQLite, PostgreSQL or S3 storage. The walkthrough below starts with `FileSession`.
+The runtime specification remains authoritative; these Python signatures are not a
 new conformance class. Core 0.8.0 is allocated for builds containing this API;
 the previously allocated 0.7.0 has no public facade. Published artifacts are not established
 by these source changes. See [the optional tutor guide](python-tutor.md) for the separate adapter.

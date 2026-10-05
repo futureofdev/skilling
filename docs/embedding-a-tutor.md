@@ -96,7 +96,11 @@ React application; see its README for the source development and built-asset lau
 For explicit file mode use `[backend] kind = "file"` and an absolute `path` for new state roots.
 It creates namespace/learner-bound roots; it does not silently adopt another learner's legacy root.
 
-For PostgreSQL install the core `postgres` extra and configure:
+For PostgreSQL, add the driver to the quickstart environment, then configure the backend:
+
+```sh
+uv pip install --python .venv/bin/python -e './packages/skilling[postgres]'
+```
 
 ```toml
 [backend]
@@ -110,7 +114,11 @@ a bounded synchronous pool, waits for startup and closes it on shutdown. Configu
 TLS, backups and allowed schema privileges as part of deployment. The adapter refuses unsupported
 or malformed schema/state instead of repairing it automatically.
 
-For S3 install the core `s3` extra and configure:
+For S3, install its SDK extra, then configure the bucket and prefix:
+
+```sh
+uv pip install --python .venv/bin/python -e './packages/skilling[s3]'
+```
 
 ```toml
 [backend]
