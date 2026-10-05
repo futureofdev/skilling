@@ -5,7 +5,9 @@ Python producers. Requires matching Skilling core 0.8.x, Pydantic AI slim 2.52.x
 Harness skills 0.52.x. Shares the exact bundled learn/progress/homework policy and references
 through native skill activation and one allowlisted reference reader. `SkillingRunner.chat`
 accepts the latest learner message, fresh safe context and producer-owned history, returning
-a reply, optional validated informal feedback and a copied full transcript. Advanced scoped
+a reply with its selected skill, optional validated informal feedback, read-only context-refresh
+requests and a copied full transcript. Exact current references are supplied dynamically;
+native output guards require policy activation before completing a reply. Advanced scoped
 APIs and direct native Agent composition remain available.
 Provider SDKs are producer-selected extras; this package supplies no provider default,
 mutation tools, console command or automatic tracing. No public release is claimed.

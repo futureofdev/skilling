@@ -25,7 +25,8 @@ print(turn.output.text)
 history = turn.history  # complete copied transcript, including previous turns
 ```
 
-`ConversationContext.from_snapshot` copies current teaching/feedback, revision and the public
+`ConversationContext.from_snapshot` copies the current beat, legal inputs, teaching/feedback,
+revision and the public
 snapshot's completed/total lesson counts. It adds no assumed streak, phase or other progress facts.
 A manually created context can omit progress. Optional `objectives` and `homework` arguments are
 existing safe advice contexts containing current scoped criteria and actual producer-selected
@@ -39,7 +40,30 @@ clarification or a producer-refresh request. Scoped evidence remains distinct fr
 learner utterance. The tutor may answer an ordinary question without assessing it even when
 review context is available.
 
-`ConversationReply` contains `text` and optional `objectives`/`homework` advice. Every emitted
+`ConversationReply` contains `text`, the selected `BundledSkill`, optional
+`objectives`/`homework` advice, and an immutable
+`refresh` tuple of `TutorRefresh` values. These bounded requests identify missing teaching,
+progress, objective evidence or homework evidence. They authorize no controller action.
+The producer can satisfy them with fresh public reads and actual evidence, then build a new
+context for a subsequent turn. A gate snapshot may omit the previous teaching body: retain a
+producer-owned copy tied to the course identity/version and coordinate, or ask the learner to
+choose an available controller control. Supplement the current material with that matching body;
+preserve the fresh gate, legal inputs and canonical pending feedback. Never reuse an old context
+or its controls wholesale. Never translate a model refresh into `hint`, `advance`, acknowledgement,
+file execution or submission. `hint` is a state transition and requires the learner's choice.
+Only current `legal_inputs` authorize offered delivery controls; `None` means unknown and `()`
+means none. Manual contexts may omit the beat and legal inputs; refresh before offering controls.
+The conversational wire requires the model to declare its selected skill. Native output hooks
+require that policy to have been activated before the model request that produced the reply.
+Scoped feedback and refresh also require their corresponding policies. A known cold gate
+snapshot requires `teaching` refresh. A selected progress/homework policy with no corresponding
+current data requires its refresh request. Other missing-data classification remains a model
+decision; absent objective/homework criteria still forbid feedback regardless of that decision.
+No model refresh automatically reads or changes anything.
+One combined retry identifies all missing requirements. A model that refuses them fails within
+the producer's retry and usage limits. Loading a skill alongside final output is too late: the
+model must receive its policy on a subsequent request before completing the reply.
+Every emitted
 feedback block must cover the supplied identities exactly once and is bound to that context's
 actual evidence digest/revision. No feedback can be emitted for an absent review context.
 `ConversationReply.output_type()` and `from_output` support equivalent direct native Agents;
@@ -56,7 +80,7 @@ The advanced purpose-specific methods below remain available for explicitly scop
 
 Copy the current session into a narrow context. Keep the session, Course, paths, credentials,
 action event identities, feedback references and homework submission token in the controller.
-`NarrationContext.from_snapshot` copies only active material/persona/tone and canonical pending
+`NarrationContext.from_snapshot` copies the beat, legal inputs, active material/persona/tone and canonical pending
 feedback; it excludes learner identity, revision, future questions and receipt handles. An absent
 authored persona stays absent.
 `ObjectiveAdviceContext.from_objectives` copies objective ids, kinds and authored criteria.
@@ -68,38 +92,57 @@ producer-selected learner evidence and binds its digest. Safe contexts are froze
 ```python
 from dataclasses import dataclass
 from pydantic_ai import Agent
-from skilling_tutor import NarrationContext, SkillingCapability, TutorPurpose
+from skilling_tutor import (
+    ConversationContext, ConversationReply, SkillingCapability, TutorPurpose,
+)
 
 @dataclass(frozen=True)
 class ProducerDeps:
-    teaching: NarrationContext
-    # Trusted application dependencies may also live here, but the getter returns only teaching.
+    context: ConversationContext
+    # Trusted application dependencies may also live here, but the getter returns only safe data.
 
-def teaching_context(deps: ProducerDeps) -> NarrationContext:
-    return deps.teaching
+def safe_context(deps: ProducerDeps) -> ConversationContext:
+    return deps.context
 
 capability = SkillingCapability.create(
-    TutorPurpose.NARRATION, context_getter=teaching_context,
+    TutorPurpose.CONVERSATION, context_getter=safe_context,
 )
 # selected_model is a producer-configured Model or model identifier; no default provider.
-agent = Agent(selected_model, deps_type=ProducerDeps, capabilities=[capability])
-context = NarrationContext.from_snapshot(session.snapshot())
-result = await agent.run("Teach the active turn", deps=ProducerDeps(context))
-# Present result.output successfully before the controller acknowledges presentation.
+agent = Agent(
+    selected_model, deps_type=ProducerDeps, capabilities=[capability],
+    output_type=ConversationReply.output_type(),
+)
+context = ConversationContext.from_snapshot(session.snapshot())
+result = await agent.run(learner_message, deps=ProducerDeps(context), message_history=history)
+reply = ConversationReply.from_output(result.output, context=context)
+print(reply.text)
+history = result.all_messages()  # producer-owned, isolated per learner
+# Read-only refresh requests and presentation acknowledgement remain producer responsibilities.
 ```
 
 The native capability shares the exact bundled `learn`, `progress` and `homework` skills with
 Codex and Claude Code. Native Harness `Skills` exposes `load_capability`; one allowlisted
 `read_skill_reference` tool returns the original packaged reference text. These are its only two
-function tools. The package backend contains only the triad's policy bytes, works on every supported
+function tools. Current delivery references and scoped objective/homework review references are
+also supplied verbatim through dynamic native instructions. Activated progress/homework policies
+receive their references on every model request, including skills restored from retained history.
+This guarantees current policy availability without relying on a model remembering a tool read;
+additional references remain available through the reader. The transport purpose is fixed by the
+producer's output contract: ordinary chat uses `CONVERSATION`; changing course beats and learner
+requests select policy within that contract. `NARRATION` is an explicitly scoped text helper.
+The package backend contains only the triad's policy bytes, works on every supported
 platform, and grants no host filesystem, shell, state or run-workspace access. `upgrade-skilling`
 is excluded. An always-on binding maps bundled CLI and host duties to the trusted producer:
 course/state discovery and reads, file edits, processes, checks, consent, firsthand inspection,
 provenance, objective settlement, presentation, submission and token retention. The tutor advises
 from actual supplied safe evidence and requests producer refresh when facts are missing; it cannot
-claim those operations or infer unprovided counts, continuity or work.
+claim or promise those operations or infer unprovided counts, continuity, submission status or work.
 
 The capability contributes no native tools or model/provider/settings/output-type overrides.
+For a custom conversational output contract it requires an applicable canonical skill without
+adding fields to that contract. Advanced scoped purposes require their corresponding skill.
+The per-run guard retains only the policy IDs available to the latest model request, and never
+keeps learner context or history on the shared capability.
 Upstream may attach infrastructure such as tool search; structured output modes also use output
 tools. The producer Agent retains its output contract and can compose trusted benign capabilities.
 Producer-added tools/hooks are the producer's authority and responsibility; composition is no
@@ -117,10 +160,11 @@ no run context/history/usage. Typed getters are trusted producer functions: keep
 return only safe context, even when the producer deps also contain privileged objects.
 
 ```python
-from skilling_tutor import LearnerEvidence, HomeworkAdviceContext, SkillingRunner
+from skilling_tutor import LearnerEvidence, HomeworkAdviceContext, NarrationContext, SkillingRunner
 from pydantic_ai.usage import UsageLimits
 
 runner = SkillingRunner.create(selected_model, usage_limits=UsageLimits(request_limit=16))
+context = NarrationContext.from_snapshot(session.snapshot())
 turn = await runner.narrate(context, history=[])  # complete async turn
 # Optional next-turn history is explicitly producer-owned:
 next_turn = await runner.narrate(context, history=turn.new_messages)

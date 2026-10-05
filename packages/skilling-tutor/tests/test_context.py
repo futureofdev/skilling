@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from skilling.delivery import Beat
+from skilling.delivery import Beat, Input
 from skilling.session import (
     AssignmentView,
     BeatView,
@@ -44,6 +44,9 @@ def test_snapshot_copy_and_homework_token_custody():
     context = NarrationContext.from_snapshot(snapshot)
     assert "Active material" in context.material
     assert context.persona == "Patient tutor"
+    assert context.beat is Beat.WELCOME and context.legal_inputs == ()
+    copied = NarrationContext.from_snapshot(replace(snapshot, legal_inputs=(Input.NEXT,)))
+    assert copied.legal_inputs == (Input.NEXT,)
     assert NarrationContext.from_snapshot(replace(snapshot, tutor=None)).persona is None
     assert "PRIVATE" not in json.dumps(asdict(context))
     with pytest.raises(FrozenInstanceError):
@@ -73,6 +76,20 @@ def test_malformed_context_refused():
         NarrationContext("course", "1.1", "persona", [], "body")  # pyright: ignore[reportArgumentType]
     with pytest.raises(TutorError):
         LearnerEvidence.from_text("x" * 32_001)
+
+
+@pytest.mark.parametrize("choices", [[Input.NEXT], ("next",), (Input.NEXT, Input.NEXT)])
+def test_delivery_choices_require_typed_immutable_unique_values(choices):
+    with pytest.raises(TutorError):
+        NarrationContext("Course", "1.1", None, (), "body", legal_inputs=choices)
+
+
+def test_optional_delivery_metadata_distinguishes_unknown_and_no_controls():
+    context = NarrationContext("Course", "1.1", None, (), "body")
+    assert context.legal_inputs is None
+    assert replace(context, legal_inputs=()).legal_inputs == ()
+    with pytest.raises(TutorError):
+        replace(context, beat="exercise")  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("completed,total", [(-1, 2), (3, 2), (0, 0), (True, 2), (0, "2")])

@@ -1,8 +1,8 @@
 import asyncio
 
 import pytest
+from installed_child import PolicyModel, policy_model
 from pydantic_ai import Agent
-from pydantic_ai.models.test import TestModel
 
 from skilling_tutor import (
     AdviceIdentity,
@@ -45,7 +45,7 @@ def item(identity):
 
 def test_direct_and_runner_structured_advice():
     ctx = objective_context()
-    model = TestModel(call_tools=[], custom_output_args={"objectives": [item("A")]})
+    model = policy_model(call_tools=[], custom_output_args={"objectives": [item("A")]})
     runner = SkillingRunner.create(model)
     direct = Agent(
         model,
@@ -65,7 +65,7 @@ def test_direct_and_runner_structured_advice():
             "load_capability",
             "read_skill_reference",
         }
-        homework_model = TestModel(
+        homework_model = policy_model(
             call_tools=[],
             custom_output_args={
                 "requirements": [item("A")],
@@ -88,7 +88,7 @@ def test_direct_and_runner_structured_advice():
         assert result.output.requirements[0].id == "A"
         assert result.output.stretch_goals[0].id == "stretch-A"
         assert result.output.evidence_digest == homework_context().evidence.digest
-        assert result.usage.requests == 1
+        assert result.usage.requests == 2
 
     asyncio.run(exercise())
 
@@ -141,7 +141,7 @@ def test_reused_all_purpose_agents_capture_concurrent_and_sequential_isolation()
             }
         return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
 
-    runner = SkillingRunner.create(FunctionModel(generate))
+    runner = SkillingRunner.create(PolicyModel(FunctionModel(generate)))
 
     async def exercise():
         for _ in range(2):
@@ -187,7 +187,7 @@ def test_supported_direct_output_modes_preserve_producer_contract(mode):
         if mode == "native"
         else PromptedOutput(ObjectiveAdvice.output_type())
     )
-    model = TestModel(
+    model = policy_model(
         call_tools=[],
         custom_output_text=json.dumps({"objectives": [item("A")]}),
         profile=ModelProfile(supports_json_schema_output=True),
@@ -232,7 +232,7 @@ def test_objective_and_homework_producer_histories_retained_and_cleared():
             }
         return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
 
-    runner = SkillingRunner.create(FunctionModel(generate))
+    runner = SkillingRunner.create(PolicyModel(FunctionModel(generate)))
 
     async def exercise():
         for purpose in ("objectives", "homework"):
@@ -259,7 +259,7 @@ def test_objective_and_homework_producer_histories_retained_and_cleared():
             assert repr(first.new_messages) == original_history
             assert captures[-2][0]["evidence"]["text"] == "Updated proof A"
             assert captures[-2][0]["revision"] == "revision2"
-            assert captures[-2][2] > captures[-1][2] == 1
+            assert captures[-2][2] > captures[-1][2] == 3
             assert "'id': 'A'" in captures[-2][1]
             assert "'id': 'A'" not in captures[-1][1]
             assert "Actual explanation A" not in json.dumps(captures[-1][0])

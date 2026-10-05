@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import replace
 
 import pytest
-from installed_child import ConversationJourney
+from installed_child import ConversationJourney, PolicyModel, policy_model
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
     ModelMessage,
@@ -14,7 +14,6 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
-from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import UsageLimits
 
 from skilling_tutor import (
@@ -31,6 +30,7 @@ from skilling_tutor import (
     TutorError,
     TutorErrorKind,
     TutorPurpose,
+    TutorRefresh,
 )
 
 
@@ -40,7 +40,8 @@ def context():
 
 def test_usage_limit_and_missing_provider():
     runner = SkillingRunner.create(
-        TestModel(call_tools=[], custom_output_text="ok"), usage_limits=UsageLimits(request_limit=0)
+        policy_model(call_tools=[], custom_output_text="ok"),
+        usage_limits=UsageLimits(request_limit=0),
     )
     with pytest.raises(TutorError) as error:
         asyncio.run(runner.narrate(context()))
@@ -61,7 +62,7 @@ def test_failure_cancellation_and_safe_narration_retry():
         requests.append(info.instructions)
         raise RuntimeError("CREDENTIAL_SENTINEL")
 
-    runner = SkillingRunner.create(FunctionModel(fail))
+    runner = SkillingRunner.create(PolicyModel(FunctionModel(fail)))
     with pytest.raises(TutorError) as error:
         asyncio.run(runner.narrate(context()))
     assert error.value.kind is TutorErrorKind.MODEL
@@ -77,7 +78,9 @@ def test_failure_cancellation_and_safe_narration_retry():
         requests.append(info.instructions)
         return ModelResponse(parts=[TextPart("Rendered feedback")])
 
-    success = asyncio.run(SkillingRunner.create(FunctionModel(retry)).narrate(context()))
+    success = asyncio.run(
+        SkillingRunner.create(PolicyModel(FunctionModel(retry))).narrate(context())
+    )
     assert requests[0] == requests[1]
     assert success.output == "Rendered feedback"
 
@@ -112,6 +115,9 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
     )
     result = session.act(action)
     context = NarrationContext.from_snapshot(result.snapshot)
+    from skilling.session import PresentationBeat
+
+    assert context.beat is PresentationBeat.PENDING_FEEDBACK and context.legal_inputs == ()
     assert result.snapshot.pending_feedback is not None
     assert result.snapshot.pending_feedback.reason in context.material
 
@@ -124,7 +130,7 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
 
     before = durable()
     runner = SkillingRunner.create(
-        TestModel(call_tools=[], custom_output_text="arbitrary prose cannot acknowledge")
+        policy_model(call_tools=[], custom_output_text="arbitrary prose cannot acknowledge")
     )
 
     async def exercise():
@@ -145,7 +151,7 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
         with pytest.raises(asyncio.CancelledError):
             await SkillingRunner.create(FunctionModel(cancellation)).narrate(context)
         advice_runner = SkillingRunner.create(
-            TestModel(
+            policy_model(
                 call_tools=[],
                 custom_output_args={
                     "objectives": [
@@ -223,6 +229,20 @@ def test_actual_committed_feedback_and_advice_leave_durable_bytes_untouched(tmp_
     asyncio.run(chat_retry())
     assert durable() == before
     assert session.snapshot().pending_feedback == result.snapshot.pending_feedback
+    refreshed = asyncio.run(
+        SkillingRunner.create(
+            policy_model(
+                call_tools=[],
+                custom_output_args={
+                    "text": "The producer needs to supply the current teaching context.",
+                    "refresh": ["teaching"],
+                },
+            )
+        ).chat("Bring back the exercise", chat_context)
+    )
+    assert refreshed.output.refresh == (TutorRefresh.TEACHING,)
+    assert durable() == before
+    assert session.snapshot().pending_feedback == result.snapshot.pending_feedback
 
 
 def test_native_application_cancellation_propagates():
@@ -293,7 +313,9 @@ def test_conversation_concurrency_reset_and_transcript_custody():
                         if isinstance(part, UserPromptPart):
                             part.content = "MODEL_MUTATION"
             return ModelResponse(
-                parts=[ToolCallPart(info.output_tools[0].name, {"text": "A reply"})]
+                parts=[
+                    ToolCallPart(info.output_tools[0].name, {"text": "A reply", "skill": "learn"})
+                ]
             )
 
         await SkillingRunner.create(FunctionModel(mutate)).chat(
@@ -366,10 +388,30 @@ def test_conversation_invalid_optional_feedback_refused(invalid):
         output = {"text": "A reply", "homework": {"requirements": [item], "stretch_goals": []}}
     else:
         output = {"text": "   "}
-    runner = SkillingRunner.create(TestModel(call_tools=[], custom_output_args=output))
+    runner = SkillingRunner.create(policy_model(call_tools=[], custom_output_args=output))
     with pytest.raises(TutorError) as error:
         asyncio.run(runner.chat("Review this", current))
     assert error.value.kind is TutorErrorKind.ADVICE
+
+
+def test_duplicate_refresh_requests_refused_and_action_names_not_in_schema():
+    current = ConversationContext(context(), "r")
+    with pytest.raises(TutorError) as error:
+        asyncio.run(
+            SkillingRunner.create(
+                policy_model(
+                    call_tools=[],
+                    custom_output_args={"text": "Refresh", "refresh": ["teaching", "teaching"]},
+                )
+            ).chat("Help", current)
+        )
+    assert error.value.kind is TutorErrorKind.ADVICE
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ConversationReply.output_type().model_validate(
+            {"text": "Act", "skill": "learn", "refresh": ["hint"]}
+        )
 
 
 def test_conversation_direct_native_equivalence_and_output_preservation():
@@ -391,7 +433,7 @@ def test_conversation_direct_native_equivalence_and_output_preservation():
         wrapped = await SkillingRunner.create(model).chat("Explain this", current)
         assert ConversationReply.from_output(native.output, context=current) == wrapped.output
         producer = Agent(
-            TestModel(call_tools=[], custom_output_args={"answer": "producer contract"}),
+            policy_model(call_tools=[], custom_output_args={"answer": "producer contract"}),
             deps_type=SkillingRunDeps,
             output_type=ProducerOutput,
             capabilities=[capability],
@@ -417,7 +459,9 @@ def test_conversation_explicit_limits_errors_and_cancellation():
         raise RuntimeError("CREDENTIAL_SENTINEL")
 
     with pytest.raises(TutorError) as error:
-        asyncio.run(SkillingRunner.create(FunctionModel(fail)).chat("Explain this", current))
+        asyncio.run(
+            SkillingRunner.create(PolicyModel(FunctionModel(fail))).chat("Explain this", current)
+        )
     assert error.value.kind is TutorErrorKind.MODEL and "CREDENTIAL_SENTINEL" not in str(
         error.value
     )
@@ -453,7 +497,9 @@ def test_conversation_default_budget_all_policy_reads_sequential():
         if len(captured) <= len(calls):
             return ModelResponse(parts=[calls[len(captured) - 1]])
         return ModelResponse(
-            parts=[ToolCallPart(info.output_tools[0].name, {"text": "Policy loaded"})]
+            parts=[
+                ToolCallPart(info.output_tools[0].name, {"text": "Policy loaded", "skill": "learn"})
+            ]
         )
 
     result = asyncio.run(

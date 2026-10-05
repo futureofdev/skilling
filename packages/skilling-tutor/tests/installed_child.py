@@ -21,14 +21,19 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
+from pydantic_ai.models import Model, ModelRequestParameters
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.models.wrapper import WrapperModel
+from pydantic_ai.settings import ModelSettings
 
 import skilling
 import skilling_tutor
+from skilling.delivery import Beat, Input
 from skilling.skills import ROOT, skill_files
 from skilling_tutor import (
     AdviceIdentity,
+    BundledSkill,
     ConversationContext,
     HomeworkAdviceContext,
     LearnerEvidence,
@@ -39,9 +44,67 @@ from skilling_tutor import (
     SkillingRunDeps,
     SkillingRunner,
     TutorPurpose,
+    TutorRefresh,
 )
 
 models.ALLOW_MODEL_REQUESTS = False
+
+
+class PolicyModel(WrapperModel):
+    """Synthetic successful models first consume a real native skill activation."""
+
+    def __init__(self, model: Model, skill: BundledSkill | None = None):
+        super().__init__(model)
+        self.skill = skill
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: ModelSettings | None,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        schemas = [tool.parameters_json_schema for tool in model_request_parameters.output_tools]
+        if model_request_parameters.output_object is not None:
+            schemas.append(model_request_parameters.output_object.json_schema)
+        skill = self.skill or (
+            BundledSkill.HOMEWORK
+            if any("requirements" in schema.get("properties", {}) for schema in schemas)
+            else BundledSkill.LEARN
+        )
+        if not any(
+            part.tool_name == "load_capability"
+            and isinstance(part.content, dict)
+            and f"# Skill: {skill.value}" in part.content.get("instructions", "")
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ):
+            return ModelResponse(parts=[ToolCallPart("load_capability", {"id": skill.value})])
+        return await self.wrapped.request(messages, model_settings, model_request_parameters)
+
+
+def policy_model(
+    *, call_tools=None, custom_output_args=None, custom_output_text=None, profile=None
+):
+    args = dict(custom_output_args) if custom_output_args is not None else None
+    skill = BundledSkill.LEARN
+    if args is not None:
+        if "requirements" in args or "homework" in args:
+            skill = BundledSkill.HOMEWORK
+        if "progress" in args.get("refresh", ()):
+            skill = BundledSkill.PROGRESS
+        if "text" in args:
+            args.setdefault("skill", skill.value)
+    return PolicyModel(
+        TestModel(
+            call_tools=call_tools or [],
+            custom_output_args=args,
+            custom_output_text=custom_output_text,
+            profile=profile,
+        ),
+        skill,
+    )
 
 
 @dataclass
@@ -64,6 +127,12 @@ class ConversationJourney:
         data = json.JSONDecoder().raw_decode(
             info.instructions.split("SAFE CONTEXT (data):\n", 1)[1]
         )[0]
+        for kind, skill, reference in (
+            ("objectives", "learn", "objectives.md"),
+            ("homework", "homework", "workflows.md"),
+        ):
+            if data[kind] is not None:
+                assert (ROOT / skill / "references" / reference).read_text() in info.instructions
         latest = next(
             part.content
             for message in reversed(messages)
@@ -107,7 +176,10 @@ class ConversationJourney:
                     ToolCallPart("read_skill_reference", {"skill": skill, "reference": reference})
                 ]
             )
-        output: dict[str, object] = {"text": f"{latest}: {data['teaching']['material']}"}
+        output: dict[str, object] = {
+            "text": f"{latest}: {data['teaching']['material']}",
+            "skill": skill,
+        }
         if skill == "progress":
             progress = data["progress"]
             output["text"] = (
@@ -115,6 +187,8 @@ class ConversationJourney:
                 if progress
                 else "Please ask the producer to refresh current progress"
             )
+            if progress is None:
+                output["refresh"] = ["progress"]
 
         def item(identity, evidence):
             return {
@@ -127,6 +201,7 @@ class ConversationJourney:
             review = data["objectives"]
             if review is None:
                 output["text"] = "Please supply current objective criteria and actual evidence"
+                output["refresh"] = ["objective-evidence"]
             else:
                 output["objectives"] = {
                     "objectives": [
@@ -137,6 +212,7 @@ class ConversationJourney:
             review = data["homework"]
             if review is None:
                 output["text"] = "Please supply current homework criteria and actual evidence"
+                output["refresh"] = ["homework-evidence"]
             else:
                 output["homework"] = {
                     "requirements": [
@@ -315,16 +391,38 @@ async def main() -> None:
     item = {"id": "required", "verdict": "supported", "reason": "Actual proof explains the result"}
     objective = ObjectiveAdviceContext((identity,), evidence, "revision")
     advice = await SkillingRunner.create(
-        TestModel(call_tools=[], custom_output_args={"objectives": [item]})
+        policy_model(call_tools=[], custom_output_args={"objectives": [item]})
     ).advise_objectives(objective)
     assert advice.output.evidence_digest == evidence.digest
     homework = HomeworkAdviceContext("Work", "Practice", (identity,), (), evidence, "revision")
     result = await SkillingRunner.create(
-        TestModel(call_tools=[], custom_output_args={"requirements": [item], "stretch_goals": []})
+        policy_model(
+            call_tools=[], custom_output_args={"requirements": [item], "stretch_goals": []}
+        )
     ).advise_homework(homework)
     assert result.output.requirements[0].id == "required"
     conversation = ConversationJourney.create()
     transcript = await conversation.run()
+    cold = ConversationContext(
+        NarrationContext(
+            "Course",
+            "1.1",
+            None,
+            (),
+            '{"beat":"gate-exercise"}',
+            Beat.GATE_EXERCISE,
+            (Input.HINT, Input.ATTEMPTED),
+        ),
+        "r",
+    )
+    refreshed = await SkillingRunner.create(
+        policy_model(
+            call_tools=[],
+            custom_output_args={"text": "Please refresh teaching", "refresh": ["teaching"]},
+        )
+    ).chat("Bring back the exercise", cold)
+    assert refreshed.output.refresh == (TutorRefresh.TEACHING,)
+    assert '"legal_inputs": ["hint", "attempted"]' in repr(refreshed.history)
     print(
         json.dumps(
             {

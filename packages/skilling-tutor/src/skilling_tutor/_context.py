@@ -7,7 +7,14 @@ import json
 from dataclasses import dataclass
 from enum import StrEnum
 
-from skilling.session import HomeworkCheck, ObjectiveType, ObjectiveView, SessionSnapshot
+from skilling.delivery import Beat, Input
+from skilling.session import (
+    HomeworkCheck,
+    ObjectiveType,
+    ObjectiveView,
+    PresentationBeat,
+    SessionSnapshot,
+)
 
 from ._errors import TutorError, TutorErrorKind
 
@@ -49,6 +56,8 @@ class NarrationContext:
     persona: str | None
     tone: tuple[str, ...]
     material: str
+    beat: Beat | PresentationBeat | None = None
+    legal_inputs: tuple[Input, ...] | None = None
 
     def __post_init__(self) -> None:
         for value in (self.course_title, self.coordinate, self.material):
@@ -59,6 +68,15 @@ class NarrationContext:
             raise TutorError(TutorErrorKind.CONTEXT, "Tone must be an immutable bounded tuple")
         for tone in self.tone:
             _text(tone, limit=1_000)
+        if self.beat is not None and type(self.beat) not in (Beat, PresentationBeat):
+            raise TutorError(TutorErrorKind.CONTEXT, "Expected current delivery beat")
+        if self.legal_inputs is not None and (
+            type(self.legal_inputs) is not tuple
+            or len(self.legal_inputs) > len(Input)
+            or any(type(choice) is not Input for choice in self.legal_inputs)
+            or len(set(self.legal_inputs)) != len(self.legal_inputs)
+        ):
+            raise TutorError(TutorErrorKind.CONTEXT, "Expected immutable current legal inputs")
 
     @classmethod
     def from_snapshot(cls, snapshot: SessionSnapshot) -> NarrationContext:
@@ -81,6 +99,8 @@ class NarrationContext:
             tutor.persona if tutor else None,
             tuple(tutor.tone) if tutor else (),
             json.dumps(material, ensure_ascii=False, sort_keys=True),
+            snapshot.beat.name,
+            tuple(snapshot.legal_inputs),
         )
 
 

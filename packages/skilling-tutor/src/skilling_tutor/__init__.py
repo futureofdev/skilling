@@ -22,8 +22,16 @@ from ._context import (
     TutorPurpose,
 )
 from ._errors import TutorError, TutorErrorKind
-from ._narration import ConversationReply, ConversationResult, TutorResult, TutorStatus, TutorUsage
+from ._narration import (
+    ConversationReply,
+    ConversationResult,
+    TutorRefresh,
+    TutorResult,
+    TutorStatus,
+    TutorUsage,
+)
 from ._runner import SkillingRunner
+from ._skills import BundledSkill
 
 __version__ = "0.1.0"
 
@@ -31,6 +39,7 @@ __all__ = [
     "AdviceIdentity",
     "AdviceItem",
     "AdviceVerdict",
+    "BundledSkill",
     "ConversationContext",
     "ConversationReply",
     "ConversationResult",
@@ -48,6 +57,7 @@ __all__ = [
     "TutorError",
     "TutorErrorKind",
     "TutorPurpose",
+    "TutorRefresh",
     "TutorResult",
     "TutorStatus",
     "TutorUsage",
