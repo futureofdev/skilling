@@ -71,9 +71,13 @@ jobs:
       - run: task validate:examples
 
   persistence-services:
-    name: real PostgreSQL persistence
+    name: real ${{ matrix.profile }} persistence
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [postgres, seaweed]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,21 +86,27 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv sync --all-packages --all-extras
-      - name: Start disposable PostgreSQL
-        run: uv run python packages/skilling/tests/backends/services.py start --profile postgres --config-out "$RUNNER_TEMP/persistence-postgres.json"
-      - name: Exercise the shared contract and real PostgreSQL
+      - name: Start disposable persistence service
+        run: uv run python packages/skilling/tests/backends/services.py start --profile ${{ matrix.profile }} --config-out "$RUNNER_TEMP/persistence-${{ matrix.profile }}.json"
+      - name: Verify raw SeaweedFS conditional-write capability
+        if: matrix.profile == 'seaweed'
+        run: >-
+          uv run pytest packages/skilling/tests/session_store/backends/s3/test_capabilities.py
+          --store-profile=seaweed --store-config="$RUNNER_TEMP/persistence-seaweed.json" -q
+      - name: Exercise the shared contract and service adapter
         run: >-
           uv run pytest packages/skilling/tests/session_store/test_boundary.py
           packages/skilling/tests/session_store/test_contract.py
           packages/skilling/tests/session_store/test_runtime.py
-          packages/skilling/tests/session_store/backends/postgres
-          --store-profile=postgres --store-config="$RUNNER_TEMP/persistence-postgres.json" -q
-      - name: Remove only this job's PostgreSQL fixture
+          packages/skilling/tests/session_store/backends/${{ matrix.profile == 'seaweed' && 's3' || 'postgres' }}
+          --ignore=packages/skilling/tests/session_store/backends/s3/test_capabilities.py
+          --store-profile=${{ matrix.profile }} --store-config="$RUNNER_TEMP/persistence-${{ matrix.profile }}.json" -q
+      - name: Remove only this job's persistence fixture
         if: always()
         shell: bash
         run: |
-          if test -f "$RUNNER_TEMP/persistence-postgres.json"; then
-            uv run python packages/skilling/tests/backends/services.py stop --profile postgres --config "$RUNNER_TEMP/persistence-postgres.json"
+          if test -f "$RUNNER_TEMP/persistence-${{ matrix.profile }}.json"; then
+            uv run python packages/skilling/tests/backends/services.py stop --profile ${{ matrix.profile }} --config "$RUNNER_TEMP/persistence-${{ matrix.profile }}.json"
           fi
 
   storage-windows:

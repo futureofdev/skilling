@@ -1,0 +1,102 @@
+# A maintainer reviews the exact candidate before dispatch/environment approval.
+# Never attach AWS credentials to pull_request or pull_request_target execution.
+name: Trusted AWS persistence verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Reviewed full 40-character commit SHA to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: persistence-aws
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: persistence-aws
+    env:
+      UV_FROZEN: "1"
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+    steps:
+      - name: Require an exact candidate
+        shell: bash
+        run: '[[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - name: Verify checkout identity
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.13"
+      - run: uv sync --all-packages --all-extras
+      - name: Run real AWS cases in a supplied disposable prefix
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          TEST_BUCKET: ${{ vars.AWS_TEST_BUCKET }}
+          TEST_REGION: ${{ vars.AWS_TEST_REGION }}
+          TEST_PREFIX: ${{ vars.AWS_TEST_PREFIX }}
+        shell: bash
+        run: |
+          umask 077
+          uv run python - <<'PY'
+          import json, os
+          from pathlib import Path
+          values = {name: os.environ[name] for name in ("TEST_BUCKET", "TEST_REGION", "TEST_PREFIX")}
+          if not all(values.values()) or not os.environ.get("AWS_ACCESS_KEY_ID") or not os.environ.get("AWS_SECRET_ACCESS_KEY"):
+              raise SystemExit("Required disposable AWS environment is not configured")
+          prefix = values["TEST_PREFIX"].strip("/")
+          if not prefix or any(part in ("", ".", "..") for part in prefix.split("/")):
+              raise SystemExit("AWS test prefix must be an explicit isolated path")
+          config = {
+              "profile": "aws", "disposable": True,
+              "bucket": values["TEST_BUCKET"], "region": values["TEST_REGION"],
+              "prefix": prefix + "/run-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"],
+          }
+          (Path(os.environ["RUNNER_TEMP"]) / "persistence-aws.json").write_text(json.dumps(config))
+          PY
+          status=0
+          uv run pytest packages/skilling/tests/session_store/backends/s3/test_capabilities.py \
+            --store-profile=aws --store-config="$RUNNER_TEMP/persistence-aws.json" -q || status=$?
+          if test "$status" -eq 0; then
+            uv run pytest packages/skilling/tests/session_store/test_boundary.py \
+            packages/skilling/tests/session_store/test_contract.py \
+            packages/skilling/tests/session_store/test_runtime.py \
+            packages/skilling/tests/session_store/backends/s3 \
+            --ignore=packages/skilling/tests/session_store/backends/s3/test_capabilities.py \
+            --store-profile=aws --store-config="$RUNNER_TEMP/persistence-aws.json" -q || status=$?
+          fi
+          TEST_EXIT="$status" uv run python - <<'PY'
+          import importlib.metadata, json, os, platform
+          from pathlib import Path
+          result = {
+              "source_commit": os.environ["CANDIDATE_SHA"], "endpoint": "AWS S3",
+              "python": platform.python_version(),
+              "boto3": importlib.metadata.version("boto3"),
+              "botocore": importlib.metadata.version("botocore"),
+              "test_exit": int(os.environ["TEST_EXIT"]),
+              "run_id": os.environ["GITHUB_RUN_ID"],
+          }
+          Path("persistence-aws-evidence.json").write_text(json.dumps(result, indent=2) + "\n")
+          PY
+          exit "$status"
+      - name: Remove private configuration
+        if: always()
+        run: rm -f "$RUNNER_TEMP/persistence-aws.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: persistence-aws-${{ inputs.candidate_sha }}
+          path: persistence-aws-evidence.json
+          if-no-files-found: error

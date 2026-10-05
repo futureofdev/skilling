@@ -44,6 +44,9 @@ postgres = [
     "psycopg-pool>=3.3.3,<3.4",
     "psycopg[binary]>=3.3.6,<3.4",
 ]
+s3 = [
+    "boto3>=1.43.107,<1.44",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]
