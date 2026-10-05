@@ -60,6 +60,7 @@ from ._protocol._file_session import FileSessionStore
 
 __all__ = [
     "SQLiteSessionStore",
+    "PostgresSessionStore",
     "ActionIdentity",
     "ActionOperation",
     "ActionOrigin",
@@ -111,6 +112,7 @@ __all__ = [
     "open_store",
 ]
 
+from ._backends._postgres import PostgresSessionStore
 from ._protocol import (
     AcknowledgeSession,
     CompleteSession,

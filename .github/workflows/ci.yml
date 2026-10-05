@@ -70,6 +70,35 @@ jobs:
       - run: task test
       - run: task validate:examples
 
+  persistence-services:
+    name: real PostgreSQL persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.13"
+      - run: uv sync --all-packages --all-extras
+      - name: Start disposable PostgreSQL
+        run: uv run python packages/skilling/tests/backends/services.py start --profile postgres --config-out "$RUNNER_TEMP/persistence-postgres.json"
+      - name: Exercise the shared contract and real PostgreSQL
+        run: >-
+          uv run pytest packages/skilling/tests/session_store/test_boundary.py
+          packages/skilling/tests/session_store/test_contract.py
+          packages/skilling/tests/session_store/test_runtime.py
+          packages/skilling/tests/session_store/backends/postgres
+          --store-profile=postgres --store-config="$RUNNER_TEMP/persistence-postgres.json" -q
+      - name: Remove only this job's PostgreSQL fixture
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/persistence-postgres.json"; then
+            uv run python packages/skilling/tests/backends/services.py stop --profile postgres --config "$RUNNER_TEMP/persistence-postgres.json"
+          fi
+
   storage-windows:
     name: native Windows storage
     runs-on: windows-latest
@@ -192,7 +221,7 @@ jobs:
   check:
     name: check
     if: always()
-    needs: [checks, test, storage-windows, package, installed, tutor-package, tutor-installed]
+    needs: [checks, test, persistence-services, storage-windows, package, installed, tutor-package, tutor-installed]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

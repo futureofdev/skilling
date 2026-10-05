@@ -39,6 +39,12 @@ Issues = "https://github.com/futureofdev/skilling/issues"
 [project.scripts]
 skilling = "skilling.cli:main"
 
+[project.optional-dependencies]
+postgres = [
+    "psycopg-pool>=3.3.3,<3.4",
+    "psycopg[binary]>=3.3.6,<3.4",
+]
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
