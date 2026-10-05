@@ -200,9 +200,9 @@ def test_declared_policy_retry_retained_activation_and_reset(skill):
 
     asyncio.run(exercise())
     reference = "reading-progress" if skill == "progress" else "workflows"
-    assert (ROOT / skill / "references" / f"{reference}.md").read_text() in captures[-1][
-        1
-    ].instructions
+    assert (ROOT / skill / "references" / f"{reference}.md").read_bytes().decode(
+        "utf-8"
+    ) in captures[-1][1].instructions
 
 
 def test_same_response_activation_must_inform_a_subsequent_model_request():
@@ -327,9 +327,9 @@ def test_retained_learn_cannot_emit_homework_feedback_without_homework_policy():
         )
 
     asyncio.run(exercise())
-    assert (ROOT / "homework" / "references" / "workflows.md").read_text() in captures[0][
-        1
-    ].instructions
+    assert (ROOT / "homework" / "references" / "workflows.md").read_bytes().decode(
+        "utf-8"
+    ) in captures[0][1].instructions
 
 
 @pytest.mark.parametrize("target", [Beat.GATE_CONCEPT, Beat.GATE_EXERCISE])
@@ -422,7 +422,9 @@ def test_current_required_policies_delivered_without_model_reference_reads():
     assert result.output == "producer output" and result.usage.tool_calls == 1
     instructions = captures[0]
     for name in ("delivery-loop", "exercise-facilitation", "objectives"):
-        assert (ROOT / "learn" / "references" / f"{name}.md").read_text() in instructions
+        assert (ROOT / "learn" / "references" / f"{name}.md").read_bytes().decode(
+            "utf-8"
+        ) in instructions
     assert '"legal_inputs": ["hint", "attempted"]' in instructions
     assert instructions.index("TRANSPORT BINDING:") > instructions.index("#")
 
@@ -450,7 +452,9 @@ def test_activated_policy_is_current_on_followup_and_restored_history():
             deps=SkillingRunDeps(ConversationContext(context("B"), "r")),
             message_history=first.all_messages(),
         )
-        canonical = (ROOT / "progress" / "references" / "reading-progress.md").read_text()
+        canonical = (
+            (ROOT / "progress" / "references" / "reading-progress.md").read_bytes().decode("utf-8")
+        )
         assert canonical not in captures[0]
         assert canonical in captures[1] and canonical in captures[2]
         assert "Material B" in captures[2] and "Material A" not in captures[2]

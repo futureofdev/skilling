@@ -132,7 +132,9 @@ class ConversationJourney:
             ("homework", "homework", "workflows.md"),
         ):
             if data[kind] is not None:
-                assert (ROOT / skill / "references" / reference).read_text() in info.instructions
+                assert (ROOT / skill / "references" / reference).read_bytes().decode(
+                    "utf-8"
+                ) in info.instructions
         latest = next(
             part.content
             for message in reversed(messages)
