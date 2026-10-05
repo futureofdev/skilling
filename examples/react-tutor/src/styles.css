@@ -1,0 +1,662 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-ink: var(--sk-ink);
+  --color-signal: var(--sk-signal-700);
+  --color-build: var(--sk-build);
+  --color-cloud: var(--sk-cloud);
+  --color-paper: var(--sk-base);
+  --color-muted: var(--sk-graphite-deep);
+  --color-line: var(--sk-hairline);
+  --font-sans: "Inter Variable", var(--sk-body);
+  --font-display: "Archivo Variable", var(--sk-display);
+  --font-mono: var(--sk-mono);
+}
+
+@layer base {
+  :root {
+    @apply font-sans text-ink bg-paper antialiased;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+  * {
+    border-radius: 0 !important;
+  }
+  button {
+    @apply cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  a {
+    @apply text-signal underline-offset-4;
+  }
+  :where(button, a, textarea, summary, [tabindex]):focus-visible {
+    @apply outline-3 outline-offset-4 outline-signal;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .wordmark {
+    @apply flex items-center gap-2.5 text-ink no-underline;
+  }
+  .wordmark span {
+    @apply font-display font-extrabold text-3xl tracking-[-1.5px];
+    font-stretch: 112%;
+  }
+  .eyebrow {
+    @apply text-[10px] font-bold tracking-[1.6px] leading-normal;
+  }
+  .progress-label {
+    @apply flex justify-between text-[10px] gap-1 mb-2;
+  }
+  .progress-label strong {
+    @apply font-semibold;
+  }
+  .progress-track {
+    @apply h-1.5 bg-line overflow-hidden;
+  }
+  .progress-track span {
+    @apply block h-full bg-build;
+  }
+  .outline {
+    @apply list-none p-0 my-7 -mx-3;
+  }
+  .outline li {
+    @apply flex items-start gap-3 p-3 py-4 text-xs leading-normal border-l-2 border-transparent;
+  }
+  .outline li.current {
+    @apply border-l-signal bg-paper;
+  }
+  .lesson-number {
+    @apply min-w-[26px] h-[26px] grid place-items-center text-[10px] text-muted border border-line;
+  }
+  .current .lesson-number {
+    @apply text-signal border-signal/40;
+  }
+  .lesson-number.done {
+    @apply bg-build text-ink;
+  }
+  .outline small {
+    @apply block text-[10px] text-muted mt-1;
+  }
+  .prose {
+    @apply leading-[1.8] text-sm wrap-anywhere;
+  }
+  .prose p {
+    @apply my-3;
+  }
+  .prose p:first-child {
+    @apply mt-0;
+  }
+  .prose p:last-child {
+    @apply mb-0;
+  }
+  .prose h1,
+  .prose h2 {
+    @apply text-2xl my-5;
+  }
+  .prose h3 {
+    @apply text-lg my-4;
+  }
+  .prose ul {
+    @apply list-disc pl-5 my-3;
+  }
+  .prose ol {
+    @apply list-decimal pl-5 my-3;
+  }
+  .prose li + li {
+    @apply mt-1;
+  }
+  .prose pre {
+    @apply bg-cloud p-4 max-w-full overflow-x-auto text-xs leading-relaxed my-4;
+  }
+  .prose code {
+    @apply font-mono text-[.9em];
+  }
+  .prose :not(pre) > code {
+    @apply bg-cloud py-0.5 px-1;
+  }
+  .prose blockquote {
+    @apply ml-0 border-l-[3px] border-signal pl-4 text-muted my-4;
+  }
+  .prose table {
+    @apply block overflow-x-auto border-collapse;
+  }
+  .prose th,
+  .prose td {
+    @apply border border-line py-2 px-3;
+  }
+  .prose a {
+    @apply underline;
+  }
+  .objectives {
+    @apply mt-5;
+  }
+  .objectives h3 {
+    @apply text-sm;
+  }
+  .objectives ul {
+    @apply list-disc pl-5 text-[13px] leading-relaxed mt-3;
+  }
+  details {
+    @apply border-t border-line mt-6 pt-4;
+  }
+  summary {
+    @apply cursor-pointer text-signal text-xs mb-3;
+  }
+  .question > .prose {
+    @apply mt-4 font-semibold;
+  }
+  .option-list {
+    @apply p-0 list-none mt-4;
+  }
+  .option-list li {
+    @apply flex items-start gap-3.5 py-3 border-t border-line text-[13px] leading-relaxed;
+  }
+  .option-list strong {
+    @apply text-signal;
+  }
+  .muted {
+    @apply text-muted text-xs leading-relaxed mt-4;
+  }
+  .feedback {
+    @apply my-6 border-l-[3px] border-signal bg-cloud p-6 text-[13px];
+  }
+  .feedback.correct {
+    @apply border-l-build;
+  }
+  .feedback h3 {
+    @apply mt-2.5 mb-3 text-[21px];
+  }
+  .feedback > p {
+    @apply my-3;
+  }
+  .tutor-avatar {
+    @apply bg-cloud size-9 grid place-items-center shrink-0;
+  }
+  .suggestions {
+    @apply flex gap-2 flex-wrap;
+  }
+  .suggestions button {
+    @apply border border-line bg-paper py-2.5 px-3 text-[11px] text-left enabled:hover:bg-cloud;
+  }
+  .suggestions button span {
+    @apply ml-4.5 text-signal;
+  }
+  .message {
+    @apply py-5.5;
+  }
+  .message + .message {
+    @apply border-t border-line;
+  }
+  .message.user {
+    @apply bg-cloud py-4.5 px-5 my-3;
+  }
+  .message-author {
+    @apply text-[9px] tracking-[1.4px] font-bold text-signal mb-2.5;
+  }
+  .message.user .message-author {
+    @apply text-muted;
+  }
+  .typing-indicator {
+    @apply size-1.5 bg-signal animate-pulse motion-reduce:animate-none;
+  }
+  .next-step {
+    @apply pt-4.5 pb-7;
+  }
+  .button-row {
+    @apply flex flex-wrap gap-2.5 mt-3;
+  }
+  .learner-button {
+    @apply border border-ink bg-build text-ink py-3 px-4 text-xs font-semibold flex justify-between items-center gap-6 text-left leading-normal enabled:hover:bg-ink enabled:hover:text-build;
+  }
+  .answer-controls {
+    @apply grid gap-2 mt-3;
+  }
+  .answer-controls .learner-button {
+    @apply bg-paper border-line enabled:hover:bg-build enabled:hover:text-ink enabled:hover:border-ink;
+  }
+  .composer {
+    @apply border border-ink bg-paper px-5 pt-4.5 pb-3 mt-2;
+  }
+  .composer label {
+    @apply font-display block text-sm font-bold mb-3;
+  }
+  .input-row {
+    @apply flex items-center gap-3.5;
+  }
+  textarea {
+    @apply resize-y min-h-12 max-h-60 border-0 w-full bg-transparent text-ink text-[13px] leading-relaxed py-1;
+  }
+  textarea::placeholder {
+    @apply text-muted;
+  }
+  .send-button {
+    @apply size-10 shrink-0 text-2xl border border-ink bg-build disabled:bg-cloud;
+  }
+  .composer-footer {
+    @apply flex justify-between gap-3 mt-3 pt-2.5 border-t border-line text-muted text-[9px];
+  }
+  .history-notice {
+    @apply text-[10px] leading-relaxed text-muted pt-3;
+  }
+  .error-panel {
+    @apply p-5 border-l-[3px] border-l-[var(--sk-fault)] bg-cloud mb-6;
+  }
+  .error-panel h3 {
+    @apply mb-2 text-[17px];
+  }
+  .error-panel p {
+    @apply text-xs leading-relaxed;
+  }
+  .system-button {
+    @apply border-0 text-paper bg-signal py-3 px-4 text-xs;
+  }
+  .text-button {
+    @apply border-0 text-signal bg-transparent py-3 px-1 text-xs underline underline-offset-4;
+  }
+  .loading-state {
+    @apply p-7 bg-cloud text-[13px];
+  }
+  .skip-link {
+    @apply absolute z-10 left-3 -top-25 bg-paper p-3 focus:top-3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@layer components {
+  .workbench {
+    @apply mb-6;
+  }
+  .workbench details {
+    @apply border border-line p-5;
+  }
+  .workbench summary {
+    @apply font-display font-bold text-sm;
+  }
+  .workbench label {
+    @apply block text-xs font-semibold mt-6 mb-2;
+  }
+  .workbench textarea {
+    @apply border border-line p-3;
+  }
+  .assignment {
+    @apply bg-cloud p-5 text-[13px] leading-relaxed my-4;
+  }
+  .assignment h3 {
+    @apply text-base mb-2;
+  }
+  .assignment h4 {
+    @apply font-semibold mt-4;
+  }
+  .assignment ol {
+    @apply list-decimal pl-5 my-3;
+  }
+  .assignment ul {
+    @apply list-disc pl-5 my-3;
+  }
+  .review-panel {
+    @apply bg-cloud p-6 mt-4 text-[13px] leading-relaxed;
+  }
+  .review-panel article {
+    @apply border-t border-line mt-4 pt-4;
+  }
+  .review-panel h3 {
+    @apply text-sm mb-2;
+  }
+  .review-panel p {
+    @apply mt-2;
+  }
+  .review-panel button {
+    @apply mt-4;
+  }
+  .verdict {
+    @apply uppercase text-[10px] text-signal tracking-wider font-semibold;
+  }
+}
+
+/* Chat is the primary workspace. Context remains mounted to preserve drafts,
+   but hidden panels cannot receive presentation acknowledgements. */
+@layer components {
+  .chat-app {
+    @apply h-dvh min-h-0 flex flex-col overflow-hidden bg-paper;
+  }
+  .chat-header {
+    @apply h-16 min-h-16 flex items-center gap-6 px-7 border-b border-line bg-paper;
+  }
+  .chat-header .wordmark span {
+    @apply text-[25px];
+  }
+  .header-course {
+    @apply flex flex-col gap-0.5 pl-6 border-l border-line min-w-0;
+  }
+  .header-course > span {
+    @apply text-xs font-semibold truncate;
+  }
+  .header-course small {
+    @apply text-[10px] text-muted;
+  }
+  .context-toggle {
+    @apply ml-auto shrink-0 flex items-center gap-2 border border-line px-3 py-2 text-xs text-signal bg-paper hover:bg-cloud;
+  }
+  .context-toggle.active {
+    @apply bg-cloud border-signal;
+  }
+  .panel-icon {
+    @apply text-base leading-none;
+  }
+  .chat-layout {
+    @apply flex-1 min-h-0 relative grid grid-cols-[minmax(0,1fr)];
+  }
+  .chat-layout.context-open {
+    @apply grid-cols-[minmax(0,1fr)_360px];
+  }
+  .chat-main {
+    @apply min-w-0 min-h-0 flex flex-col relative;
+  }
+  .chat-scroll {
+    @apply flex-1 min-h-0 overflow-auto overscroll-contain;
+    scrollbar-gutter: stable both-edges;
+  }
+  .chat-scroll:focus-visible {
+    outline-offset: -3px;
+  }
+  .chat-thread {
+    @apply w-full max-w-[860px] min-w-0 mx-auto px-8 pt-9 pb-8;
+  }
+  .chat-intro {
+    @apply mb-8 pb-6 border-b border-line;
+  }
+  .chat-intro .eyebrow {
+    @apply text-signal;
+  }
+  .chat-intro h1 {
+    @apply text-[clamp(24px,3vw,34px)] leading-tight mt-3 mb-2;
+  }
+  .chat-intro > p {
+    @apply text-[13px] text-muted leading-relaxed;
+  }
+  .chat-thread .message {
+    @apply py-6;
+  }
+  .chat-thread .message.user {
+    @apply ml-10 px-5 py-4 my-4 border-0;
+  }
+  .chat-thread .message.assistant {
+    @apply pr-4;
+  }
+  .message-content {
+    @apply min-w-0 max-w-full overflow-x-auto;
+  }
+  .message-content .prose {
+    @apply text-[15px] leading-[1.85];
+  }
+  .message-content .prose pre {
+    @apply w-max min-w-full max-w-none whitespace-pre;
+  }
+  .message-content .prose table {
+    @apply w-max min-w-full max-w-none;
+  }
+  .message-content .prose th,
+  .message-content .prose td {
+    @apply min-w-36;
+  }
+  .inline-material {
+    @apply border-l-2 border-line pl-5 py-1 my-6;
+  }
+  .inline-label {
+    @apply flex justify-between gap-3 text-[9px] tracking-wider font-semibold text-muted mb-3;
+  }
+  .inline-material h2 {
+    @apply text-lg mb-3;
+  }
+  .inline-material .prose {
+    @apply text-[13px] leading-relaxed;
+  }
+  .inline-material .objectives {
+    @apply mt-3;
+  }
+  .inline-material .objectives h3 {
+    @apply text-[13px];
+  }
+  .inline-material .objectives ul {
+    @apply text-xs;
+  }
+  .inline-feedback {
+    @apply mt-6;
+  }
+  .inline-feedback .feedback {
+    @apply mt-2;
+  }
+  .presentation-receipt {
+    @apply h-px w-full;
+  }
+  .chat-welcome {
+    @apply flex gap-4 my-6;
+  }
+  .chat-welcome h2 {
+    @apply text-lg mb-2;
+  }
+  .chat-welcome p {
+    @apply text-[13px] text-muted leading-relaxed mb-4;
+  }
+  .reply-activity {
+    @apply flex items-center gap-3 text-xs text-muted py-4;
+  }
+  .stream-bars {
+    @apply inline-flex gap-[3px] items-center h-4 ml-1;
+  }
+  .stream-bars i {
+    @apply block w-0.5 h-2 bg-signal animate-pulse motion-reduce:animate-none;
+  }
+  .stream-bars i:nth-child(2) {
+    @apply h-3;
+    animation-delay: 150ms;
+  }
+  .stream-bars i:nth-child(3) {
+    animation-delay: 300ms;
+  }
+  .composer-dock {
+    @apply shrink-0 bg-paper border-t border-line px-8 pt-3 pb-3;
+  }
+  .composer-width {
+    @apply max-w-[796px] mx-auto w-full;
+  }
+  .chat-activity {
+    @apply flex items-center gap-2 text-[11px] text-muted min-h-5 mb-2;
+  }
+  .idle-indicator {
+    @apply size-1.5 bg-signal/60 shrink-0;
+  }
+  .activity-lesson {
+    @apply ml-auto text-[10px];
+  }
+  .composer-dock .composer {
+    @apply mt-0 py-3 px-4;
+  }
+  .composer-dock .composer label {
+    @apply sr-only;
+  }
+  .composer-dock textarea {
+    @apply text-sm min-h-12 max-h-40;
+  }
+  .composer-dock .composer-footer {
+    @apply mt-1.5 pt-2;
+  }
+  .context-link {
+    @apply text-signal hover:underline underline-offset-4;
+  }
+  .chat-footnote {
+    @apply text-[9px] text-center text-muted mt-2;
+  }
+  .stop-button {
+    @apply shrink-0 flex items-center gap-2;
+  }
+  .stop-button > span {
+    @apply text-[10px];
+  }
+  .jump-latest {
+    @apply absolute z-10 bottom-[202px] left-1/2 -translate-x-1/2 flex items-center gap-4 border border-line bg-paper px-4 py-2.5 text-xs text-signal shadow-sm hover:bg-cloud;
+  }
+  .context-panel {
+    @apply min-h-0 min-w-0 flex flex-col border-l border-line bg-cloud;
+  }
+  .context-panel[hidden] {
+    display: none !important;
+  }
+  .context-panel-header {
+    @apply shrink-0 flex items-center justify-between px-6 py-4 border-b border-line;
+  }
+  .context-panel-header button {
+    @apply size-8 grid place-items-center text-xl text-signal hover:bg-paper;
+  }
+  .context-panel-content {
+    @apply flex-1 min-h-0 overflow-y-auto overscroll-contain p-6;
+  }
+  .context-panel-content > h2 {
+    @apply text-2xl leading-tight;
+  }
+  .context-panel-content > .muted {
+    @apply mb-6;
+  }
+  .context-panel .outline {
+    @apply my-6;
+  }
+  .context-panel .workbench details {
+    @apply bg-paper px-4 py-4;
+  }
+  .context-panel .workbench .review-panel {
+    @apply bg-paper px-4;
+  }
+  .context-panel .learner-button,
+  .context-panel .system-button {
+    @apply w-full;
+  }
+  .context-panel .history-notice {
+    @apply border-t border-line pt-5 mt-5;
+  }
+  .context-lesson {
+    @apply mb-6;
+  }
+  .context-lesson > summary {
+    @apply font-semibold;
+  }
+}
+
+@media (max-width: 1000px) {
+  .chat-layout.context-open {
+    @apply grid-cols-[minmax(0,1fr)_320px];
+  }
+  .chat-thread {
+    @apply px-6;
+  }
+  .composer-dock {
+    @apply px-6;
+  }
+  .context-panel-content {
+    @apply p-5;
+  }
+}
+@media (max-width: 800px) {
+  .chat-layout.context-open {
+    @apply grid-cols-[minmax(0,1fr)];
+  }
+  .context-panel {
+    @apply absolute right-0 top-0 bottom-0 w-[min(380px,100%)] z-20 shadow-xl;
+  }
+  .chat-header {
+    @apply px-5 gap-4;
+  }
+  .header-course {
+    @apply pl-4;
+  }
+}
+@media (max-width: 560px) {
+  .chat-header {
+    @apply h-15 min-h-15 px-4 gap-3;
+  }
+  .chat-header .wordmark span {
+    @apply text-[22px];
+  }
+  .chat-header .wordmark img {
+    @apply size-6;
+  }
+  .header-course {
+    @apply hidden;
+  }
+  .context-toggle {
+    @apply text-[11px] py-2;
+  }
+  .chat-thread {
+    @apply px-5 pt-6;
+  }
+  .chat-intro {
+    @apply mb-5 pb-5;
+  }
+  .chat-intro h1 {
+    @apply text-[27px];
+  }
+  .chat-intro > p {
+    @apply text-xs;
+  }
+  .chat-thread .message.user {
+    @apply ml-5;
+  }
+  .message-content .prose {
+    @apply text-sm;
+  }
+  .inline-material {
+    @apply pl-4;
+  }
+  .composer-dock {
+    @apply px-4 pt-2 pb-2;
+  }
+  .composer-dock .composer {
+    @apply px-3;
+  }
+  .composer-dock .composer-footer span:first-child {
+    @apply text-[8px];
+  }
+  .composer-dock .context-link {
+    @apply text-[9px];
+  }
+  .chat-footnote {
+    @apply text-[8px];
+  }
+  .jump-latest {
+    @apply bottom-[185px];
+  }
+}
+@layer components {
+  .current-lesson-marker {
+    @apply flex items-center justify-between gap-4 text-[10px] text-muted my-5 pt-3 border-t border-line;
+  }
+  .current-lesson-marker > span {
+    @apply min-w-0 truncate;
+  }
+  .current-lesson-marker button {
+    @apply text-signal shrink-0 hover:underline underline-offset-4;
+  }
+}
+@layer components {
+  .reference-fallback {
+    @apply text-xs text-muted leading-relaxed;
+  }
+  .reference-fallback button {
+    @apply mt-4;
+  }
+}
+
+.demo-identity { padding: 0.75rem 1.25rem; background: var(--surface, #faf8f3); color: var(--ink, #242b29); font-size: 0.875rem; border-bottom: 1px solid #d5d9d3; }
+.demo-identity select { margin-left: 0.4rem; padding: 0.3rem 0.5rem; font: inherit; }

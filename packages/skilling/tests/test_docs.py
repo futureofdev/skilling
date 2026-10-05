@@ -33,6 +33,7 @@ MARKDOWN_GLOBS = (
     "examples/**/*.md",
     "packages/*/README.md",
 )
+_GENERATED_DIRECTORIES = {"node_modules", ".venv", ".data", "dist", "build"}
 
 _LINK = re.compile(r"(?<!!)\[[^\]]*\]\(\s*([^)\s]+?)\s*\)")
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -43,11 +44,31 @@ _EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//)", re.IGNORECASE)
 def _markdown_files() -> list[Path]:
     found: set[Path] = set()
     for pattern in MARKDOWN_GLOBS:
-        found.update(p for p in REPO_ROOT.glob(pattern) if p.is_file())
+        found.update(
+            p
+            for p in REPO_ROOT.glob(pattern)
+            if p.is_file()
+            and not _GENERATED_DIRECTORIES.intersection(p.relative_to(REPO_ROOT).parts)
+        )
     return sorted(found)
 
 
 FILES = _markdown_files()
+
+
+def test_document_collection_ignores_installed_dependencies_and_local_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = tmp_path / "examples" / "react-tutor"
+    app.mkdir(parents=True)
+    source = app / "README.md"
+    source.write_text("# Reference app\n", encoding="utf-8")
+    for directory in _GENERATED_DIRECTORIES:
+        generated = app / directory / "nested" / "README.md"
+        generated.parent.mkdir(parents=True)
+        generated.write_text("[Not repository documentation](missing.md)\n", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "REPO_ROOT", tmp_path)
+    assert _markdown_files() == [source]
 
 
 def anchor_slug(heading: str) -> str:

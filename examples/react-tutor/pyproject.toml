@@ -1,0 +1,25 @@
+[project]
+name = "skilling-react-example"
+version = "0.1.0"
+description = "Streaming React reference application for an embedded Skilling tutor."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = [
+    "skilling-tutor[fastapi]>=0.1.0,<0.2.0",
+    "uvicorn>=0.54.0,<0.55",
+]
+
+[project.scripts]
+skilling-react-example = "skilling_react_example.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skilling_react_example"]
+
+[tool.hatch.build]
+artifacts = ["src/skilling_react_example/static/**"]

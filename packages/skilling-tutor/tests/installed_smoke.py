@@ -73,10 +73,14 @@ def _inspect(path: Path, *, tutor: bool, version: str, license_bytes: bytes) -> 
     )
     dependencies = parsed.get_all("Requires-Dist", [])
     if tutor:
-        assert sorted(dependencies) == [
+        assert sorted(value for value in dependencies if ";" not in value) == [
             "pydantic-ai-harness[skills]<0.53.0,>=0.52.0",
             "pydantic-ai-slim<2.53.0,>=2.52.0",
             "skilling<0.9.0,>=0.8.0",
+        ]
+        assert parsed.get_all("Provides-Extra", []) == ["fastapi"]
+        assert [value.replace("'", '"') for value in dependencies if ";" in value] == [
+            'fastapi<0.143,>=0.142.2; extra == "fastapi"'
         ]
         assert not any(name.endswith("entry_points.txt") for name in files)
     else:
@@ -111,16 +115,16 @@ def _inspect_app(path: Path, license_bytes: bytes) -> dict[str, object]:
             if name.endswith("METADATA") or name.endswith("PKG-INFO")
         )
     )
-    assert parsed["Name"] == "skilling-producer-example"
+    assert parsed["Name"] == "skilling-react-example"
     assert parsed["Version"] == "0.1.0" and parsed["Requires-Python"] == ">=3.11"
     assert parsed["License-Expression"] == "Apache-2.0"
     assert any(name.endswith("/LICENSE") and body == license_bytes for name, body in files.items())
-    for asset in ("index.html", "app.js", "styles.css"):
-        assert any(name.endswith(f"/static/{asset}") for name in files), f"Missing asset: {asset}"
+    assert any(name.endswith("/static/index.html") for name in files)
+    assert any("/static/assets/" in name and name.endswith(".js") for name in files)
+    assert any("/static/assets/" in name and name.endswith(".css") for name in files)
     dependencies = parsed.get_all("Requires-Dist", [])
     assert sorted(dependencies) == [
-        "fastapi<0.143,>=0.142.2",
-        "skilling-tutor<0.2.0,>=0.1.0",
+        "skilling-tutor[fastapi]<0.2.0,>=0.1.0",
         "uvicorn<0.55,>=0.54.0",
     ]
     return {
@@ -187,6 +191,9 @@ def main() -> None:
                     if not isinstance(reference, str) or reference not in os.environ:
                         raise ValueError("Selected backend environment reference is missing")
                     environment[reference] = os.environ[reference]
+        runtime_probe = stage / "runtime_probe.py"
+        shutil.copyfile(Path(__file__).with_name("installed_runtime.py"), runtime_probe)
+        shutil.copytree(source / "examples/hello-skilling", stage / "runtime-course")
 
         def run(argv: list[str]) -> None:
             started = datetime.now(UTC).isoformat()
@@ -210,8 +217,19 @@ def main() -> None:
             shutil.copytree(
                 app_source,
                 copied_app,
-                ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache", ".venv", "dist"),
+                ignore=shutil.ignore_patterns(
+                    "__pycache__",
+                    ".pytest_cache",
+                    ".venv",
+                    "node_modules",
+                    ".data",
+                    "dist",
+                    "static",
+                ),
             )
+            assets = app_source / "dist"
+            assert (assets / "index.html").is_file(), "Build the React app before packaging"
+            shutil.copytree(assets, copied_app / "src/skilling_react_example/static")
             app_dist = stage / "app-dist"
             run(["uv", "build", "--no-sources", str(copied_app), "--out-dir", str(app_dist)])
             app_probe = stage / "app_probe.py"
@@ -271,6 +289,25 @@ def main() -> None:
                     *(["--store-config", str(backend_config)] if backend_config else []),
                 ]
             )
+            run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    str(python),
+                    f"{local_tutor}[fastapi]",
+                    "httpx>=0.28,<0.29",
+                ]
+            )
+            run(
+                [
+                    str(python),
+                    str(runtime_probe),
+                    str(stage / "runtime-course"),
+                    str(stage / f"{kind}-runtime-state"),
+                ]
+            )
             if app_dist is not None and app_probe is not None:
                 (app_artifact,) = app_dist.glob(pattern)
                 artifacts.append(
@@ -291,7 +328,7 @@ def main() -> None:
                     [
                         str(python),
                         "-c",
-                        "import pathlib,sys,skilling_producer_example as app; "
+                        "import pathlib,sys,skilling_react_example as app; "
                         "origin=pathlib.Path(app.__file__).resolve(); "
                         "assert origin.is_relative_to(pathlib.Path(sys.prefix).resolve()); "
                         "print('installed app origin:', app.__file__)",
@@ -377,6 +414,9 @@ def main() -> None:
                 "python_requested": args.python_version,
                 "artifacts": artifacts,
                 "app_source": str(args.app) if args.app is not None else None,
+                "runtime_probe_sha256": hashlib.sha256(
+                    Path(__file__).with_name("installed_runtime.py").read_bytes()
+                ).hexdigest(),
                 "app_probe_sha256": hashlib.sha256(
                     (args.app / "tests/journey.py").read_bytes()
                 ).hexdigest()

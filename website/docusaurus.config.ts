@@ -32,7 +32,7 @@ function readSpecVersion(): string {
 
 const config: Config = {
   title: 'Skilling',
-  tagline: 'Turn the coding assistant you already use into a one-to-one tutor.',
+  tagline: 'Portable courses. Personal tutoring. Progress you keep.',
   favicon: 'favicon/favicon.ico',
 
   future: {
@@ -104,13 +104,13 @@ const config: Config = {
     [
       '@docusaurus/plugin-content-docs',
       {
-        id: 'embed',
+        id: 'reference',
         path: '../docs',
-        include: ['embedding-a-tutor.md'],
-        routeBasePath: 'docs',
-        sidebarPath: false,
+        include: ['embedding-a-tutor.md', 'persistence.md', 'persistence-postgres.md', 'persistence-s3.md', 'python-tutor.md', 'python-session.md'],
+        routeBasePath: 'reference',
+        sidebarPath: './sidebars-reference.ts',
         editUrl: ({docPath}: {docPath: string}) => `${REPO}/edit/main/docs/${docPath}`,
-        beforeDefaultRemarkPlugins: [[repoLinks, {repo: REPO, repoDir: repoFile('.'), root: 'docs', include: ['embedding-a-tutor.md']}]],
+        beforeDefaultRemarkPlugins: [[repoLinks, {repo: REPO, repoDir: repoFile('.'), root: 'docs', include: ['embedding-a-tutor.md', 'persistence.md', 'persistence-postgres.md', 'persistence-s3.md', 'python-tutor.md', 'python-session.md']}]],
       },
     ],
     [
@@ -145,7 +145,7 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'learn', position: 'left', label: 'Learn'},
         {type: 'docSidebar', sidebarId: 'write', position: 'left', label: 'Write a course'},
-        {to: '/docs/embed', position: 'left', label: 'Embed a tutor'},
+        {type: 'docSidebar', sidebarId: 'embed', position: 'left', label: 'Embed a tutor'},
         {type: 'docSidebar', sidebarId: 'spec', docsPluginId: 'spec', position: 'left', label: 'Specification'},
         {href: REPO, label: 'GitHub', position: 'right'},
       ],
@@ -172,9 +172,18 @@ const config: Config = {
           ],
         },
         {
+          title: 'Embed',
+          items: [
+            {label: 'Build a learning app', to: '/docs/embed'},
+            {label: 'Run the React example', to: '/docs/embed/quickstart'},
+            {label: 'Integrate with FastAPI', to: '/docs/embed/fastapi'},
+            {label: 'Deploy and recover', to: '/docs/embed/operate'},
+          ],
+        },
+        {
           title: 'Project',
           items: [
-            {label: 'Embed a tutor', to: '/docs/embed'},
+            {label: 'Integration reference', to: '/reference/embedding-a-tutor'},
             {label: 'Specification', to: '/spec'},
             {label: 'Format status', to: '/docs/write/status'},
             {label: 'Contributing', href: `${REPO}/blob/main/CONTRIBUTING.md`},

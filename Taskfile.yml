@@ -19,19 +19,18 @@ tasks:
     desc: "Run the test suite. Extra pytest args after --, e.g. `task test -- -k quiz`"
     cmds:
       - uv run pytest {{.CLI_ARGS}}
-      - node --test examples/python-producer/tests/test_dom.mjs
 
   lint:
     desc: ruff check + ruff format --check
     cmds:
-      - uv run ruff check packages/ examples/python-producer/
-      - uv run ruff format --check packages/ examples/python-producer/
+      - uv run ruff check packages/ examples/react-tutor/
+      - uv run ruff format --check packages/ examples/react-tutor/
 
   fix:
     desc: ruff format + ruff check --fix
     cmds:
-      - uv run ruff format packages/ examples/python-producer/
-      - uv run ruff check --fix packages/ examples/python-producer/
+      - uv run ruff format packages/ examples/react-tutor/
+      - uv run ruff check --fix packages/ examples/react-tutor/
 
   typecheck:
     desc: pyright over the packages
@@ -86,9 +85,18 @@ tasks:
   package:tutor:smoke:
     desc: "Build matching core/tutor artifacts and test installed public tutor APIs"
     cmds:
+      - task: react:check
       - uv build --package skilling --out-dir dist/core
       - uv build --package skilling-tutor --out-dir dist/tutor
-      - uv run python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version 3.11 --app examples/python-producer {{.CLI_ARGS}}
+      - uv run python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version 3.11 --app examples/react-tutor {{.CLI_ARGS}}
+
+  react:check:
+    desc: Test, typecheck and build the React tutor reference application (Node 22.12+)
+    dir: examples/react-tutor
+    cmds:
+      - npm ci
+      - npm test
+      - npm run build
 
   check:
     desc: Source checks (CI also checks lock freshness and installed packages)
@@ -100,3 +108,4 @@ tasks:
       - task: docs:check
       - task: version:sync:check
       - task: validate:examples
+      - task: react:check

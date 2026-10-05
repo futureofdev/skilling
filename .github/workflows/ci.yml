@@ -221,17 +221,44 @@ jobs:
         with:
           name: ${{ needs.tutor-package.outputs.artifact-name }}
           path: dist/tutor
-      - run: uv run --no-project --python ${{ matrix.python-version }} python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version ${{ matrix.python-version }} --app examples/python-producer --check-backend-extras
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/react-tutor/package-lock.json
+      - run: npm ci --prefix examples/react-tutor
+      - run: npm run build --prefix examples/react-tutor
+      - run: uv run --no-project --python ${{ matrix.python-version }} python packages/skilling-tutor/tests/installed_smoke.py --core-dist dist/core --tutor-dist dist/tutor --evidence tutor-evidence --python-version ${{ matrix.python-version }} --app examples/react-tutor --check-backend-extras
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: tutor-installed-${{ matrix.os }}-py${{ matrix.python-version }}
           path: tutor-evidence
 
+  react:
+    name: React tutor · tests · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: examples/react-tutor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/react-tutor/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
   check:
     name: check
     if: always()
-    needs: [checks, test, persistence-services, storage-windows, package, installed, tutor-package, tutor-installed]
+    needs: [checks, test, persistence-services, storage-windows, package, installed, tutor-package, tutor-installed, react]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -1,16 +1,18 @@
 ---
-id: embed
-slug: /embed
-title: Embed a tutor
+id: embedding-a-tutor
+slug: /embedding-a-tutor
+title: Session integration reference
+description: Trusted identity, durable sessions, backend configuration and recovery for application developers.
 ---
 
-# Embed a tutor
+# Session integration reference
 
-Build a Python producer that owns identity, persistence, learner controls and model configuration.
-Skilling supplies deterministic learning state; the optional `skilling-tutor` adapter supplies
-shared tutoring policy and informal advice. The installable
-[Welcome browser example](../examples/python-producer/README.md) connects these pieces.
-This is experimental source documentation, not a claim that these changes are released.
+Start with the [Embed a tutor guide](https://futureofdev.github.io/skilling/docs/embed)
+to run the React application or mount the public `Tutor` in FastAPI. This reference covers
+the underlying session boundary, persistent backend configuration and operational contracts.
+Your application owns identity, learner work and model access; Skilling owns deterministic
+learning state. The [React reference app](../examples/react-tutor/README.md) connects those pieces.
+These are experimental source APIs; source availability does not establish a package release.
 
 ## Choose the boundary
 
@@ -26,7 +28,7 @@ Keep these responsibilities separate:
 | Producer authentication | Resolve the authenticated principal, authorize its course, then construct the scope and permitted work root. |
 | Session store | Durable record, scratch, receipts, pending feedback, homework and deletion generation. |
 | Producer filesystem | Authored course source and separately authorized learner files. |
-| Producer conversation | Transcript, displayed material, review evidence and transient handles, isolated per authorized scope and browser. |
+| Producer conversation | Transcript, displayed material, review evidence and transient handles, isolated per authorized learner/course scope. |
 | Tutor | Explain current material and offer informal feedback through copied safe contexts. |
 
 A scope is an opaque identity, not authentication. Never construct it from model output or an
@@ -37,7 +39,9 @@ keep the demo route disabled. Validate course permission and work-root permissio
 
 ## Run the local reference producer
 
-From the checkout, run `uv sync --frozen`. Create separate existing absolute work directories for
+Complete the [React source installation](https://futureofdev.github.io/skilling/docs/embed/quickstart),
+including the frontend build (`npm ci` then `npm run build` in `examples/react-tutor`).
+Create separate existing absolute work directories for
 Alice and Bob and a state directory outside them. Use the canonical absolute checkout path for
 Welcome; configuration rejects directory aliases and overlapping work roots. Save this TOML,
 substituting your own absolute paths:
@@ -74,16 +78,20 @@ For example, the supported tutor package accepts `pydantic-ai-slim[openai]>=2.52
 Adding a provider is a producer decision; synthetic tests never call paid providers.
 
 ```sh
-.venv/bin/skilling-producer-example serve \
+.venv/bin/skilling-react-example serve \
   --config /absolute/demo/producer.toml \
-  --model openai:YOUR_MODEL --host 127.0.0.1 --port 8765
+  --model openai:YOUR_MODEL --host 127.0.0.1 --port 8000
 ```
 
-Open two separate browser profiles at `http://127.0.0.1:8765` and select different demo learners.
-Cookies and CSRF tokens bind each browser independently. Selection discards its old conversation,
-review and display handles. Progress persists, and each note stays in its permitted work root.
-The app remains loopback-only. The existing `serve --workspace /absolute/workspace --model ...`
-launch still uses `FileSession` and the same CLI-compatible workspace files.
+Open two separate browser profiles at `http://127.0.0.1:8000` and select different demo learners.
+An HttpOnly, SameSite=strict cookie binds each browser to its selected demo learner;
+JSON writes and same-origin checks protect that local boundary. Selection clears the browser
+view, while returning to a learner can recover its in-process conversation. Two browser profiles
+using the same learner share that learner/course runtime; they do not have separate conversation
+registries. Stale displays must refresh before acting. Progress persists, and each note stays
+in its permitted work root.
+The app remains loopback-only. The old Python-rendered producer has been replaced by this
+React application; see its README for the source development and built-asset launch paths.
 
 For explicit file mode use `[backend] kind = "file"` and an absolute `path` for new state roots.
 It creates namespace/learner-bound roots; it does not silently adopt another learner's legacy root.
@@ -173,13 +181,13 @@ provenance is attached explicitly on first neutral session open, not retroactive
 `pending_feedback()` returns canonical feedback and a scoped acknowledgement handle. Render all
 canonical fields, wait for an actual paint, and only then call `acknowledge_feedback(handle)`.
 Do not acknowledge on receipt from the server or on model narration. Restart restores pending
-canonical feedback even though conversation is gone. The browser example retains its existing
-DOM cancellation and failed-render safeguards.
+canonical feedback even though conversation is gone. The React interface cancels stale acknowledgement callbacks and does not acknowledge failed
+or partial renders.
 
 ## Choose a tutor integration
 
 The shared runner loads the packaged learning, progress and homework policies. It retains no
-conversation itself; keep the returned transcript per authorized learner and browser:
+conversation itself; keep the returned transcript within the authorized learner/course scope:
 
 ```python
 from skilling_tutor import ConversationContext, SkillingRunner

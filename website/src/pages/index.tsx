@@ -51,9 +51,11 @@ function Hero(): ReactNode {
             <Link className={`button button--lg button--outline button--primary ${styles.secondary}`} to="/docs/write/first-course">
               Write a course
             </Link>
-            <Link className="button button--lg button--outline button--primary" to="/docs/embed">Embed a tutor</Link>
+            <Link className={`button button--lg button--outline button--primary ${styles.secondary}`} to="/docs/embed">
+              Embed a tutor
+            </Link>
           </div>
-          <p className={styles.small}>Free and open source. Skilling itself needs no API key. The first course takes about ten minutes.</p>
+          <p className={styles.small}>Free and open source. Learn through your existing coding assistant, or build a tutor into your own app.</p>
         </div>
         <Session />
       </div>
@@ -179,6 +181,38 @@ skilling start ./my-course my-course-preview --json`}
   );
 }
 
+function Producers(): ReactNode {
+  return (
+    <section className={`${styles.section} ${styles.tinted}`}>
+      <div className={`container ${styles.authorGrid}`}>
+        <div>
+          <p className={styles.eyebrow}>For application developers</p>
+          <h2>Your app. Your Agent. A course that remembers.</h2>
+          <p>
+            Add a streaming tutor to your product with PydanticAI and FastAPI. Keep your own
+            model, tools and sign-in. Skilling supplies the teaching flow and saved progress;
+            the React reference app shows how to bring them together.
+          </p>
+          <Link className="button button--outline button--primary" to="/docs/embed">
+            Embed a tutor
+          </Link>
+        </div>
+        <div>
+          <h3>Start with a working experience</h3>
+          <p>
+            Stream explanations, render quiz choices and feedback, and resume from durable
+            learning state. Use the branded example as a starting point for your own interface.
+          </p>
+          <p className={styles.small}>
+            Experimental Python integration. You provide model access and host the application.
+          </p>
+          <Link to="/docs/embed/quickstart">Run the React example →</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Status({specVersion}: {specVersion: string}): ReactNode {
   return (
     <section className={styles.status}>
@@ -220,13 +254,14 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title="Turn your coding assistant into a tutor"
-      description="Skilling turns Claude Code or Codex into a one-to-one tutor. Courses are plain folders and your progress stays in your own workspace.">
+      description="Learn with Claude Code or Codex, write portable courses, or embed a streaming React tutor in your app. Skilling keeps learning progress durable and under your control.">
       <Hero />
       <main>
         <CopyPrompt prompt={startPrompt} />
         <HowItWorks />
         <StaysYours />
         <Authors />
+        <Producers />
         <Status specVersion={specVersion} />
       </main>
     </Layout>

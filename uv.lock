@@ -9,7 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "skilling",
-    "skilling-producer-example",
+    "skilling-react-example",
     "skilling-tutor",
     "skilling-workspace",
 ]
@@ -831,32 +831,18 @@ requires-dist = [
 provides-extras = ["postgres", "s3"]
 
 [[package]]
-name = "skilling-producer-example"
+name = "skilling-react-example"
 version = "0.1.0"
-source = { editable = "examples/python-producer" }
+source = { editable = "examples/react-tutor" }
 dependencies = [
-    { name = "fastapi" },
-    { name = "skilling-tutor" },
+    { name = "skilling-tutor", extra = ["fastapi"] },
     { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "httpx" },
-    { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.142.2,<0.143" },
-    { name = "skilling-tutor", editable = "packages/skilling-tutor" },
+    { name = "skilling-tutor", extras = ["fastapi"], editable = "packages/skilling-tutor" },
     { name = "uvicorn", specifier = ">=0.54.0,<0.55" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "httpx", specifier = ">=0.28,<0.29" },
-    { name = "pytest", specifier = ">=8.0" },
 ]
 
 [[package]]
@@ -869,12 +855,19 @@ dependencies = [
     { name = "skilling" },
 ]
 
+[package.optional-dependencies]
+fastapi = [
+    { name = "fastapi" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.142.2,<0.143" },
     { name = "pydantic-ai-harness", extras = ["skills"], specifier = ">=0.52.0,<0.53.0" },
     { name = "pydantic-ai-slim", specifier = ">=2.52.0,<2.53.0" },
     { name = "skilling", editable = "packages/skilling" },
 ]
+provides-extras = ["fastapi"]
 
 [[package]]
 name = "skilling-workspace"
@@ -882,7 +875,7 @@ version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "skilling" },
-    { name = "skilling-producer-example" },
+    { name = "skilling-react-example" },
     { name = "skilling-tutor" },
 ]
 
@@ -904,7 +897,7 @@ producer-tests = [
 [package.metadata]
 requires-dist = [
     { name = "skilling", editable = "packages/skilling" },
-    { name = "skilling-producer-example", editable = "examples/python-producer" },
+    { name = "skilling-react-example", editable = "examples/react-tutor" },
     { name = "skilling-tutor", editable = "packages/skilling-tutor" },
 ]
 
