@@ -59,7 +59,7 @@ Paste this prompt into your coding host. It sets everything up and starts your f
 > official installation instructions linked from the Skilling README. Install Skilling
 > persistently with `uv tool install skilling`, then run `skilling --version` in the
 > same environment. Run
-> `skilling start 'gh:futureofdev/skilling@v0.7.0#examples/welcome-skilling' my-learning --json`.
+> `skilling start 'gh:futureofdev/skilling@v0.8.0#examples/welcome-skilling' my-learning --json`.
 > Use the returned workspace path, read its generated host instructions and installed learn
 > skill and references, run learner commands from that workspace, and start teaching me. Wait
 > for my real replies at every gate. If this host must be reopened to discover the installed
@@ -75,7 +75,7 @@ of being tutored.
 ```bash
 uv tool install skilling
 skilling --version
-skilling start 'gh:futureofdev/skilling@v0.7.0#examples/welcome-skilling' my-learning --json
+skilling start 'gh:futureofdev/skilling@v0.8.0#examples/welcome-skilling' my-learning --json
 ```
 
 Open the `my-learning` folder it creates in Claude Code or Codex, then type `/learn`
@@ -83,7 +83,7 @@ Open the `my-learning` folder it creates in Claude Code or Codex, then type `/le
 picks up the new skills.
 
 > [!NOTE]
-> The pinned example command works once the `v0.7.0` tag is published. Before then, maintainers
+> The pinned example command works once the `v0.8.0` tag is published. Before then, maintainers
 > test the same flow with the retained candidate wheel and an exact commit ref; that
 > substitution is not the public learner route.
 

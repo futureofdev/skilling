@@ -25,7 +25,7 @@ whichever of those tutors delivered them:
 
 ```bash
 uv tool install skilling
-skilling start 'gh:futureofdev/skilling@v0.7.0#examples/welcome-skilling' my-learning --json
+skilling start 'gh:futureofdev/skilling@v0.8.0#examples/welcome-skilling' my-learning --json
 ```
 
 Writing courses is the other half. Author in markdown, and any conforming tutor can deliver
