@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -136,7 +137,7 @@ def test_scope_isolation_enumeration_and_tombstone(tmp_path: Path) -> None:
     assert len(store.list_records(SCOPE.namespace, SCOPE.course_id)) == 1
     assert store.read(scopes[1]).kind == SessionReadKind.LIVE
     assert store.export_progress(SCOPE) is None
-    with sqlite3.connect(store.path) as connection:
+    with closing(sqlite3.connect(store.path)) as connection, connection:
         assert connection.execute(
             "SELECT payload FROM skilling_sessions WHERE deleted=1"
         ).fetchone() == (None,)
@@ -174,7 +175,7 @@ def test_schema_and_corruption_refuse_without_repair(tmp_path: Path) -> None:
     wire["state"]["unexpected"] = 1
     with pytest.raises(RecoveryRequired):
         decode(json.dumps(wire).encode(), SCOPE)
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("UPDATE skilling_sessions SET payload=?", (b"{}",))
     before = path.read_bytes()
     with pytest.raises(RecoveryRequired):
@@ -184,7 +185,7 @@ def test_schema_and_corruption_refuse_without_repair(tmp_path: Path) -> None:
         store.backup(tmp_path / "bad-backup.db")
     assert not (tmp_path / "bad-backup.db").exists()
     foreign = tmp_path / "foreign.db"
-    with sqlite3.connect(foreign) as connection:
+    with closing(sqlite3.connect(foreign)) as connection, connection:
         connection.execute("CREATE TABLE user_data (value TEXT)")
     before = foreign.read_bytes()
     with pytest.raises(StoreError):
@@ -195,7 +196,7 @@ def test_schema_and_corruption_refuse_without_repair(tmp_path: Path) -> None:
 def test_busy_timeout_closes_connections_and_missing_path_never_recreates(tmp_path: Path) -> None:
     store = SQLiteSessionStore.open(tmp_path / "state.db", timeout=0.02)
     initial = initialize(store)
-    with sqlite3.connect(store.path, isolation_level=None) as blocker:
+    with closing(sqlite3.connect(store.path, isolation_level=None)) as blocker:
         blocker.execute("BEGIN IMMEDIATE")
         with pytest.raises(StoreBusy):
             store.commit(mutation(initial))
@@ -556,7 +557,7 @@ def test_changed_key_identity_and_bad_pending_receipt_leave_bytes_unchanged(tmp_
     scratch = yaml.safe_load(bytes.fromhex(body["state"]["scratch"]))
     scratch["pending_feedback"]["receipt_digest"] = "0" * 64
     body["state"]["scratch"] = yaml.safe_dump(scratch).encode().hex()
-    with sqlite3.connect(store.path) as connection:
+    with closing(sqlite3.connect(store.path)) as connection, connection:
         connection.execute("UPDATE skilling_sessions SET payload=?", (json.dumps(body).encode(),))
     before = store.path.read_bytes()
     with pytest.raises(RecoveryRequired):
@@ -581,6 +582,32 @@ def test_new_backup_path_never_replaces_a_competing_database(tmp_path: Path, mon
         store.backup(destination)
     with SQLiteSessionStore.open(destination) as competitor:
         assert competitor.read(SCOPE).kind == SessionReadKind.ABSENT
+    assert not list(tmp_path.glob(".skilling-backup-*"))
+
+
+def test_backup_flushes_writable_staging_before_publish(tmp_path: Path, monkeypatch) -> None:
+    import os
+    import stat
+
+    store = SQLiteSessionStore.open(tmp_path / "state.db")
+    expected = initialize(store)
+    destination = tmp_path / "backup.db"
+    original = os.fsync
+    flushed: list[int] = []
+
+    def fsync(descriptor: int) -> None:
+        if stat.S_ISREG(os.fstat(descriptor).st_mode):
+            # A zero-byte write checks the Windows flush requirement on every platform.
+            assert os.write(descriptor, b"") == 0
+            assert not destination.exists()
+            flushed.append(descriptor)
+        original(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    store.backup(destination)
+    assert len(flushed) == 1
+    with SQLiteSessionStore.open(destination) as backup:
+        assert backup.read(SCOPE) == expected
     assert not list(tmp_path.glob(".skilling-backup-*"))
 
 
@@ -708,7 +735,7 @@ def test_completion_preserves_legacy_scratch_key_reservation(tmp_path: Path) -> 
     initial = initialize(store)
     assert initial.state
     legacy = replace(initial, state=replace(initial.state, scratch=b"last_key: same-event\n"))
-    with sqlite3.connect(store.path) as connection:
+    with closing(sqlite3.connect(store.path)) as connection, connection:
         connection.execute("UPDATE skilling_sessions SET payload=?", (encode(legacy),))
     with pytest.raises(StoreError):
         store.commit(answer(legacy))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -22,6 +23,7 @@ ACTION_PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
     "astral-sh/setup-uv": "c771a70e6277c0a99b617c7a806ffedaca235ff9",
     "go-task/setup-task": "01a4adf9db2d14c1de7a560f09170b6e0df736aa",
+    "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
     "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     "actions/download-artifact": "37930b1c2abaa49bbe596cd826c3c89aef350131",
     "pypa/gh-action-pypi-publish": "dc37677b2e1c63e2034f94d8a5b11f265b73ba33",
@@ -86,7 +88,11 @@ def test_build_rejects_mutable_or_non_default_branch_input_and_runs_full_gates()
     assert "git diff-index --quiet HEAD" in commands
     for gate in ("uv lock --check", "uv sync", "task check", "test_versioning.py"):
         assert gate in commands
-    assert commands.count("uv build --package skilling") == 1
+    assert commands.count("uv build --package skilling --") == 1
+    assert commands.count("uv build --package skilling-tutor --") == 1
+    assert "packages/skilling-tutor/tests/installed_smoke.py" in commands
+    assert "--check-backend-extras" in commands
+    assert commands.index("installed_smoke.py") < commands.index('rm -rf "$unavailable"')
     assert '--out-dir "$RUNNER_TEMP/skilling-dist"' in commands
     assert "--out-dir dist" not in commands
     assert 'rm -f "$RUNNER_TEMP/skilling-dist/.gitignore"' in commands
@@ -182,6 +188,8 @@ def test_candidate_layout_and_checksum_contract_are_exact() -> None:
     assert (
         f"dist/skilling-{helper.VERSION}-py3-none-any.whl",
         f"dist/skilling-{helper.VERSION}.tar.gz",
+        f"dist/skilling_tutor-{helper.TUTOR_VERSION}-py3-none-any.whl",
+        f"dist/skilling_tutor-{helper.TUTOR_VERSION}.tar.gz",
         "github-release/skilling-brand-assets-v2.0.zip",
     ) == helper.CHECKSUM_PATHS
     helper_text = HELPER_PATH.read_text(encoding="utf-8")
@@ -192,6 +200,7 @@ def test_candidate_layout_and_checksum_contract_are_exact() -> None:
         "package_smoke.py",
         "source_package_smoke.py",
         "import_package_probe.py",
+        "sqlite_package_probe.py",
         "welcome-skilling",
     ):
         assert retained in helper_text or retained in RUNBOOK_PATH.read_text(encoding="utf-8")
@@ -313,3 +322,103 @@ def test_runbook_retains_brand_bytes_and_names_all_blockers() -> None:
         assert required in text
     assert "candidate/dist/" in text
     assert "never package inputs" in text
+
+
+@pytest.fixture
+def paired_candidate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Exercise the real handoff with small synthetic archives and source inputs."""
+    helper = release_helper()
+    source = tmp_path / "source"
+    controllers = source / "packages/skilling/tests"
+    controllers.mkdir(parents=True)
+    for name in helper.CONTROLLERS:
+        (controllers / name).write_text("# retained controller\n")
+    fixture = source / "examples/welcome-skilling"
+    fixture.mkdir(parents=True)
+    (fixture / "course.md").write_text("fixture\n")
+    readme = source / "packages/skilling-tutor/README.md"
+    readme.parent.mkdir(parents=True)
+    readme.write_text("Tutor README\n")
+    core_dist, tutor_dist = tmp_path / "core", tmp_path / "tutor"
+    core_dist.mkdir()
+    tutor_dist.mkdir()
+    artifacts = []
+    for index, relative in enumerate(helper.CHECKSUM_PATHS[:4]):
+        artifact = (core_dist if index < 2 else tutor_dist) / Path(relative).name
+        artifact.write_bytes(f"artifact {index}".encode())
+        artifacts.append(artifact)
+    brand = tmp_path / helper.BRAND_ARCHIVE
+    brand.write_bytes(b"brand")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    (evidence / "manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "PASS",
+                "backend_extras_checked": True,
+                "artifacts": [{"name": p.name, "sha256": helper.sha256(p)} for p in artifacts],
+            }
+        )
+    )
+    resources = {
+        "source": {"commit": "a" * 40, "tree": "b" * 40},
+        "package": {"files": {}},
+        "artifacts": [
+            {"file": p.name, "sha256": helper.sha256(p), "size": p.stat().st_size}
+            for p in artifacts[:2]
+        ],
+        "controllers": helper.regular_file_hashes(controllers),
+        "fixture": helper.regular_file_hashes(fixture),
+    }
+    monkeypatch.setattr(helper, "assert_expected_inputs", lambda *_: artifacts[:2])
+    monkeypatch.setattr(helper, "expected_resources", lambda *_: resources)
+    monkeypatch.setattr(helper, "project_metadata", lambda *_: {"version": helper.TUTOR_VERSION})
+    monkeypatch.setattr(helper, "assert_built_metadata", lambda *_: helper.sha256(readme))
+    candidate = tmp_path / "candidate"
+    helper.assemble(source, core_dist, brand, candidate, tutor_dist, evidence)
+    return candidate
+
+
+def test_paired_candidate_preserves_four_exact_tested_distributions(paired_candidate: Path) -> None:
+    helper = release_helper()
+    helper.verify(paired_candidate, source=None, require_tag=None)
+    assert {p.name for p in (paired_candidate / "dist").iterdir()} == {
+        Path(relative).name for relative in helper.CHECKSUM_PATHS[:4]
+    }
+    resources = json.loads((paired_candidate / "verification/resources.json").read_text())
+    assert len(resources["artifacts"]) == len(resources["tutor"]["artifacts"]) == 2
+
+
+@pytest.mark.parametrize("target", ["tutor-wheel", "evidence", "missing-pair", "tutor-version"])
+def test_retained_pair_rejects_tampering(paired_candidate: Path, target: str) -> None:
+    helper = release_helper()
+    expected = ""
+    if target == "tutor-wheel":
+        (paired_candidate / helper.CHECKSUM_PATHS[2]).write_bytes(b"changed")
+        expected = "checksum mismatch"
+    elif target == "evidence":
+        (paired_candidate / "verification/tutor-evidence/manifest.json").write_text("{}")
+        expected = "tutor evidence hash mismatch"
+    elif target == "missing-pair":
+        (paired_candidate / helper.CHECKSUM_PATHS[3]).unlink()
+        expected = "dist layout mismatch"
+    else:
+        path = paired_candidate / "candidate.json"
+        identity = json.loads(path.read_text())
+        identity["tutor_version"] = "0.0.0"
+        path.write_text(json.dumps(identity))
+        expected = "version identity mismatch"
+    with pytest.raises(SystemExit, match=expected):
+        helper.verify(paired_candidate, source=None, require_tag=None)
+
+
+def test_pair_evidence_must_match_the_artifact_bytes(paired_candidate: Path) -> None:
+    helper = release_helper()
+    evidence = paired_candidate / "verification/tutor-evidence"
+    manifest = evidence / "manifest.json"
+    data = json.loads(manifest.read_text())
+    data["artifacts"][2]["sha256"] = "0" * 64
+    manifest.write_text(json.dumps(data))
+    artifacts = [paired_candidate / relative for relative in helper.CHECKSUM_PATHS[:4]]
+    with pytest.raises(SystemExit, match="evidence does not match retained distributions"):
+        helper.assert_pair_evidence(evidence, artifacts)

@@ -53,6 +53,9 @@ jobs:
         with:
           version: 3.x
           repo-token: ${{ github.token }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
       - name: Verify lock, release identity, and source gates
         run: |
           env -u UV_FROZEN uv lock --check
@@ -62,7 +65,8 @@ jobs:
       - name: Build Python distributions once
         run: |
           uv build --package skilling --out-dir "$RUNNER_TEMP/skilling-dist"
-          rm -f "$RUNNER_TEMP/skilling-dist/.gitignore"
+          uv build --package skilling-tutor --out-dir "$RUNNER_TEMP/tutor-dist"
+          rm -f "$RUNNER_TEMP/skilling-dist/.gitignore" "$RUNNER_TEMP/tutor-dist/.gitignore"
       - name: Inspect built distributions
         run: >-
           uv run python packages/skilling/tests/package_smoke.py
@@ -75,6 +79,14 @@ jobs:
           --source .
           --dist "$RUNNER_TEMP/skilling-dist"
           --evidence source-package-evidence
+      - name: Prove installed core and tutor pairs
+        run: >-
+          uv run python packages/skilling-tutor/tests/installed_smoke.py
+          --core-dist "$RUNNER_TEMP/skilling-dist"
+          --tutor-dist "$RUNNER_TEMP/tutor-dist"
+          --evidence "$RUNNER_TEMP/tutor-evidence"
+          --python-version 3.13
+          --check-backend-extras
       - name: Build the GitHub release attachment from reviewed sources
         run: |
           test -f brand/build.py
@@ -87,6 +99,8 @@ jobs:
           uv run python tools/release_candidate.py assemble
           --source .
           --dist "$RUNNER_TEMP/skilling-dist"
+          --tutor-dist "$RUNNER_TEMP/tutor-dist"
+          --tutor-evidence "$RUNNER_TEMP/tutor-evidence"
           --brand-zip brand/dist/skilling-brand-assets-v2.0.zip
           --output "$CANDIDATE_DIR"
       - name: Prove installed artifacts without the checkout
