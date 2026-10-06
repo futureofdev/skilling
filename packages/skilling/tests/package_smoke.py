@@ -47,6 +47,7 @@ CLASSIFIERS = [
     "Typing :: Typed",
 ]
 DEPENDENCIES = {"pydantic", "pyyaml", "typer", "rich", "tzdata"}
+OPTIONAL_DEPENDENCIES = {"postgres": {"psycopg", "psycopg-pool"}, "s3": {"boto3"}}
 COURSE_ID = "welcome-skilling"
 
 
@@ -285,6 +286,27 @@ def _dependency_name(requirement: str) -> str:
     return match.group().lower().replace("_", "-")
 
 
+def _metadata_dependencies(requirements: list[str], extras: list[str]) -> set[str]:
+    """Keep optional drivers optional while rejecting unreviewed dependency markers."""
+    assert set(extras) == set(OPTIONAL_DEPENDENCIES), extras
+    base: set[str] = set()
+    optional: dict[str, set[str]] = {name: set() for name in extras}
+    for requirement in requirements:
+        value, separator, marker = requirement.partition(";")
+        name = _dependency_name(value)
+        if not separator:
+            base.add(name)
+            continue
+        match = re.fullmatch(r"extra\s*==\s*(['\"])([a-z0-9-]+)\1", marker.strip())
+        assert match is not None, requirement
+        extra = match.group(2)
+        assert extra in optional, requirement
+        optional[extra].add(name)
+    assert optional == OPTIONAL_DEPENDENCIES, optional
+    assert base == DEPENDENCIES, base
+    return base
+
+
 def _metadata_facts(metadata_bytes: bytes, source: Path) -> dict[str, object]:
     message = BytesParser(policy=policy.default).parsebytes(metadata_bytes)
     project = tomllib.loads(
@@ -307,8 +329,13 @@ def _metadata_facts(metadata_bytes: bytes, source: Path) -> dict[str, object]:
     assert urls == PROJECT_URLS == project["urls"]
     classifiers = message.get_all("Classifier", [])
     assert classifiers == CLASSIFIERS == project["classifiers"]
-    dependencies = {_dependency_name(value) for value in message.get_all("Requires-Dist", [])}
-    assert dependencies == DEPENDENCIES
+    dependencies = _metadata_dependencies(
+        message.get_all("Requires-Dist", []), message.get_all("Provides-Extra", [])
+    )
+    assert {
+        extra: {_dependency_name(value) for value in values}
+        for extra, values in project["optional-dependencies"].items()
+    } == OPTIONAL_DEPENDENCIES
     separator = b"\r\n\r\n" if b"\r\n\r\n" in metadata_bytes else b"\n\n"
     description = metadata_bytes.split(separator, 1)[1]
     readme = (source / "packages/skilling/README.md").read_bytes()
@@ -405,7 +432,11 @@ def _retained_metadata_facts(metadata_bytes: bytes, expected: dict[str, object])
     urls = dict(row.split(", ", 1) for row in message.get_all("Project-URL", []))
     assert urls == expected["project_urls"]
     assert message.get_all("Classifier", []) == expected["classifiers"]
-    dependencies = sorted(_dependency_name(value) for value in message.get_all("Requires-Dist", []))
+    dependencies = sorted(
+        _metadata_dependencies(
+            message.get_all("Requires-Dist", []), message.get_all("Provides-Extra", [])
+        )
+    )
     assert dependencies == expected["dependencies"]
     separator = b"\r\n\r\n" if b"\r\n\r\n" in metadata_bytes else b"\n\n"
     description = metadata_bytes.split(separator, 1)[1]

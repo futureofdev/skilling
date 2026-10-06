@@ -275,7 +275,8 @@ class SQLiteSessionStore:
                     self._validate_database(target)
                 finally:
                     target.close()
-            with staging.open("rb") as stream:
+            # Windows flushing requires a writable handle, even after SQLite closes it.
+            with staging.open("r+b") as stream:
                 os.fsync(stream.fileno())
             # Link publishes a complete validated file atomically and refuses an existing target.
             os.link(staging, destination)

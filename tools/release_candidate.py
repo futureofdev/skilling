@@ -22,15 +22,23 @@ from pathlib import Path, PurePosixPath
 from typing import NoReturn
 
 VERSION = "0.8.0"
+TUTOR_VERSION: str = "0.1.0"
 SPEC_VERSION = "1.4.0-draft"
 CANDIDATE_ARTIFACT = "skilling-0.8.0-candidate"
 BRAND_ARCHIVE = "skilling-brand-assets-v2.0.zip"
 CHECKSUM_PATHS = (
     f"dist/skilling-{VERSION}-py3-none-any.whl",
     f"dist/skilling-{VERSION}.tar.gz",
+    f"dist/skilling_tutor-{TUTOR_VERSION}-py3-none-any.whl",
+    f"dist/skilling_tutor-{TUTOR_VERSION}.tar.gz",
     f"github-release/{BRAND_ARCHIVE}",
 )
-CONTROLLERS = ("package_smoke.py", "source_package_smoke.py", "import_package_probe.py")
+CONTROLLERS = (
+    "package_smoke.py",
+    "source_package_smoke.py",
+    "import_package_probe.py",
+    "sqlite_package_probe.py",
+)
 
 
 def fail(message: str) -> NoReturn:
@@ -102,9 +110,9 @@ def package_files(source: Path) -> list[Path]:
     )
 
 
-def project_metadata(source: Path) -> dict[str, object]:
+def project_metadata(source: Path, package: str = "skilling") -> dict[str, object]:
     project = tomllib.loads(
-        (source / "packages/skilling/pyproject.toml").read_text(encoding="utf-8")
+        (source / "packages" / package / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
     dependencies = sorted(
         requirement.split(">=", 1)[0].lower().replace("_", "-")
@@ -119,7 +127,7 @@ def project_metadata(source: Path) -> dict[str, object]:
         "project_urls": project["urls"],
         "classifiers": project["classifiers"],
         "dependencies": dependencies,
-        "entry_point": "skilling = skilling.cli:main",
+        "entry_point": "skilling = skilling.cli:main" if package == "skilling" else None,
     }
 
 
@@ -217,11 +225,48 @@ def assert_expected_inputs(source: Path, dist: Path, brand_zip: Path) -> list[Pa
     return artifacts
 
 
-def assemble(source: Path, dist: Path, brand_zip: Path, output: Path) -> None:
+def tutor_resources(source: Path, artifacts: list[Path], evidence: Path) -> dict[str, object]:
+    metadata = project_metadata(source, "skilling-tutor")
+    if metadata["version"] != TUTOR_VERSION:
+        fail("tutor package version mismatch")
+    expected_readme = sha256(source / "packages/skilling-tutor/README.md")
+    if {assert_built_metadata(artifact, metadata) for artifact in artifacts} != {expected_readme}:
+        fail("built tutor long description does not match packages/skilling-tutor/README.md")
+    manifest = json.loads((evidence / "manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("status") != "PASS" or manifest.get("backend_extras_checked") is not True:
+        fail("tutor installed-pair proof did not pass with backend extras")
+    return {
+        "package": {**metadata, "readme_sha256": expected_readme},
+        "artifacts": [
+            {"file": artifact.name, "size": artifact.stat().st_size, "sha256": sha256(artifact)}
+            for artifact in artifacts
+        ],
+        "evidence": regular_file_hashes(evidence),
+    }
+
+
+def assert_pair_evidence(evidence: Path, artifacts: list[Path]) -> None:
+    manifest = json.loads((evidence / "manifest.json").read_text(encoding="utf-8"))
+    rows = manifest.get("artifacts", [])
+    expected = {artifact.name: sha256(artifact) for artifact in artifacts}
+    actual = {row["name"]: row["sha256"] for row in rows}
+    if manifest.get("status") != "PASS" or actual != expected or len(rows) != len(expected):
+        fail("installed-pair evidence does not match retained distributions")
+
+
+def assemble(
+    source: Path, dist: Path, brand_zip: Path, output: Path, tutor_dist: Path, tutor_evidence: Path
+) -> None:
     if output.exists():
         fail(f"candidate output already exists: {output}")
     artifacts = assert_expected_inputs(source, dist, brand_zip)
     resources = expected_resources(source, artifacts)
+    tutor_artifacts = [tutor_dist / Path(relative).name for relative in CHECKSUM_PATHS[2:4]]
+    if {path.name for path in tutor_dist.iterdir()} != {path.name for path in tutor_artifacts}:
+        fail("tutor dist must contain exactly its wheel and sdist")
+    resources["tutor"] = tutor_resources(source, tutor_artifacts, tutor_evidence)
+    artifacts += tutor_artifacts
+    assert_pair_evidence(tutor_evidence, artifacts)
 
     (output / "dist").mkdir(parents=True)
     (output / "github-release").mkdir()
@@ -233,6 +278,7 @@ def assemble(source: Path, dist: Path, brand_zip: Path, output: Path) -> None:
     for controller in CONTROLLERS:
         shutil.copy2(source / "packages/skilling/tests" / controller, verification / controller)
     shutil.copytree(source / "examples/welcome-skilling", verification / "welcome-skilling")
+    shutil.copytree(tutor_evidence, verification / "tutor-evidence")
     (verification / "resources.json").write_text(
         json.dumps(resources, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -244,6 +290,7 @@ def assemble(source: Path, dist: Path, brand_zip: Path, output: Path) -> None:
         "format_version": 1,
         "artifact_name": CANDIDATE_ARTIFACT,
         "package_version": VERSION,
+        "tutor_version": TUTOR_VERSION,
         "specification_version": SPEC_VERSION,
         "commit": identity["commit"],
         "tree": identity["tree"],
@@ -327,6 +374,7 @@ def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -
         fail("candidate artifact name mismatch")
     if (
         candidate["package_version"] != VERSION
+        or candidate.get("tutor_version") != TUTOR_VERSION
         or candidate["specification_version"] != SPEC_VERSION
     ):
         fail("candidate version identity mismatch")
@@ -336,16 +384,26 @@ def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -
         fail("candidate/resources commit mismatch")
     if candidate["tree"] != resources["source"]["tree"]:
         fail("candidate/resources tree mismatch")
-    artifact_rows = {row["file"]: row for row in resources["artifacts"]}
-    if set(artifact_rows) != expected_dist or len(resources["artifacts"]) != len(expected_dist):
+    tutor = resources.get("tutor")
+    if not isinstance(tutor, dict) or tutor.get("package", {}).get("version") != TUTOR_VERSION:
+        fail("tutor resource identity mismatch")
+    all_artifacts = resources["artifacts"] + tutor["artifacts"]
+    artifact_rows = {row["file"]: row for row in all_artifacts}
+    if set(artifact_rows) != expected_dist or len(all_artifacts) != len(expected_dist):
         fail("resource artifact manifest mismatch")
-    for relative in CHECKSUM_PATHS[:2]:
+    for relative in CHECKSUM_PATHS[:4]:
         path = candidate_root / relative
         row = artifact_rows.get(path.name)
         if row is None or row["sha256"] != sha256(path) or row["size"] != path.stat().st_size:
             fail(f"resource manifest mismatch: {relative}")
     verification = candidate_root / "verification"
-    expected_verification = {*CONTROLLERS, "resources.json", "welcome-skilling"}
+    evidence_root = verification / "tutor-evidence"
+    if regular_file_hashes(evidence_root) != tutor.get("evidence"):
+        fail("retained tutor evidence hash mismatch")
+    assert_pair_evidence(
+        evidence_root, [candidate_root / relative for relative in CHECKSUM_PATHS[:4]]
+    )
+    expected_verification = {*CONTROLLERS, "resources.json", "welcome-skilling", "tutor-evidence"}
     if {path.name for path in verification.iterdir()} != expected_verification:
         fail("candidate verification layout mismatch")
     for controller in CONTROLLERS:
@@ -367,12 +425,14 @@ def verify(candidate_root: Path, source: Path | None, require_tag: str | None) -
         "verification/resources.json",
         *(f"verification/{name}" for name in CONTROLLERS),
         *(f"verification/welcome-skilling/{name}" for name in fixture_paths),
+        *(f"verification/tutor-evidence/{name}" for name in tutor["evidence"]),
     }
     expected_directories = {
         "dist",
         "github-release",
         "verification",
         "verification/welcome-skilling",
+        "verification/tutor-evidence",
     }
     for relative in fixture_paths:
         parent = PurePosixPath("verification/welcome-skilling") / PurePosixPath(relative).parent
@@ -401,6 +461,8 @@ def main() -> None:
     assemble_parser = subparsers.add_parser("assemble")
     assemble_parser.add_argument("--source", type=Path, required=True)
     assemble_parser.add_argument("--dist", type=Path, required=True)
+    assemble_parser.add_argument("--tutor-dist", type=Path, required=True)
+    assemble_parser.add_argument("--tutor-evidence", type=Path, required=True)
     assemble_parser.add_argument("--brand-zip", type=Path, required=True)
     assemble_parser.add_argument("--output", type=Path, required=True)
     verify_parser = subparsers.add_parser("verify")
@@ -419,6 +481,8 @@ def main() -> None:
             args.dist.resolve(),
             args.brand_zip.resolve(),
             args.output.resolve(),
+            args.tutor_dist.resolve(),
+            args.tutor_evidence.resolve(),
         )
     elif args.command == "verify":
         if args.require_tag and args.source is None:

@@ -1,7 +1,7 @@
 # Releasing Skilling
 
-This runbook prepares and publishes the `skilling` Python package and its companion brand
-archive. A release owner and a different environment reviewer carry out the steps. The
+This runbook prepares and publishes `skilling` 0.8.0, optional `skilling-tutor` 0.1.0,
+and the companion brand archive. The React example stays a source reference. A release owner and a different environment reviewer carry out the steps. The
 workflow builds once, retains the result as `skilling-0.8.0-candidate`, and publishes those
 same bytes after approval.
 
@@ -12,9 +12,9 @@ repository or package owner configures and reads back every item below:
 
 - protect `main` and release tags matching `v*`, and enable immutable GitHub releases;
 - create a protected `pypi` environment with a required reviewer other than the dispatcher;
-- confirm the PyPI `skilling` project and owner roles;
+- confirm the PyPI `skilling` project and owner roles, and the `skilling-tutor` project;
 - configure PyPI trusted publishing for owner `futureofdev`, repository `skilling`, workflow
-  `release.yml`, environment `pypi`;
+  `release.yml`, environment `pypi`, for both projects;
 - merge the reviewed learner front door, including the final `brand/` sources, and complete
   the retained two-host candidate proof.
 
@@ -34,13 +34,16 @@ is rewritten by a generator, the same way `docs/error-codes.md` and `schemas/` a
 3. Add `docs/releases/<version>.md` (there is no generator for release notes; write them).
 4. Run `task check`; `task version:sync:check` (and the equivalent test) fail closed on drift.
 
+The tutor has its own version in `packages/skilling-tutor/pyproject.toml`; update
+`TUTOR_VERSION` in the candidate helper and the tutor references here when releasing it.
+
 The learner-facing `uv tool install skilling` command is deliberately **not** version-pinned,
 so it needs no edit on a bump; only the reviewed example's Git tag stays pinned.
 
 ## Preconditions and owners
 
 The release owner selects an exact commit already at `main`. The candidate must contain
-package version `0.8.0`, specification version `1.4.0-draft`, the reviewed
+package version `0.8.0`, tutor version `0.1.0`, specification version `1.4.0-draft`, the reviewed
 `examples/welcome-skilling` fixture, and the final brand source. Required CI must be green at
 that commit and the tree must match the independently reviewed implementation head.
 
@@ -55,28 +58,34 @@ From the Actions page, select **Release candidate**, choose the `main` branch an
 full 40-character commit as `candidate_sha`. The workflow rejects any other selected ref,
 any input that differs from the dispatch commit, and any commit that is not the current
 `origin/main` tip. It verifies a clean tree, the frozen lock, all source gates, package
-identity and both built distributions before assembling the handoff.
+identity and all four built distributions before assembling the handoff. An installed probe
+checks matching core/tutor wheel and sdist pairs, FastAPI, SQLite and optional backend imports.
+It runs before checkout removal; the separate core proof runs with the checkout absent.
 
 Download `skilling-0.8.0-candidate` from the completed build job. It has this fixed layout:
 
 ```text
 dist/skilling-0.8.0-py3-none-any.whl
 dist/skilling-0.8.0.tar.gz
+dist/skilling_tutor-0.1.0-py3-none-any.whl
+dist/skilling_tutor-0.1.0.tar.gz
 github-release/skilling-brand-assets-v2.0.zip
 SHA256SUMS
 candidate.json
 verification/package_smoke.py
 verification/source_package_smoke.py
 verification/import_package_probe.py
+verification/sqlite_package_probe.py
 verification/resources.json
+verification/tutor-evidence/
 verification/welcome-skilling/
 ```
 
-`SHA256SUMS` contains exactly the wheel, sdist and brand ZIP, sorted by candidate-relative
-path, with lowercase SHA-256 and two spaces before each path. `candidate.json` binds the
+`SHA256SUMS` contains exactly both packages’ wheels and sdists and the brand ZIP, sorted by
+candidate-relative path, with lowercase SHA-256 and two spaces before each path. `candidate.json` binds the
 package and specification versions to the full commit and tree. `resources.json` additionally
-binds package metadata, console entry point, README and licence hashes, every installed
-resource, skill/reference resources, distribution names, sizes and hashes, the three retained
+binds both package identities, installed tutor evidence, the core console entry point, README
+and licence hashes, installed resources, distribution names, sizes and hashes, retained
 controllers, and every Welcome fixture file. Verification rejects symlinks, path traversal or
 any file or directory outside this fixed layout.
 
@@ -117,8 +126,9 @@ candidate. Record the GitHub release URL and readback hash.
 ## Read back the public release
 
 Use a clean environment and read the package metadata from PyPI. Install exactly
-`skilling==0.8.0`, verify `skilling --version`, and run the retained installed-package probe.
-Confirm the PyPI wheel and sdist hashes match the retained candidate. Then verify the GitHub
+`skilling==0.8.0` and `skilling-tutor[fastapi]==0.1.0`, verify `skilling --version`,
+and repeat the installed-package probes against those downloads. Confirm all four PyPI
+artifact hashes match the retained candidate. Then verify the GitHub
 tag, release attachment and a tag-pinned learner start command from two supported hosts.
 
 ## Failure and rerun rules
@@ -130,6 +140,6 @@ replace bytes under an existing artifact, tag or release.
 
 A transient failure before publication may rerun the failed build only if it produces a new
 candidate that is re-inspected and re-recorded. A transient publish failure may retry only
-with the same retained artifact and after confirming PyPI does not already contain either
-filename. PyPI filenames and versions are immutable; if partial publication occurred, stop
+with the same retained artifact and after confirming PyPI does not already contain any of the four
+filenames. PyPI filenames and versions are immutable; if partial publication occurred, stop
 and follow PyPI recovery guidance rather than rebuilding `0.8.0`.
